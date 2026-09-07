@@ -70,8 +70,28 @@
     updateMuteLabel();
   });
 
-  document.getElementById('reset').addEventListener('click', function () {
-    if (!window.confirm('Reset all progress?')) return;
+  // Two-step reset: the first tap arms the button, the second wipes progress.
+  // A native confirm() is blocked in some embedded contexts, and this reads
+  // better on a phone anyway.
+  var resetBtn = document.getElementById('reset');
+  var resetArmed = 0;
+
+  resetBtn.addEventListener('click', function () {
+    if (Date.now() > resetArmed) {
+      resetArmed = Date.now() + 3000;
+      resetBtn.textContent = 'tap again to erase';
+      resetBtn.classList.add('armed');
+      setTimeout(function () {
+        if (Date.now() > resetArmed) {
+          resetBtn.textContent = 'reset save';
+          resetBtn.classList.remove('armed');
+        }
+      }, 3100);
+      return;
+    }
+    resetArmed = 0;
+    resetBtn.textContent = 'reset save';
+    resetBtn.classList.remove('armed');
     sim.reset();
     fx.clear();
     ui.hideChain();

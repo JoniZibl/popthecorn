@@ -1,6 +1,7 @@
 /* POPCORE — mobile-first layout. Dark, warm, minimal. */
 
 :root {
+  color-scheme: dark;
   --bg: #08070a;
   --bg-2: #100d13;
   --line: rgba(255, 255, 255, 0.08);
@@ -92,6 +93,9 @@ html, body {
   cursor: pointer;
 }
 .icon-btn:active, .text-btn:active { transform: scale(0.95); }
+.icon-btn:focus-visible, .text-btn:focus-visible,
+.up:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.text-btn.armed { color: #ff8a4b; border-color: rgba(255, 122, 24, 0.6); }
 
 /* ---------------- Stage ---------------- */
 
