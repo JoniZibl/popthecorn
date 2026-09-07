@@ -1,0 +1,2671 @@
+<title>LAST KEEP</title>
+<style>
+/* LAST KEEP — cold, dark, top-down. Mobile first. */
+
+:root {
+  color-scheme: dark;
+  --bg: #08090e;
+  --panel: rgba(255, 255, 255, 0.035);
+  --line: rgba(255, 255, 255, 0.09);
+  --text: #eef1f6;
+  --dim: rgba(238, 241, 246, 0.45);
+  --gold: #ffcf5c;
+  --danger: #ff4d6d;
+  --good: #8bf5a0;
+  --pad: 10px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: max(6px, env(safe-area-inset-top)) var(--pad) max(6px, env(safe-area-inset-bottom));
+  gap: 6px;
+}
+
+/* ---------------- HUD ---------------- */
+
+#hud {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex: 0 0 auto;
+}
+.hud-block.right { text-align: right; }
+
+.wave {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  line-height: 1;
+}
+.wave.boss { color: var(--danger); text-shadow: 0 0 18px rgba(255, 77, 109, 0.6); }
+.wave-sub { margin-top: 3px; font-size: 10px; letter-spacing: 0.16em; color: var(--dim); }
+
+.gold {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--gold);
+  line-height: 1;
+  text-shadow: 0 0 18px rgba(255, 207, 92, 0.3);
+  transition: transform 90ms ease-out;
+}
+.gold::before { content: '⬤ '; font-size: 11px; vertical-align: 2px; opacity: 0.8; }
+.gold.bump { transform: scale(1.12); }
+.relics { margin-top: 3px; font-size: 10px; letter-spacing: 0.14em; color: var(--dim); }
+
+/* ---------------- castle health ---------------- */
+
+.hp-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  height: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+}
+.hp-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #4ad07a, #8bf5a0);
+  transition: width 200ms ease-out, background 400ms ease;
+}
+.hp-bar.hurt { background: linear-gradient(90deg, #d8a13c, #ffcf5c); }
+.hp-bar.critical { background: linear-gradient(90deg, #c02b45, #ff4d6d); }
+.hp-text {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  color: rgba(0, 0, 0, 0.65);
+}
+
+/* ---------------- stage ---------------- */
+
+#stage { position: relative; flex: 1 1 auto; min-height: 0; }
+
+#field {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  touch-action: none;
+}
+
+.banner {
+  position: absolute;
+  left: 0; right: 0;
+  top: 30%;
+  text-align: center;
+  pointer-events: none;
+  font-size: clamp(26px, 9vw, 40px);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  color: #fff;
+  text-shadow: 0 0 30px rgba(120, 180, 255, 0.7);
+  opacity: 0;
+}
+.banner.go { animation: banner 1.4s cubic-bezier(0.2, 1.2, 0.4, 1) both; }
+.banner.boss { color: var(--danger); text-shadow: 0 0 34px rgba(255, 77, 109, 0.9); }
+
+@keyframes banner {
+  0%   { opacity: 0; transform: scale(1.7); letter-spacing: 0.3em; }
+  18%  { opacity: 1; transform: scale(1); letter-spacing: 0.02em; }
+  72%  { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.05); }
+}
+
+.combo {
+  position: absolute;
+  left: 0; right: 0;
+  bottom: 8%;
+  text-align: center;
+  pointer-events: none;
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--gold);
+  text-shadow: 0 0 20px rgba(255, 200, 60, 0.7);
+  opacity: 0;
+  transition: opacity 200ms ease;
+}
+.combo.on { opacity: 1; }
+.combo.hot { color: #ff9b3d; font-size: 32px; }
+
+.boss-wrap {
+  position: absolute;
+  left: 8%; right: 8%;
+  top: 8px;
+  pointer-events: none;
+}
+.boss-wrap[hidden] { display: none; }
+.boss-name {
+  font-size: 9px;
+  letter-spacing: 0.3em;
+  color: var(--danger);
+  text-align: center;
+  margin-bottom: 3px;
+}
+.boss-track {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 77, 109, 0.5);
+  overflow: hidden;
+}
+.boss-bar {
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, #7a1029, #ff4d6d);
+  transition: width 120ms linear;
+}
+
+/* ---------------- overcharge ---------------- */
+
+.charge {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--dim);
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  font-size: 11px;
+  cursor: default;
+}
+.charge-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(90, 160, 255, 0.45), rgba(150, 220, 255, 0.7));
+  transition: width 120ms linear;
+}
+.charge-label { position: relative; display: grid; place-items: center; height: 100%; }
+.charge.ready {
+  cursor: pointer;
+  color: #05111c;
+  border-color: rgba(150, 220, 255, 0.9);
+  animation: throb 700ms ease-in-out infinite;
+}
+.charge.ready .charge-fill { background: linear-gradient(90deg, #4aa8ff, #b6ecff, #4aa8ff); }
+.charge.ready:active { transform: scale(0.98); }
+
+@keyframes throb {
+  0%, 100% { box-shadow: 0 0 0 rgba(90, 180, 255, 0); }
+  50% { box-shadow: 0 0 24px rgba(90, 180, 255, 0.7); }
+}
+
+/* ---------------- upgrades ---------------- */
+
+.upgrades {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+
+.up {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 80ms ease, border-color 150ms ease;
+}
+.up:disabled { opacity: 0.5; cursor: default; }
+.up:not(:disabled) { border-color: rgba(255, 207, 92, 0.5); }
+.up:not(:disabled):active { transform: scale(0.96); }
+.up.flash { animation: up-flash 400ms ease-out; }
+
+@keyframes up-flash {
+  0% { background: rgba(255, 207, 92, 0.45); }
+  100% { background: var(--panel); }
+}
+
+.up-name { font-size: 10px; font-weight: 800; letter-spacing: 0.04em; white-space: nowrap; }
+.up-lvl { font-size: 9px; color: var(--dim); }
+.up-cost { font-size: 12px; font-weight: 900; color: var(--dim); }
+.up:not(:disabled) .up-cost { color: var(--gold); }
+.up-dot {
+  position: absolute;
+  top: 7px; right: 7px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+}
+.up-bar {
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 2px;
+  background: var(--gold);
+  opacity: 0.7;
+}
+
+/* ---------------- footer ---------------- */
+
+#footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.text-btn {
+  flex: 1 1 auto;
+  padding: 7px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.text-btn:active { transform: scale(0.96); }
+.text-btn.hot { color: var(--gold); border-color: rgba(255, 207, 92, 0.6); }
+.text-btn:focus-visible, .up:focus-visible, .charge:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ---------------- overlays ---------------- */
+
+.overlay[hidden] { display: none; }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(5, 6, 10, 0.94);
+  animation: fade 180ms ease-out;
+}
+
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+
+.overlay-inner {
+  width: 100%;
+  max-width: 440px;
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.overlay-eyebrow {
+  text-align: center;
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: var(--dim);
+}
+.overlay-title {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(26px, 9vw, 36px);
+  font-weight: 900;
+  color: #fff;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 13px;
+}
+.summary .row { display: flex; justify-content: space-between; gap: 10px; }
+.summary .row span:last-child { font-weight: 800; }
+.summary .big {
+  text-align: center;
+  font-size: 30px;
+  font-weight: 900;
+  color: var(--gold);
+  padding: 4px 0;
+}
+
+.shop-relics { text-align: center; font-size: 20px; font-weight: 900; color: var(--gold); }
+.shop-next { margin-top: 3px; font-size: 10px; font-weight: 500; color: var(--dim); }
+.shop-list { display: flex; flex-direction: column; gap: 6px; }
+
+.shop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.shop-row:disabled { opacity: 0.45; cursor: default; }
+.shop-row:not(:disabled) { border-color: rgba(255, 207, 92, 0.45); }
+.shop-row .sn { font-size: 13px; font-weight: 800; }
+.shop-row .sd { font-size: 11px; color: var(--dim); }
+.shop-row .sv { font-size: 11px; color: rgba(255, 207, 92, 0.85); }
+.shop-row .sc { font-size: 14px; font-weight: 900; color: var(--gold); white-space: nowrap; }
+
+.primary-btn {
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #c02b45, #ff7a5c);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+.primary-btn:active { transform: scale(0.98); }
+
+.close-btn {
+  padding: 11px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .charge.ready, .banner.go { animation: none; }
+  .banner.go { opacity: 1; }
+}
+</style>
+
+<div id="app">
+
+  <header id="hud">
+    <div class="hud-block">
+      <div id="wave" class="wave">WAVE 1</div>
+      <div id="waveSub" class="wave-sub">incoming</div>
+    </div>
+    <div class="hud-block right">
+      <div id="gold" class="gold">0</div>
+      <div id="relics" class="relics">◈ 0</div>
+    </div>
+  </header>
+
+  <div id="hpWrap" class="hp-wrap">
+    <div id="hpBar" class="hp-bar"></div>
+    <span id="hpText" class="hp-text">100 / 100</span>
+  </div>
+
+  <main id="stage">
+    <canvas id="field"></canvas>
+    <div id="banner" class="banner"></div>
+    <div id="combo" class="combo"></div>
+    <div id="bossWrap" class="boss-wrap" hidden>
+      <div class="boss-name">BOSS</div>
+      <div class="boss-track"><div id="bossBar" class="boss-bar"></div></div>
+    </div>
+  </main>
+
+  <button id="charge" class="charge" type="button" disabled>
+    <span id="chargeFill" class="charge-fill"></span>
+    <span id="chargeLabel" class="charge-label">OVERCHARGE</span>
+  </button>
+
+  <section id="upgrades" class="upgrades"></section>
+
+  <footer id="footer">
+    <button id="callWave" class="text-btn" type="button">call next wave +30%</button>
+    <button id="shopBtn" class="text-btn" type="button">◈ relics</button>
+    <button id="mute" class="text-btn" type="button">sound on</button>
+  </footer>
+
+  <div id="over" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">THE WALL IS BREACHED</div>
+      <h2 class="overlay-title">RUN OVER</h2>
+      <div id="overSummary" class="summary"></div>
+      <button id="again" class="primary-btn" type="button">SPEND RELICS &amp; REBUILD</button>
+    </div>
+  </div>
+
+  <div id="shop" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">CARRIED BETWEEN RUNS</div>
+      <h2 class="overlay-title">RELIC HALL</h2>
+      <div id="shopRelics" class="shop-relics">◈ 0</div>
+      <div id="shopList" class="shop-list"></div>
+      <button id="shopClose" class="close-btn" type="button">BACK TO THE WALL</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+/**
+ * LAST KEEP — balance, enemy types, tower types, wave composition.
+ *
+ * All of it is data. The simulation reads these tables and never hard-codes a
+ * unit, so a new enemy or tower is an entry here plus (at most) a shape in the
+ * renderer.
+ *
+ * The field is normalised: x and y both run 0..1, enemies enter at the top
+ * (y < 0) and walk down. The castle wall sits at CASTLE_Y. The renderer maps
+ * that square to whatever the screen gives it, so balance is resolution-free.
+ */
+window.SIEGE = window.SIEGE || {};
+
+SIEGE.CONFIG = {
+  /* ---- field ---- */
+  SPAWN_Y: -0.06,
+  CASTLE_Y: 0.93,
+  MAX_ENEMIES: 90,
+  MAX_PROJECTILES: 160,
+
+  /* ---- castle ---- */
+  CASTLE_HP: 100,
+
+  /* ---- tapping ----
+   * Tapping is not a garnish: the combo multiplier and the overcharge meter
+   * are what make a boss survivable, so an engaged player clears waves a
+   * passive one cannot.
+   */
+  TAP_RADIUS: 0.08,
+  COMBO_WINDOW: 1.1,        // seconds before a tap streak lapses
+  COMBO_STEP: 0.14,         // damage multiplier gained per streak hit
+  COMBO_MAX: 24,
+  BOSS_TAP_BONUS: 3,        // taps hit bosses this much harder
+
+  OVERCHARGE_MAX: 55,       // taps to fill the meter
+  OVERCHARGE_DAMAGE: 35,    // × tap damage, dealt to everything on the field
+
+  /* ---- waves ---- */
+  WAVE_BREAK: 4,            // seconds between waves
+  EARLY_CALL_BONUS: 0.3,    // bonus gold for calling the next wave early
+  BOSS_EVERY: 10,
+  WAVE_CLEAR_GOLD: 8,       // base bounty for clearing a wave
+
+  /* The squeeze that ends every run.
+   *
+   * What decides a wave is not its total health but whether one enemy can be
+   * killed during its walk to the wall. So the numbers are set against DPS,
+   * not against wave size:
+   *
+   *   player DPS grows  ≈ (gold income growth) ^ (ln 1.27 / ln 1.5) ≈ g^0.59
+   *   income growth     = BUDGET_GROWTH * GOLD_GROWTH ≈ 1.21  → DPS ≈ 1.12/wave
+   *   enemy health      = HP_GROWTH                            = 1.16/wave
+   *
+   * That leaves enemies gaining ~3.6% on the player every wave. A first run
+   * opens with roughly double the damage it needs, so the gap closes around
+   * wave 20-25 — and every relic spent widens it again.
+   *
+   * Waves stay short by growing in strength rather than in headcount. */
+  HP_GROWTH: 1.16,
+  SPEED_GROWTH: 1.008,
+  GOLD_GROWTH: 1.13,
+  BUDGET_GROWTH: 1.07,
+  BUDGET_BASE: 5,
+
+  /* ---- misc ---- */
+  MAX_DT: 0.05,
+  SAVE_INTERVAL: 5
+};
+
+/* ---------------- enemies ---------------- */
+
+SIEGE.ENEMIES = {
+  grunt: {
+    name: 'Grunt', hp: 12, speed: 0.07, gold: 3, damage: 5, armor: 0,
+    size: 0.021, color: '#7ec8ff', cost: 1, from: 1
+  },
+  runner: {
+    name: 'Runner', hp: 7, speed: 0.14, gold: 3, damage: 4, armor: 0,
+    size: 0.017, color: '#8bf5a0', cost: 1.1, from: 3
+  },
+  swarm: {
+    name: 'Swarm', hp: 4, speed: 0.1, gold: 1, damage: 2, armor: 0,
+    size: 0.012, color: '#ffe08a', cost: 0.4, from: 5, group: 5
+  },
+  tank: {
+    name: 'Tank', hp: 58, speed: 0.045, gold: 11, damage: 15, armor: 3,
+    size: 0.033, color: '#ff9b6b', cost: 3.2, from: 7
+  },
+  phantom: {
+    // Untouchable by towers half the time: the enemy that forces the player to
+    // put a finger on the screen.
+    name: 'Phantom', hp: 24, speed: 0.08, gold: 10, damage: 9, armor: 0,
+    size: 0.024, color: '#c9a0ff', cost: 2.8, from: 12,
+    phase: true, phaseOn: 2.2, phaseOff: 1.6
+  },
+  brute: {
+    name: 'Brute', hp: 130, speed: 0.04, gold: 22, damage: 25, armor: 6,
+    size: 0.042, color: '#ff7070', cost: 6, from: 18
+  },
+  boss: {
+    name: 'BOSS', hp: 520, speed: 0.035, gold: 90, damage: 45, armor: 5,
+    size: 0.058, color: '#ff4d6d', boss: true
+  }
+};
+
+/* ---------------- towers ---------------- */
+
+/* Four emplacements, always present, upgraded with gold. No placement puzzle:
+ * the taps belong to the fighting. */
+SIEGE.TOWERS = [
+  {
+    id: 'cannon', name: 'Cannon', kind: 'single',
+    x: 0.5, y: 0.78, color: '#ffb347',
+    desc: 'Single target, steady damage',
+    baseCost: 20, costMult: 1.5,
+    damage: function (l) { return 7 * Math.pow(1.27, l); },
+    rate: function (l) { return Math.min(1.1 + l * 0.035, 3.2); },
+    range: function (l) { return Math.min(0.38 + l * 0.006, 0.62); }
+  },
+  {
+    id: 'frost', name: 'Frost', kind: 'slow',
+    x: 0.15, y: 0.68, color: '#7fdfff',
+    desc: 'Chills everything it hits',
+    baseCost: 30, costMult: 1.52,
+    damage: function (l) { return 3 * Math.pow(1.22, l); },
+    rate: function (l) { return Math.min(0.8 + l * 0.03, 2.4); },
+    range: function (l) { return Math.min(0.34 + l * 0.007, 0.6); },
+    slow: function (l) { return Math.min(0.35 + l * 0.015, 0.75); },
+    slowTime: 1.6
+  },
+  {
+    id: 'mortar', name: 'Mortar', kind: 'splash',
+    x: 0.85, y: 0.68, color: '#ff8f6b',
+    desc: 'Slow shells, wide blast',
+    baseCost: 45, costMult: 1.55,
+    damage: function (l) { return 14 * Math.pow(1.29, l); },
+    rate: function (l) { return Math.min(0.42 + l * 0.012, 1.3); },
+    range: function (l) { return Math.min(0.55 + l * 0.006, 0.85); },
+    splash: function (l) { return 0.09 + l * 0.002; }
+  },
+  {
+    id: 'tesla', name: 'Tesla', kind: 'chain',
+    x: 0.5, y: 0.56, color: '#c9a0ff',
+    desc: 'Arcs between nearby enemies',
+    baseCost: 60, costMult: 1.56,
+    damage: function (l) { return 5 * Math.pow(1.25, l); },
+    rate: function (l) { return Math.min(1.4 + l * 0.04, 3.6); },
+    range: function (l) { return Math.min(0.3 + l * 0.006, 0.55); },
+    chains: function (l) { return 2 + Math.floor(l / 4); },
+    chainRange: 0.16
+  }
+];
+
+/* The player's own attack is upgraded like a tower. */
+SIEGE.TAP_UPGRADE = {
+  id: 'tap', name: 'Your Hand',
+  desc: 'Damage per tap',
+  baseCost: 15, costMult: 1.48,
+  damage: function (l) { return 5 * Math.pow(1.32, l); }
+};
+
+/* ---------------- waves ---------------- */
+
+SIEGE.wave = {
+  /** Points available to spend on enemies in this wave. */
+  budget: function (n) {
+    var C = SIEGE.CONFIG;
+    return C.BUDGET_BASE * Math.pow(C.BUDGET_GROWTH, n - 1);
+  },
+
+  isBoss: function (n) { return n % SIEGE.CONFIG.BOSS_EVERY === 0; },
+
+  /** Multipliers applied to every enemy in wave n. */
+  scale: function (n) {
+    var C = SIEGE.CONFIG;
+    return {
+      hp: Math.pow(C.HP_GROWTH, n - 1),
+      speed: Math.pow(C.SPEED_GROWTH, n - 1),
+      gold: Math.pow(C.GOLD_GROWTH, n - 1)
+    };
+  },
+
+  /**
+   * Build the spawn list for a wave: a series of {type, at} entries, where
+   * `at` is seconds after the wave starts.
+   */
+  build: function (n) {
+    var C = SIEGE.CONFIG;
+    var spawns = [];
+    var boss = SIEGE.wave.isBoss(n);
+    var budget = SIEGE.wave.budget(n) * (boss ? 0.55 : 1);
+
+    var available = [];
+    for (var id in SIEGE.ENEMIES) {
+      if (!SIEGE.ENEMIES.hasOwnProperty(id)) continue;
+      var def = SIEGE.ENEMIES[id];
+      if (def.boss || n < def.from) continue;
+      available.push(id);
+    }
+
+    // Later waves come in tighter, so the field fills up rather than trickling.
+    var interval = Math.max(0.25, 0.8 - n * 0.01);
+    var t = 0;
+    var guard = 0;
+
+    while (budget > 0 && guard++ < 400) {
+      var id = available[Math.floor(Math.random() * available.length)];
+      var e = SIEGE.ENEMIES[id];
+      if (e.cost > budget && guard > 3) break;
+
+      var count = e.group || 1;
+      for (var i = 0; i < count; i++) {
+        spawns.push({ type: id, at: t + i * 0.12 });
+      }
+      budget -= e.cost;
+      t += interval * (e.group ? 1.4 : 1);
+    }
+
+    if (boss) {
+      // The boss walks in after its escort, so the player meets it with a
+      // half-clear field and a charged overcharge meter.
+      spawns.push({ type: 'boss', at: t + 1.5 });
+    }
+
+    spawns.sort(function (a, b) { return a.at - b.at; });
+    return spawns;
+  }
+};
+
+/* ---------------- helpers ---------------- */
+
+SIEGE.clamp = function (v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; };
+SIEGE.rand = function (a, b) { return a + Math.random() * (b - a); };
+SIEGE.lerp = function (a, b, t) { return a + (b - a) * t; };
+
+SIEGE.SUFFIX = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp'];
+
+SIEGE.fmt = function (n) {
+  if (!isFinite(n)) return '∞';
+  if (n < 1000) return n < 10 ? (Math.round(n * 10) / 10).toString() : Math.floor(n).toString();
+  var tier = Math.floor(Math.log10(n) / 3);
+  var suffix = SIEGE.SUFFIX[tier];
+  if (!suffix) return n.toExponential(2);
+  var scaled = n / Math.pow(1000, tier);
+  return (scaled < 10 ? scaled.toFixed(2) : scaled < 100 ? scaled.toFixed(1) : scaled.toFixed(0)) + suffix;
+};
+</script>
+
+<script>
+/**
+ * LAST KEEP — what survives a lost run.
+ *
+ * The keep always falls eventually: enemy strength climbs faster than gold
+ * does, by design. Falling pays RELICS, scaled to the deepest wave reached,
+ * and relics buy permanent upgrades that make the next attempt reach further.
+ *
+ * Relics are sub-linear in the wave reached, so grinding a shallow run twenty
+ * times never beats pushing one run deeper.
+ */
+(function (NS) {
+  'use strict';
+
+  NS.META = {
+    RELIC_SCALE: 1.6,
+    RELIC_EXPONENT: 0.85,
+
+    UPGRADES: [
+      {
+        id: 'walls', name: 'Thicker Walls', desc: 'More castle health',
+        baseCost: 8, costMult: 1.5, max: 40,
+        format: function (l) { return '+' + (l * 25) + ' HP'; }
+      },
+      {
+        id: 'purse', name: 'War Chest', desc: 'Start every run with more gold',
+        baseCost: 6, costMult: 1.45, max: 40,
+        format: function (l) { return '+' + (l * 30) + ' gold'; }
+      },
+      {
+        id: 'hand', name: 'Strong Hand', desc: 'Your taps hit harder, always',
+        baseCost: 10, costMult: 1.55, max: 40,
+        format: function (l) { return '×' + Math.pow(1.3, l).toFixed(2) + ' tap damage'; }
+      },
+      {
+        id: 'forge', name: 'Forge', desc: 'All towers hit harder',
+        baseCost: 12, costMult: 1.6, max: 40,
+        format: function (l) { return '×' + Math.pow(1.25, l).toFixed(2) + ' tower damage'; }
+      },
+      {
+        id: 'greed', name: 'Spoils', desc: 'Enemies drop more gold',
+        baseCost: 9, costMult: 1.5, max: 30,
+        format: function (l) { return '+' + (l * 15) + '% gold'; }
+      },
+      {
+        id: 'quartermaster', name: 'Quartermaster', desc: 'Upgrades cost less',
+        baseCost: 14, costMult: 1.7, max: 12,
+        format: function (l) { return '−' + Math.round((1 - Math.pow(0.94, l)) * 100) + '% cost'; }
+      },
+      {
+        id: 'capacitor', name: 'Capacitor', desc: 'Overcharge fills faster',
+        baseCost: 11, costMult: 1.6, max: 15,
+        format: function (l) { return '×' + (1 + l * 0.2).toFixed(1) + ' charge rate'; }
+      }
+    ]
+  };
+
+  function Meta() {
+    this.relics = 0;
+    this.lifetime = 0;
+    this.runs = 0;
+    this.bestWave = 0;
+    this.levels = {};
+    for (var i = 0; i < NS.META.UPGRADES.length; i++) this.levels[NS.META.UPGRADES[i].id] = 0;
+  }
+
+  Meta.prototype.def = function (id) {
+    for (var i = 0; i < NS.META.UPGRADES.length; i++) {
+      if (NS.META.UPGRADES[i].id === id) return NS.META.UPGRADES[i];
+    }
+    return null;
+  };
+
+  Meta.prototype.level = function (id) { return this.levels[id] || 0; };
+  Meta.prototype.maxed = function (id) { return this.level(id) >= this.def(id).max; };
+
+  Meta.prototype.cost = function (id) {
+    var def = this.def(id);
+    return Math.ceil(def.baseCost * Math.pow(def.costMult, this.level(id)));
+  };
+
+  Meta.prototype.canBuy = function (id) {
+    return !this.maxed(id) && this.relics >= this.cost(id);
+  };
+
+  Meta.prototype.buy = function (id) {
+    if (!this.canBuy(id)) return false;
+    this.relics -= this.cost(id);
+    this.levels[id] = this.level(id) + 1;
+    return true;
+  };
+
+  /* ---- what the meta layer grants a run ---- */
+
+  Meta.prototype.bonusHp = function () { return this.level('walls') * 25; };
+  Meta.prototype.startGold = function () { return this.level('purse') * 30; };
+  Meta.prototype.tapMult = function () { return Math.pow(1.3, this.level('hand')); };
+  Meta.prototype.towerMult = function () { return Math.pow(1.25, this.level('forge')); };
+  Meta.prototype.goldMult = function () { return 1 + this.level('greed') * 0.15; };
+  Meta.prototype.costMult = function () { return Math.pow(0.94, this.level('quartermaster')); };
+  Meta.prototype.chargeRate = function () { return 1 + this.level('capacitor') * 0.2; };
+
+  /** Relics a run that died on this wave is worth. */
+  Meta.prototype.relicsFor = function (wave) {
+    if (wave < 1) return 0;
+    return Math.floor(NS.META.RELIC_SCALE * Math.pow(wave, NS.META.RELIC_EXPONENT));
+  };
+
+  Meta.prototype.bank = function (wave) {
+    var gain = this.relicsFor(wave);
+    this.relics += gain;
+    this.lifetime += gain;
+    this.runs++;
+    if (wave > this.bestWave) this.bestWave = wave;
+    return gain;
+  };
+
+  Meta.prototype.toJSON = function () {
+    return {
+      relics: this.relics, lifetime: this.lifetime,
+      runs: this.runs, bestWave: this.bestWave, levels: this.levels
+    };
+  };
+
+  Meta.prototype.load = function (data) {
+    if (!data) return;
+    this.relics = Math.max(0, Math.floor(Number(data.relics) || 0));
+    this.lifetime = Math.max(0, Math.floor(Number(data.lifetime) || 0));
+    this.runs = Math.max(0, Math.floor(Number(data.runs) || 0));
+    this.bestWave = Math.max(0, Math.floor(Number(data.bestWave) || 0));
+    for (var i = 0; i < NS.META.UPGRADES.length; i++) {
+      var def = NS.META.UPGRADES[i];
+      var lvl = Math.floor(Number(data.levels && data.levels[def.id]) || 0);
+      this.levels[def.id] = NS.clamp(lvl, 0, def.max);
+    }
+  };
+
+  Meta.prototype.wipe = function () {
+    this.relics = this.lifetime = this.runs = this.bestWave = 0;
+    for (var i = 0; i < NS.META.UPGRADES.length; i++) this.levels[NS.META.UPGRADES[i].id] = 0;
+  };
+
+  NS.Meta = Meta;
+})(window.SIEGE);
+</script>
+
+<script>
+/**
+ * LAST KEEP — simulation.
+ *
+ * Owns the fight: enemies marching down the field, towers shooting, taps,
+ * gold, waves, castle health. Knows nothing about canvas, DOM or audio; it
+ * reports what happened through `events`, drained once per frame.
+ *
+ * Event shapes:
+ *   { type:'shot',   x, y, tx, ty, tower }
+ *   { type:'hit',    x, y, damage, killed, boss }
+ *   { type:'kill',   x, y, gold, boss, enemy }
+ *   { type:'tap',    x, y, damage, hit, combo }
+ *   { type:'leak',   x, y, damage }          // enemy reached the castle
+ *   { type:'wave',   n, boss }
+ *   { type:'cleared',n, bonus }
+ *   { type:'over',   wave }
+ *   { type:'overcharge' }
+ */
+(function (NS) {
+  'use strict';
+
+  var C = NS.CONFIG;
+  var clamp = NS.clamp;
+  var rand = NS.rand;
+
+  var nextId = 1;
+
+  function Sim(meta) {
+    this.meta = meta || null;
+    this.events = [];
+
+    this.enemies = [];
+    this.projectiles = [];
+
+    this.levels = { tap: 0 };
+    for (var i = 0; i < NS.TOWERS.length; i++) this.levels[NS.TOWERS[i].id] = 0;
+
+    this.towers = NS.TOWERS.map(function (def) {
+      return { def: def, cooldown: 0, angle: 0, target: null, flash: 0 };
+    });
+
+    this.reset();
+  }
+
+  Sim.prototype.reset = function () {
+    var m = this.meta;
+
+    this.enemies.length = 0;
+    this.projectiles.length = 0;
+    this.events.length = 0;
+
+    this.maxHp = C.CASTLE_HP + (m ? m.bonusHp() : 0);
+    this.hp = this.maxHp;
+    this.gold = 40 + (m ? m.startGold() : 0);
+    this.wave = 0;
+    this.spawnQueue = [];
+    this.waveTime = 0;
+    this.breakTime = C.WAVE_BREAK;
+    this.inWave = false;
+    this.over = false;
+    this.time = 0;
+
+    this.combo = 0;
+    this.comboTimer = 0;
+    this.overcharge = 0;
+    this.taps = 0;
+    this.kills = 0;
+    this.earned = 0;
+
+    this.levels.tap = 0;
+    for (var i = 0; i < NS.TOWERS.length; i++) this.levels[NS.TOWERS[i].id] = 0;
+    for (var t = 0; t < this.towers.length; t++) {
+      this.towers[t].cooldown = 0;
+      this.towers[t].target = null;
+    }
+  };
+
+  /* ---------------- upgrades ---------------- */
+
+  Sim.prototype.level = function (id) { return this.levels[id] || 0; };
+
+  Sim.prototype.upgradeDef = function (id) {
+    if (id === 'tap') return NS.TAP_UPGRADE;
+    for (var i = 0; i < NS.TOWERS.length; i++) {
+      if (NS.TOWERS[i].id === id) return NS.TOWERS[i];
+    }
+    return null;
+  };
+
+  Sim.prototype.cost = function (id) {
+    var def = this.upgradeDef(id);
+    var discount = this.meta ? this.meta.costMult() : 1;
+    return def.baseCost * Math.pow(def.costMult, this.level(id)) * discount;
+  };
+
+  Sim.prototype.canBuy = function (id) { return !this.over && this.gold >= this.cost(id); };
+
+  Sim.prototype.buy = function (id) {
+    if (!this.canBuy(id)) return false;
+    this.gold -= this.cost(id);
+    this.levels[id] = this.level(id) + 1;
+    return true;
+  };
+
+  Sim.prototype.towerDamage = function (def) {
+    var mult = this.meta ? this.meta.towerMult() : 1;
+    return def.damage(this.level(def.id)) * mult;
+  };
+
+  Sim.prototype.tapDamage = function () {
+    var base = NS.TAP_UPGRADE.damage(this.level('tap'));
+    var mult = this.meta ? this.meta.tapMult() : 1;
+    return base * mult * this.comboMult();
+  };
+
+  Sim.prototype.comboMult = function () {
+    return 1 + Math.min(this.combo, C.COMBO_MAX) * C.COMBO_STEP;
+  };
+
+  Sim.prototype.overchargeMax = function () {
+    return C.OVERCHARGE_MAX;
+  };
+
+  Sim.prototype.overchargeReady = function () { return this.overcharge >= this.overchargeMax(); };
+
+  /* ---------------- waves ---------------- */
+
+  Sim.prototype.startWave = function (early) {
+    this.wave++;
+    this.spawnQueue = NS.wave.build(this.wave);
+    this.waveTime = 0;
+    this.inWave = true;
+    this.earlyCall = !!early;
+    this.events.push({ type: 'wave', n: this.wave, boss: NS.wave.isBoss(this.wave) });
+  };
+
+  /** Call the next wave during a break, for bonus gold. */
+  Sim.prototype.callEarly = function () {
+    if (this.inWave || this.over) return false;
+    this.breakTime = 0;
+    this.startWave(true);
+    return true;
+  };
+
+  Sim.prototype.spawn = function (typeId) {
+    if (this.enemies.length >= C.MAX_ENEMIES) return null;
+
+    var def = NS.ENEMIES[typeId];
+    var scale = NS.wave.scale(this.wave);
+    var hp = def.hp * scale.hp * (def.boss ? 1 + this.wave * 0.06 : 1);
+
+    var e = {
+      id: nextId++,
+      type: typeId,
+      def: def,
+      x: rand(0.1, 0.9),
+      y: C.SPAWN_Y - rand(0, 0.05),
+      hp: hp,
+      maxHp: hp,
+      speed: def.speed * scale.speed,
+      gold: def.gold * scale.gold,
+      armor: def.armor,
+      slow: 0,
+      slowTimer: 0,
+      wobble: rand(0, Math.PI * 2),
+      phased: false,
+      phaseTimer: def.phase ? rand(0, def.phaseOn) : 0,
+      hitFlash: 0,
+      boss: !!def.boss
+    };
+    if (e.boss) e.x = 0.5;
+    this.enemies.push(e);
+    return e;
+  };
+
+  /* ---------------- damage ---------------- */
+
+  /**
+   * Apply damage to one enemy. `fromTap` bypasses phasing and gets the boss
+   * bonus, which is what makes a player's finger matter on a boss.
+   */
+  Sim.prototype.damage = function (e, amount, fromTap) {
+    if (e.dead) return 0;
+    if (!fromTap && e.phased) return 0;
+
+    var dealt = Math.max(amount - (fromTap ? 0 : e.armor), amount * 0.15);
+    if (fromTap && e.boss) dealt *= C.BOSS_TAP_BONUS;
+
+    e.hp -= dealt;
+    e.hitFlash = 1;
+
+    var killed = e.hp <= 0;
+    if (killed) this.kill(e);
+
+    this.events.push({
+      type: 'hit', x: e.x, y: e.y, damage: dealt, killed: killed, boss: e.boss
+    });
+    return dealt;
+  };
+
+  Sim.prototype.kill = function (e) {
+    if (e.dead) return;
+    e.dead = true;
+
+    var mult = this.meta ? this.meta.goldMult() : 1;
+    var gold = e.gold * mult;
+    this.gold += gold;
+    this.earned += gold;
+    this.kills++;
+
+    this.events.push({ type: 'kill', x: e.x, y: e.y, gold: gold, boss: e.boss, enemy: e.def.name });
+  };
+
+  /* ---------------- player input ---------------- */
+
+  /** Tap the field. Hits the closest enemy within TAP_RADIUS. */
+  Sim.prototype.tap = function (x, y) {
+    if (this.over) return false;
+
+    var best = null, bestDist = C.TAP_RADIUS;
+    for (var i = 0; i < this.enemies.length; i++) {
+      var e = this.enemies[i];
+      if (e.dead) continue;
+      var dx = e.x - x, dy = e.y - y;
+      var d = Math.sqrt(dx * dx + dy * dy);
+      // Bigger enemies are easier to hit — their body counts, not just centre.
+      if (d - e.def.size < bestDist) { bestDist = d - e.def.size; best = e; }
+    }
+
+    this.taps++;
+    if (this.overcharge < this.overchargeMax()) {
+      this.overcharge = Math.min(this.overchargeMax(),
+        this.overcharge + (this.meta ? this.meta.chargeRate() : 1));
+    }
+
+    if (!best) {
+      this.events.push({ type: 'tap', x: x, y: y, damage: 0, hit: false, combo: this.combo });
+      return false;
+    }
+
+    this.combo++;
+    this.comboTimer = C.COMBO_WINDOW;
+
+    var dmg = this.tapDamage();
+    this.damage(best, dmg, true);
+    this.events.push({ type: 'tap', x: best.x, y: best.y, damage: dmg, hit: true, combo: this.combo });
+    return true;
+  };
+
+  /** Spend a full meter: heavy damage to everything on the field. */
+  Sim.prototype.fireOvercharge = function () {
+    if (!this.overchargeReady() || this.over) return false;
+    this.overcharge = 0;
+
+    var dmg = NS.TAP_UPGRADE.damage(this.level('tap')) *
+              (this.meta ? this.meta.tapMult() : 1) * C.OVERCHARGE_DAMAGE;
+
+    for (var i = this.enemies.length - 1; i >= 0; i--) {
+      var e = this.enemies[i];
+      if (!e.dead) this.damage(e, dmg, true);
+    }
+    this.events.push({ type: 'overcharge' });
+    return true;
+  };
+
+  /* ---------------- step ---------------- */
+
+  Sim.prototype.update = function (dt) {
+    if (this.over) return;
+
+    this.time += dt;
+
+    this._updateCombo(dt);
+    this._updateWave(dt);
+    this._updateEnemies(dt);
+    this._updateTowers(dt);
+    this._updateProjectiles(dt);
+    this._cull();
+  };
+
+  Sim.prototype._updateCombo = function (dt) {
+    if (this.combo <= 0) return;
+    this.comboTimer -= dt;
+    if (this.comboTimer <= 0) this.combo = 0;
+  };
+
+  Sim.prototype._updateWave = function (dt) {
+    if (!this.inWave) {
+      this.breakTime -= dt;
+      if (this.breakTime <= 0) this.startWave(false);
+      return;
+    }
+
+    this.waveTime += dt;
+    while (this.spawnQueue.length && this.spawnQueue[0].at <= this.waveTime) {
+      this.spawn(this.spawnQueue.shift().type);
+    }
+
+    // The wave ends when everything queued has spawned and died.
+    if (!this.spawnQueue.length && !this.enemies.length) {
+      var bonus = C.WAVE_CLEAR_GOLD * Math.pow(C.GOLD_GROWTH, this.wave - 1) *
+                  (this.earlyCall ? 1 + C.EARLY_CALL_BONUS : 1) *
+                  (this.meta ? this.meta.goldMult() : 1);
+      this.gold += bonus;
+      this.earned += bonus;
+      this.inWave = false;
+      this.breakTime = C.WAVE_BREAK;
+      this.events.push({ type: 'cleared', n: this.wave, bonus: bonus });
+    }
+  };
+
+  Sim.prototype._updateEnemies = function (dt) {
+    for (var i = 0; i < this.enemies.length; i++) {
+      var e = this.enemies[i];
+      if (e.dead) continue;
+
+      if (e.slowTimer > 0) {
+        e.slowTimer -= dt;
+        if (e.slowTimer <= 0) e.slow = 0;
+      }
+      if (e.hitFlash > 0) e.hitFlash = Math.max(0, e.hitFlash - dt * 5);
+
+      if (e.def.phase) {
+        e.phaseTimer -= dt;
+        if (e.phaseTimer <= 0) {
+          e.phased = !e.phased;
+          e.phaseTimer = e.phased ? e.def.phaseOn : e.def.phaseOff;
+        }
+      }
+
+      e.y += e.speed * (1 - e.slow) * dt;
+      e.wobble += dt * 1.6;
+      e.x = clamp(e.x + Math.sin(e.wobble) * 0.012 * dt, 0.04, 0.96);
+
+      if (e.y >= C.CASTLE_Y) {
+        this.hp -= e.def.damage;
+        e.dead = true;
+        this.events.push({ type: 'leak', x: e.x, y: C.CASTLE_Y, damage: e.def.damage });
+
+        if (this.hp <= 0) {
+          this.hp = 0;
+          this.over = true;
+          this.events.push({ type: 'over', wave: this.wave });
+          return;
+        }
+      }
+    }
+  };
+
+  Sim.prototype._updateTowers = function (dt) {
+    for (var i = 0; i < this.towers.length; i++) {
+      var t = this.towers[i];
+      var def = t.def;
+      var level = this.level(def.id);
+
+      if (t.flash > 0) t.flash = Math.max(0, t.flash - dt * 6);
+      t.cooldown -= dt;
+
+      var target = this._nearestEnemy(def.x, def.y, def.range(level));
+      t.target = target;
+      if (!target) continue;
+
+      t.angle = Math.atan2(target.y - def.y, target.x - def.x);
+      if (t.cooldown > 0) continue;
+
+      t.cooldown = 1 / def.rate(level);
+      t.flash = 1;
+      this._fire(t, target, level);
+    }
+  };
+
+  Sim.prototype._fire = function (t, target, level) {
+    var def = t.def;
+    var damage = this.towerDamage(def);
+
+    this.events.push({
+      type: 'shot', x: def.x, y: def.y, tx: target.x, ty: target.y, tower: def.id
+    });
+
+    if (def.kind === 'chain') {
+      // Tesla arcs immediately: first target, then outward to its neighbours.
+      var hit = [target];
+      this.damage(target, damage, false);
+      var chains = def.chains(level);
+      var from = target;
+
+      for (var c = 0; c < chains; c++) {
+        var next = this._nearestEnemy(from.x, from.y, def.chainRange, hit);
+        if (!next) break;
+        this.damage(next, damage * 0.75, false);
+        hit.push(next);
+        this.events.push({ type: 'shot', x: from.x, y: from.y, tx: next.x, ty: next.y, tower: def.id });
+        from = next;
+      }
+      return;
+    }
+
+    if (this.projectiles.length >= C.MAX_PROJECTILES) this.projectiles.shift();
+    this.projectiles.push({
+      x: def.x, y: def.y,
+      tx: target.x, ty: target.y,
+      target: target,
+      speed: def.kind === 'splash' ? 0.9 : 1.6,
+      damage: damage,
+      kind: def.kind,
+      splash: def.splash ? def.splash(level) : 0,
+      slow: def.slow ? def.slow(level) : 0,
+      slowTime: def.slowTime || 0,
+      color: def.color
+    });
+  };
+
+  Sim.prototype._nearestEnemy = function (x, y, range, exclude) {
+    var best = null, bestD = range;
+    for (var i = 0; i < this.enemies.length; i++) {
+      var e = this.enemies[i];
+      if (e.dead || e.phased) continue;
+      if (exclude && exclude.indexOf(e) !== -1) continue;
+      var dx = e.x - x, dy = e.y - y;
+      var d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bestD) { bestD = d; best = e; }
+    }
+    return best;
+  };
+
+  Sim.prototype._updateProjectiles = function (dt) {
+    for (var i = this.projectiles.length - 1; i >= 0; i--) {
+      var p = this.projectiles[i];
+
+      // Home in while the target lives, otherwise carry on to its last position.
+      if (p.target && !p.target.dead) { p.tx = p.target.x; p.ty = p.target.y; }
+
+      var dx = p.tx - p.x, dy = p.ty - p.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      var step = p.speed * dt;
+
+      if (dist <= step || dist < 0.006) {
+        this._impact(p);
+        this.projectiles.splice(i, 1);
+        continue;
+      }
+      p.x += (dx / dist) * step;
+      p.y += (dy / dist) * step;
+    }
+  };
+
+  Sim.prototype._impact = function (p) {
+    if (p.kind === 'splash') {
+      for (var i = 0; i < this.enemies.length; i++) {
+        var e = this.enemies[i];
+        if (e.dead || e.phased) continue;
+        var dx = e.x - p.tx, dy = e.y - p.ty;
+        if (Math.sqrt(dx * dx + dy * dy) <= p.splash) this.damage(e, p.damage, false);
+      }
+      return;
+    }
+
+    if (p.target && !p.target.dead) {
+      this.damage(p.target, p.damage, false);
+      if (p.slow) {
+        p.target.slow = Math.max(p.target.slow, p.slow);
+        p.target.slowTimer = p.slowTime;
+      }
+    }
+  };
+
+  Sim.prototype._cull = function () {
+    for (var i = this.enemies.length - 1; i >= 0; i--) {
+      if (this.enemies[i].dead) this.enemies.splice(i, 1);
+    }
+  };
+
+  /* ---------------- save ---------------- */
+
+  Sim.prototype.toJSON = function () {
+    return {
+      wave: this.wave, hp: this.hp, gold: this.gold,
+      levels: this.levels, kills: this.kills, earned: this.earned,
+      overcharge: this.overcharge, over: this.over
+    };
+  };
+
+  Sim.prototype.load = function (data) {
+    if (!data) return false;
+    this.reset();
+    this.wave = Math.max(0, Math.floor(Number(data.wave) || 0));
+    this.hp = clamp(Number(data.hp) || this.maxHp, 0, this.maxHp);
+    this.gold = Math.max(0, Number(data.gold) || 0);
+    this.kills = Math.max(0, Math.floor(Number(data.kills) || 0));
+    this.earned = Math.max(0, Number(data.earned) || 0);
+    this.overcharge = clamp(Number(data.overcharge) || 0, 0, this.overchargeMax());
+    this.over = !!data.over;
+
+    this.levels.tap = Math.max(0, Math.floor(Number(data.levels && data.levels.tap) || 0));
+    for (var i = 0; i < NS.TOWERS.length; i++) {
+      var id = NS.TOWERS[i].id;
+      this.levels[id] = Math.max(0, Math.floor(Number(data.levels && data.levels[id]) || 0));
+    }
+
+    // A restored run resumes in the break before the next wave.
+    this.inWave = false;
+    this.breakTime = C.WAVE_BREAK;
+    return true;
+  };
+
+  NS.Sim = Sim;
+})(window.SIEGE);
+</script>
+
+<script>
+/**
+ * LAST KEEP — effects layer. Visual only; the simulation never reads it.
+ */
+(function (NS) {
+  'use strict';
+
+  var rand = NS.rand;
+  var clamp = NS.clamp;
+
+  var MAX_PARTICLES = 260;
+  var MAX_NUMBERS = 26;
+  var MAX_BOLTS = 24;
+  var MAX_RINGS = 20;
+
+  function Fx() {
+    this.particles = [];
+    this.numbers = [];
+    this.bolts = [];      // tesla arcs and tracer lines
+    this.rings = [];
+
+    this.shake = 0;
+    this.shakeX = 0;
+    this.shakeY = 0;
+    this.flash = 0;
+    this.flashColor = '255,80,80';
+    this.hitstop = 0;
+    this.danger = 0;      // red vignette, rises as the castle is hurt
+    this.time = 0;
+  }
+
+  Fx.prototype.burst = function (x, y, color, count, power) {
+    for (var i = 0; i < count; i++) {
+      if (this.particles.length >= MAX_PARTICLES) this.particles.shift();
+      var a = Math.random() * Math.PI * 2;
+      var speed = rand(0.06, 0.3) * (power || 1);
+      this.particles.push({
+        x: x, y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        life: 0, maxLife: rand(0.25, 0.6),
+        size: rand(0.003, 0.008) * (power || 1),
+        color: color
+      });
+    }
+  };
+
+  Fx.prototype.number = function (x, y, text, color, big) {
+    if (this.numbers.length >= MAX_NUMBERS) this.numbers.shift();
+    this.numbers.push({
+      x: x, y: y, text: text, color: color,
+      life: 0, maxLife: big ? 1.1 : 0.75,
+      scale: big ? 1.5 : 1,
+      vy: -0.12
+    });
+  };
+
+  Fx.prototype.bolt = function (x, y, tx, ty, color, width) {
+    if (this.bolts.length >= MAX_BOLTS) this.bolts.shift();
+    this.bolts.push({
+      x: x, y: y, tx: tx, ty: ty, color: color,
+      width: width || 0.004, life: 0, maxLife: 0.18
+    });
+  };
+
+  Fx.prototype.ring = function (x, y, maxR, color, width) {
+    if (this.rings.length >= MAX_RINGS) this.rings.shift();
+    this.rings.push({ x: x, y: y, r: 0, maxR: maxR, color: color, width: width || 0.004 });
+  };
+
+  /* ---- named moments ---- */
+
+  Fx.prototype.hit = function (x, y, color, killed) {
+    this.burst(x, y, color, killed ? 12 : 4, killed ? 1.3 : 0.7);
+    if (killed) this.ring(x, y, 0.05, color, 0.004);
+  };
+
+  Fx.prototype.tap = function (x, y, hit) {
+    this.ring(x, y, hit ? 0.07 : 0.045, hit ? 'rgba(255,240,200,0.9)' : 'rgba(255,255,255,0.35)', 0.005);
+    if (hit) this.shake = Math.min(this.shake + 0.004, 0.03);
+  };
+
+  Fx.prototype.leak = function (x, y) {
+    this.shake = Math.min(this.shake + 0.05, 0.09);
+    this.flash = Math.min(this.flash + 0.4, 0.8);
+    this.flashColor = '255,60,60';
+    this.burst(x, y, '#ff5a5a', 18, 1.5);
+    this.ring(x, y, 0.18, 'rgba(255,80,80,0.9)', 0.008);
+  };
+
+  Fx.prototype.bossDown = function (x, y) {
+    this.hitstop = Math.max(this.hitstop, 0.16);
+    this.shake = Math.min(this.shake + 0.09, 0.13);
+    this.flash = Math.min(this.flash + 0.7, 0.9);
+    this.flashColor = '255,200,120';
+    this.burst(x, y, '#ffd27f', 70, 2.2);
+    this.ring(x, y, 0.5, 'rgba(255,220,150,1)', 0.012);
+    this.ring(x, y, 0.8, 'rgba(255,120,80,0.8)', 0.02);
+  };
+
+  Fx.prototype.overcharge = function () {
+    this.hitstop = Math.max(this.hitstop, 0.12);
+    this.shake = Math.min(this.shake + 0.08, 0.12);
+    this.flash = Math.min(this.flash + 0.8, 0.95);
+    this.flashColor = '190,230,255';
+    this.ring(0.5, 0.55, 1.4, 'rgba(210,240,255,1)', 0.02);
+  };
+
+  /* ---- step ---- */
+
+  Fx.prototype.update = function (dt, hpFraction) {
+    this.time += dt;
+    var i, p;
+
+    for (i = this.particles.length - 1; i >= 0; i--) {
+      p = this.particles[i];
+      p.life += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.92;
+      p.vy = p.vy * 0.92 + 0.06 * dt;
+      if (p.life >= p.maxLife) this.particles.splice(i, 1);
+    }
+
+    for (i = this.numbers.length - 1; i >= 0; i--) {
+      p = this.numbers[i];
+      p.life += dt;
+      p.y += p.vy * dt;
+      p.vy *= 0.95;
+      if (p.life >= p.maxLife) this.numbers.splice(i, 1);
+    }
+
+    for (i = this.bolts.length - 1; i >= 0; i--) {
+      p = this.bolts[i];
+      p.life += dt;
+      if (p.life >= p.maxLife) this.bolts.splice(i, 1);
+    }
+
+    for (i = this.rings.length - 1; i >= 0; i--) {
+      p = this.rings[i];
+      p.r += (p.maxR / 0.35) * dt;
+      if (p.r >= p.maxR) this.rings.splice(i, 1);
+    }
+
+    this.shake *= Math.pow(0.0008, dt);
+    if (this.shake < 0.0006) this.shake = 0;
+    this.shakeX = rand(-1, 1) * this.shake;
+    this.shakeY = rand(-1, 1) * this.shake;
+
+    this.flash *= Math.pow(0.004, dt);
+    if (this.flash < 0.004) this.flash = 0;
+
+    // The screen edges redden as the keep gets closer to falling.
+    var target = clamp(1 - hpFraction, 0, 1);
+    this.danger += (target - this.danger) * Math.min(1, dt * 2);
+  };
+
+  Fx.prototype.clear = function () {
+    this.particles.length = 0;
+    this.numbers.length = 0;
+    this.bolts.length = 0;
+    this.rings.length = 0;
+    this.shake = this.flash = this.hitstop = 0;
+  };
+
+  NS.Fx = Fx;
+})(window.SIEGE);
+</script>
+
+<script>
+/**
+ * LAST KEEP — compact WebAudio synth. No assets, no network.
+ */
+(function (NS) {
+  'use strict';
+
+  function Audio() {
+    this.ctx = null;
+    this.master = null;
+    this.noise = null;
+    this.enabled = true;
+    this.voices = 0;
+    this.maxVoices = 6;
+  }
+
+  Audio.prototype.init = function () {
+    if (this.ctx) return;
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    this.ctx = new Ctx();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.45;
+    this.master.connect(this.ctx.destination);
+
+    var len = Math.floor(this.ctx.sampleRate * 0.5);
+    var buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    this.noise = buf;
+  };
+
+  Audio.prototype.unlock = function () {
+    this.init();
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  };
+
+  Audio.prototype.setEnabled = function (on) {
+    this.enabled = !!on;
+    if (this.master) this.master.gain.value = this.enabled ? 0.45 : 0;
+  };
+
+  Audio.prototype.frame = function () { this.voices = 0; };
+
+  Audio.prototype._ready = function () {
+    return this.enabled && this.ctx && this.ctx.state === 'running';
+  };
+
+  /** Short blip; `type` picks the character. */
+  Audio.prototype.tone = function (freq, dur, type, gain, sweepTo) {
+    if (!this._ready() || this.voices >= this.maxVoices) return;
+    this.voices++;
+    var ctx = this.ctx, t = ctx.currentTime;
+
+    var osc = ctx.createOscillator();
+    osc.type = type || 'square';
+    osc.frequency.setValueAtTime(freq, t);
+    if (sweepTo) osc.frequency.exponentialRampToValueAtTime(sweepTo, t + dur);
+
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain || 0.2, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+    osc.connect(g); g.connect(this.master);
+    osc.start(t); osc.stop(t + dur + 0.02);
+  };
+
+  Audio.prototype.burst = function (dur, from, to, gain) {
+    if (!this._ready() || this.voices >= this.maxVoices) return;
+    this.voices++;
+    var ctx = this.ctx, t = ctx.currentTime;
+
+    var src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    var bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 1.4;
+    bp.frequency.setValueAtTime(from, t);
+    bp.frequency.exponentialRampToValueAtTime(to, t + dur);
+
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain || 0.3, t + 0.008);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+
+    src.connect(bp); bp.connect(g); g.connect(this.master);
+    src.start(t); src.stop(t + dur + 0.02);
+  };
+
+  Audio.prototype.shoot = function (tower) {
+    if (tower === 'mortar') this.burst(0.14, 900, 180, 0.22);
+    else if (tower === 'tesla') this.tone(1400, 0.06, 'sawtooth', 0.1, 2600);
+    else if (tower === 'frost') this.tone(900, 0.08, 'sine', 0.1, 1500);
+    else this.tone(320, 0.07, 'square', 0.12, 160);
+  };
+
+  /** Kill blip — pitch climbs with the tap combo, so a streak sings. */
+  Audio.prototype.kill = function (combo) {
+    var step = Math.min(combo || 0, 20);
+    this.tone(420 * Math.pow(2, step / 24), 0.09, 'triangle', 0.16, 220);
+  };
+
+  Audio.prototype.tap = function (hit, combo) {
+    if (!hit) { this.tone(180, 0.04, 'sine', 0.05); return; }
+    this.tone(600 + Math.min(combo, 20) * 40, 0.05, 'square', 0.1);
+  };
+
+  Audio.prototype.leak = function () {
+    this.burst(0.4, 500, 60, 0.45);
+    this.tone(90, 0.35, 'sawtooth', 0.3, 40);
+  };
+
+  Audio.prototype.wave = function (boss) {
+    if (boss) {
+      this.tone(70, 0.9, 'sawtooth', 0.4, 40);
+      this.tone(140, 0.7, 'square', 0.2, 90);
+    } else {
+      this.tone(300, 0.16, 'triangle', 0.16, 450);
+    }
+  };
+
+  Audio.prototype.overcharge = function () {
+    this.burst(0.6, 200, 6000, 0.5);
+    this.tone(160, 0.7, 'sine', 0.4, 30);
+  };
+
+  Audio.prototype.buy = function () {
+    this.tone(700, 0.05, 'square', 0.12);
+    this.tone(1050, 0.08, 'square', 0.1);
+  };
+
+  Audio.prototype.over = function () {
+    this.tone(220, 1.2, 'sawtooth', 0.35, 55);
+  };
+
+  NS.Audio = Audio;
+})(window.SIEGE);
+</script>
+
+<script>
+/**
+ * LAST KEEP — canvas renderer, top-down.
+ *
+ * Maps the simulation's 0..1 field onto the stage and draws it: the approach,
+ * the enemies walking down it, the towers, and the wall at the bottom.
+ */
+(function (NS) {
+  'use strict';
+
+  var C = NS.CONFIG;
+  var clamp = NS.clamp;
+
+  var SPRITE = 128;
+
+  function glowSprite(rgb) {
+    var c = document.createElement('canvas');
+    c.width = c.height = SPRITE;
+    var g = c.getContext('2d');
+    var r = SPRITE / 2;
+    var grad = g.createRadialGradient(r, r, 0, r, r, r);
+    grad.addColorStop(0, 'rgba(' + rgb + ',0.9)');
+    grad.addColorStop(0.4, 'rgba(' + rgb + ',0.3)');
+    grad.addColorStop(1, 'rgba(' + rgb + ',0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, SPRITE, SPRITE);
+    return c;
+  }
+
+  function Renderer(canvas, sim, fx) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.sim = sim;
+    this.fx = fx;
+
+    this.glow = glowSprite('255,220,160');
+    this.glowRed = glowSprite('255,90,90');
+
+    this.resize();
+    if (window.ResizeObserver) {
+      var self = this;
+      this._ro = new ResizeObserver(function () { self.resize(); });
+      this._ro.observe(canvas);
+    }
+  }
+
+  Renderer.prototype.resize = function () {
+    var rect = this.canvas.getBoundingClientRect();
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    this.w = Math.max(1, Math.round(rect.width));
+    this.h = Math.max(1, Math.round(rect.height));
+    this.canvas.width = Math.round(this.w * this.dpr);
+    this.canvas.height = Math.round(this.h * this.dpr);
+
+    // The field keeps its aspect: as wide as the stage, as tall as it needs.
+    this.fw = this.w;
+    this.fh = this.h;
+    this.ox = 0;
+    this.oy = 0;
+  };
+
+  Renderer.prototype.px = function (x) { return this.ox + x * this.fw; };
+  Renderer.prototype.py = function (y) { return this.oy + y * this.fh; };
+  /** Sizes are expressed in field-width units so shapes stay proportional. */
+  Renderer.prototype.ps = function (s) { return s * this.fw; };
+
+  Renderer.prototype.toField = function (px, py) {
+    return { x: (px - this.ox) / this.fw, y: (py - this.oy) / this.fh };
+  };
+
+  Renderer.prototype.draw = function (now) {
+    var ctx = this.ctx, fx = this.fx, sim = this.sim;
+
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, this.w, this.h);
+
+    ctx.save();
+    ctx.translate(fx.shakeX * this.fw, fx.shakeY * this.fw);
+
+    this.drawGround(ctx, now);
+    this.drawCastle(ctx);
+    this.drawTowers(ctx, now);
+    this.drawProjectiles(ctx);
+    this.drawEnemies(ctx, now);
+    this.drawBolts(ctx);
+    this.drawRings(ctx);
+    this.drawParticles(ctx);
+    this.drawNumbers(ctx);
+
+    ctx.restore();
+
+    this.drawVignette(ctx);
+    this.drawFlash(ctx);
+  };
+
+  /* ---------------- ground ---------------- */
+
+  Renderer.prototype.drawGround = function (ctx, now) {
+    var g = ctx.createLinearGradient(0, 0, 0, this.h);
+    g.addColorStop(0, '#0b0f1a');
+    g.addColorStop(0.55, '#0d1016');
+    g.addColorStop(1, '#141017');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.w, this.h);
+
+    // Slow scrolling lanes give the march a direction even when the field is empty.
+    var scroll = (now * 0.00004) % 0.1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.028)';
+    ctx.lineWidth = 1;
+    for (var y = -0.1 + scroll; y < 1; y += 0.1) {
+      ctx.beginPath();
+      ctx.moveTo(0, this.py(y));
+      ctx.lineTo(this.w, this.py(y));
+      ctx.stroke();
+    }
+    for (var x = 0.1; x < 1; x += 0.2) {
+      ctx.beginPath();
+      ctx.moveTo(this.px(x), 0);
+      ctx.lineTo(this.px(x), this.py(C.CASTLE_Y));
+      ctx.stroke();
+    }
+  };
+
+  /* ---------------- castle ---------------- */
+
+  Renderer.prototype.drawCastle = function (ctx) {
+    var sim = this.sim;
+    var y = this.py(C.CASTLE_Y);
+    var frac = clamp(sim.hp / sim.maxHp, 0, 1);
+
+    // danger glow rising off the wall
+    if (this.fx.danger > 0.02) {
+      var glow = ctx.createLinearGradient(0, y - this.ps(0.25), 0, y);
+      glow.addColorStop(0, 'rgba(255,60,60,0)');
+      glow.addColorStop(1, 'rgba(255,60,60,' + (0.22 * this.fx.danger).toFixed(3) + ')');
+      ctx.fillStyle = glow;
+      ctx.fillRect(0, y - this.ps(0.25), this.w, this.ps(0.25));
+    }
+
+    ctx.fillStyle = '#1b1a22';
+    ctx.fillRect(0, y, this.w, this.h - y);
+
+    // battlements
+    var bw = this.w / 14;
+    ctx.fillStyle = '#252430';
+    for (var i = 0; i < 14; i += 2) {
+      ctx.fillRect(i * bw, y - this.ps(0.018), bw, this.ps(0.018));
+    }
+
+    // wall line, tinted by how much health is left
+    var hue = 120 * frac;
+    ctx.strokeStyle = 'hsla(' + hue.toFixed(0) + ', 70%, 55%, 0.85)';
+    ctx.lineWidth = Math.max(2, this.ps(0.006));
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(this.w, y);
+    ctx.stroke();
+  };
+
+  /* ---------------- towers ---------------- */
+
+  Renderer.prototype.drawTowers = function (ctx, now) {
+    var sim = this.sim;
+
+    for (var i = 0; i < sim.towers.length; i++) {
+      var t = sim.towers[i];
+      var def = t.def;
+      var level = sim.level(def.id);
+      var x = this.px(def.x), y = this.py(def.y);
+      var r = this.ps(0.032 + Math.min(level, 20) * 0.0008);
+
+      // Range, faint. The simulation measures distance in field units, where a
+      // tall stage compresses y — so the honest shape on screen is an ellipse,
+      // not a circle, or the ring would understate the tower's vertical reach.
+      var range = def.range(level);
+      ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.ellipse(x, y, range * this.fw, range * this.fh, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      if (t.flash > 0) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = t.flash * 0.55;
+        ctx.drawImage(this.glow, x - r * 3, y - r * 3, r * 6, r * 6);
+        ctx.restore();
+      }
+
+      // base
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.fillStyle = '#181820';
+      ctx.strokeStyle = def.color;
+      ctx.lineWidth = Math.max(1.5, r * 0.16);
+      ctx.beginPath();
+      for (var s = 0; s < 6; s++) {
+        var a = (s / 6) * Math.PI * 2 - Math.PI / 2;
+        var pxx = Math.cos(a) * r, pyy = Math.sin(a) * r;
+        if (s === 0) ctx.moveTo(pxx, pyy); else ctx.lineTo(pxx, pyy);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // barrel pointing at the current target
+      ctx.rotate(t.target ? t.angle : -Math.PI / 2);
+      ctx.fillStyle = def.color;
+      ctx.fillRect(0, -r * 0.2, r * (1.5 + t.flash * 0.35), r * 0.4);
+      ctx.restore();
+    }
+  };
+
+  /* ---------------- enemies ---------------- */
+
+  Renderer.prototype.drawEnemies = function (ctx, now) {
+    var sim = this.sim;
+    var t = now * 0.001;
+
+    for (var i = 0; i < sim.enemies.length; i++) {
+      var e = sim.enemies[i];
+      var x = this.px(e.x), y = this.py(e.y);
+      var r = this.ps(e.def.size);
+      var alpha = e.phased ? 0.32 : 1;
+
+      ctx.save();
+      ctx.globalAlpha = alpha;
+
+      // glow — bosses and hurt enemies burn brighter
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = alpha * (e.boss ? 0.75 : 0.4) + e.hitFlash * 0.5;
+      var sprite = e.boss ? this.glowRed : this.glow;
+      ctx.drawImage(sprite, x - r * 3.2, y - r * 3.2, r * 6.4, r * 6.4);
+      ctx.restore();
+
+      ctx.translate(x, y);
+      ctx.fillStyle = e.hitFlash > 0.05 ? '#ffffff' : e.def.color;
+      ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+      ctx.lineWidth = Math.max(1, r * 0.12);
+
+      this.enemyShape(ctx, e, r, t);
+
+      // a phased enemy shows a dashed ring: towers cannot touch it, you can
+      if (e.phased) {
+        ctx.globalAlpha = 0.9;
+        ctx.strokeStyle = e.def.color;
+        ctx.lineWidth = Math.max(1, r * 0.14);
+        ctx.setLineDash([r * 0.5, r * 0.5]);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.6, t * 2, t * 2 + Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      if (e.slow > 0) {
+        ctx.strokeStyle = 'rgba(150,225,255,0.75)';
+        ctx.lineWidth = Math.max(1, r * 0.12);
+        ctx.beginPath();
+        ctx.arc(0, 0, r * 1.35, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+
+      // health bar once it has been hurt
+      if (e.hp < e.maxHp) {
+        var w = r * (e.boss ? 4 : 2.6);
+        var h = Math.max(2, r * 0.22);
+        var frac = clamp(e.hp / e.maxHp, 0, 1);
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(x - w / 2, y - r * 1.9 - h, w, h);
+        ctx.fillStyle = e.boss ? '#ff4d6d' : '#8bf5a0';
+        ctx.fillRect(x - w / 2, y - r * 1.9 - h, w * frac, h);
+      }
+    }
+  };
+
+  /** One shape per role, so the threat reads at a glance. */
+  Renderer.prototype.enemyShape = function (ctx, e, r, t) {
+    ctx.beginPath();
+    switch (e.type) {
+      case 'runner':                       // dart
+        ctx.moveTo(0, r * 1.3);
+        ctx.lineTo(-r * 0.75, -r * 0.9);
+        ctx.lineTo(0, -r * 0.4);
+        ctx.lineTo(r * 0.75, -r * 0.9);
+        break;
+      case 'tank':                         // blunt square
+        ctx.rect(-r, -r * 0.85, r * 2, r * 1.7);
+        break;
+      case 'brute':                        // heavy hexagon
+        for (var i = 0; i < 6; i++) {
+          var a = (i / 6) * Math.PI * 2;
+          var px = Math.cos(a) * r * 1.1, py = Math.sin(a) * r * 1.1;
+          if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        break;
+      case 'phantom':                      // diamond
+        ctx.moveTo(0, -r * 1.3);
+        ctx.lineTo(r, 0);
+        ctx.lineTo(0, r * 1.3);
+        ctx.lineTo(-r, 0);
+        break;
+      case 'boss':                         // spiked star
+        var spikes = 8;
+        for (var s = 0; s < spikes * 2; s++) {
+          var ang = (s / (spikes * 2)) * Math.PI * 2 + t * 0.6;
+          var rad = s % 2 ? r * 0.62 : r * 1.25;
+          var bx = Math.cos(ang) * rad, by = Math.sin(ang) * rad;
+          if (s === 0) ctx.moveTo(bx, by); else ctx.lineTo(bx, by);
+        }
+        break;
+      default:                             // grunt / swarm: triangle facing down
+        ctx.moveTo(0, r * 1.15);
+        ctx.lineTo(-r, -r * 0.8);
+        ctx.lineTo(r, -r * 0.8);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  };
+
+  /* ---------------- projectiles & effects ---------------- */
+
+  Renderer.prototype.drawProjectiles = function (ctx) {
+    var list = this.sim.projectiles;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      var x = this.px(p.x), y = this.py(p.y);
+      var r = this.ps(p.kind === 'splash' ? 0.011 : 0.006);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 0.35;
+      ctx.drawImage(this.glow, x - r * 4, y - r * 4, r * 8, r * 8);
+      ctx.globalAlpha = 1;
+    }
+    ctx.restore();
+  };
+
+  Renderer.prototype.drawBolts = function (ctx) {
+    var list = this.fx.bolts;
+    if (!list.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (var i = 0; i < list.length; i++) {
+      var b = list[i];
+      var fade = 1 - b.life / b.maxLife;
+      ctx.strokeStyle = b.color;
+      ctx.globalAlpha = fade;
+      ctx.lineWidth = Math.max(1, this.ps(b.width) * (0.5 + fade));
+      ctx.beginPath();
+      ctx.moveTo(this.px(b.x), this.py(b.y));
+      ctx.lineTo(this.px(b.tx), this.py(b.ty));
+      ctx.stroke();
+    }
+    ctx.restore();
+  };
+
+  Renderer.prototype.drawRings = function (ctx) {
+    var list = this.fx.rings;
+    if (!list.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      var fade = 1 - clamp(r.r / r.maxR, 0, 1);
+      ctx.strokeStyle = r.color;
+      ctx.globalAlpha = fade * fade;
+      ctx.lineWidth = Math.max(1, this.ps(r.width) * (0.4 + fade));
+      ctx.beginPath();
+      ctx.arc(this.px(r.x), this.py(r.y), Math.max(1, this.ps(r.r)), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  };
+
+  Renderer.prototype.drawParticles = function (ctx) {
+    var list = this.fx.particles;
+    if (!list.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      var fade = 1 - p.life / p.maxLife;
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = fade;
+      ctx.beginPath();
+      ctx.arc(this.px(p.x), this.py(p.y), Math.max(0.6, this.ps(p.size) * (0.4 + fade)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  };
+
+  Renderer.prototype.drawNumbers = function (ctx) {
+    var list = this.fx.numbers;
+    if (!list.length) return;
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (var i = 0; i < list.length; i++) {
+      var n = list[i];
+      var t = n.life / n.maxLife;
+      var alpha = t < 0.12 ? t / 0.12 : 1 - (t - 0.12) / 0.88;
+      var size = Math.max(10, this.ps(0.032) * n.scale);
+      ctx.font = '800 ' + size.toFixed(1) + 'px ui-rounded, "SF Pro Rounded", system-ui, sans-serif';
+      ctx.lineWidth = Math.max(2, size * 0.18);
+      ctx.strokeStyle = 'rgba(0,0,0,' + (clamp(alpha, 0, 1) * 0.7).toFixed(3) + ')';
+      ctx.strokeText(n.text, this.px(n.x), this.py(n.y));
+      ctx.fillStyle = n.color.replace('ALPHA', clamp(alpha, 0, 1).toFixed(3));
+      ctx.fillText(n.text, this.px(n.x), this.py(n.y));
+    }
+    ctx.restore();
+  };
+
+  /* ---------------- overlays ---------------- */
+
+  Renderer.prototype.drawVignette = function (ctx) {
+    var d = this.fx.danger;
+    if (d < 0.05) return;
+    var g = ctx.createRadialGradient(this.w / 2, this.h / 2, this.w * 0.3,
+                                     this.w / 2, this.h / 2, this.w * 0.85);
+    g.addColorStop(0, 'rgba(255,0,0,0)');
+    g.addColorStop(1, 'rgba(255,0,0,' + (0.35 * d).toFixed(3) + ')');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, this.w, this.h);
+  };
+
+  Renderer.prototype.drawFlash = function (ctx) {
+    if (this.fx.flash <= 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'rgba(' + this.fx.flashColor + ',' + (this.fx.flash * 0.35).toFixed(3) + ')';
+    ctx.fillRect(0, 0, this.w, this.h);
+    ctx.restore();
+  };
+
+  NS.Renderer = Renderer;
+})(window.SIEGE);
+</script>
+
+<script>
+/**
+ * LAST KEEP — DOM layer: HUD, upgrade buttons, overlays.
+ */
+(function (NS) {
+  'use strict';
+
+  var fmt = NS.fmt;
+  var clamp = NS.clamp;
+
+  function UI(sim, meta, handlers) {
+    this.sim = sim;
+    this.meta = meta;
+    this.handlers = handlers;
+
+    this.el = {
+      wave: document.getElementById('wave'),
+      waveSub: document.getElementById('waveSub'),
+      gold: document.getElementById('gold'),
+      relics: document.getElementById('relics'),
+      hpBar: document.getElementById('hpBar'),
+      hpText: document.getElementById('hpText'),
+      banner: document.getElementById('banner'),
+      combo: document.getElementById('combo'),
+      bossWrap: document.getElementById('bossWrap'),
+      bossBar: document.getElementById('bossBar'),
+      charge: document.getElementById('charge'),
+      chargeFill: document.getElementById('chargeFill'),
+      chargeLabel: document.getElementById('chargeLabel'),
+      upgrades: document.getElementById('upgrades'),
+      callWave: document.getElementById('callWave'),
+      over: document.getElementById('over'),
+      overSummary: document.getElementById('overSummary'),
+      shop: document.getElementById('shop'),
+      shopRelics: document.getElementById('shopRelics'),
+      shopList: document.getElementById('shopList')
+    };
+
+    this.rows = {};
+    this._chargeReady = null;
+    this.goldPunch = 0;
+
+    this.buildUpgrades();
+    this.bind();
+  }
+
+  UI.prototype.bind = function () {
+    var self = this;
+    this.el.charge.addEventListener('click', function () { self.handlers.onOvercharge(); });
+    this.el.callWave.addEventListener('click', function () { self.handlers.onCallWave(); });
+    document.getElementById('shopBtn').addEventListener('click', function () { self.openShop(); });
+    document.getElementById('shopClose').addEventListener('click', function () {
+      self.el.shop.hidden = true;
+    });
+    document.getElementById('again').addEventListener('click', function () {
+      self.el.over.hidden = true;
+      self.openShop();
+      self.handlers.onRestart();
+    });
+  };
+
+  UI.prototype.anyPanelOpen = function () {
+    return !this.el.over.hidden || !this.el.shop.hidden;
+  };
+
+  /* ---------------- upgrade buttons ---------------- */
+
+  UI.prototype.buildUpgrades = function () {
+    var self = this;
+    var defs = [NS.TAP_UPGRADE].concat(NS.TOWERS);
+    var frag = document.createDocumentFragment();
+
+    defs.forEach(function (def) {
+      var btn = document.createElement('button');
+      btn.className = 'up';
+      btn.type = 'button';
+      btn.innerHTML = '<span class="up-dot"></span><span class="up-name"></span>' +
+                      '<span class="up-lvl"></span><span class="up-cost"></span>' +
+                      '<span class="up-bar"></span>';
+      btn.querySelector('.up-name').textContent = def.name;
+      btn.querySelector('.up-dot').style.background = def.color || '#ffcf5c';
+
+      btn.addEventListener('click', function () {
+        if (!self.sim.canBuy(def.id)) return;
+        self.handlers.onBuy(def.id);
+        btn.classList.remove('flash');
+        void btn.offsetWidth;
+        btn.classList.add('flash');
+      });
+
+      self.rows[def.id] = {
+        def: def, btn: btn,
+        lvl: btn.querySelector('.up-lvl'),
+        cost: btn.querySelector('.up-cost'),
+        bar: btn.querySelector('.up-bar'),
+        lastLevel: -1, lastAfford: null
+      };
+      frag.appendChild(btn);
+    });
+
+    this.el.upgrades.appendChild(frag);
+  };
+
+  /* ---------------- per-frame ---------------- */
+
+  UI.prototype.update = function (dt) {
+    var sim = this.sim;
+
+    this.el.wave.textContent = 'WAVE ' + Math.max(1, sim.wave);
+    this.el.wave.classList.toggle('boss', NS.wave.isBoss(sim.wave));
+    this.el.waveSub.textContent = sim.over ? 'breached'
+      : sim.inWave ? (sim.enemies.length + ' on the field')
+      : 'next in ' + Math.max(0, sim.breakTime).toFixed(1) + 's';
+
+    this.el.gold.textContent = fmt(sim.gold);
+    this.el.relics.textContent = '◈ ' + fmt(this.meta.relics);
+
+    if (this.goldPunch > 0.001) {
+      this.goldPunch *= Math.pow(0.002, dt || 0.016);
+      this.el.gold.style.transform = 'scale(' + (1 + this.goldPunch).toFixed(3) + ')';
+    } else if (this.goldPunch !== 0) {
+      this.goldPunch = 0;
+      this.el.gold.style.transform = '';
+    }
+
+    var frac = clamp(sim.hp / sim.maxHp, 0, 1);
+    this.el.hpBar.style.width = (frac * 100).toFixed(1) + '%';
+    this.el.hpBar.className = 'hp-bar' + (frac < 0.3 ? ' critical' : frac < 0.6 ? ' hurt' : '');
+    this.el.hpText.textContent = Math.ceil(sim.hp) + ' / ' + sim.maxHp;
+
+    // overcharge
+    var chargeFrac = sim.overcharge / sim.overchargeMax();
+    this.el.chargeFill.style.width = (chargeFrac * 100).toFixed(1) + '%';
+    var ready = sim.overchargeReady();
+    if (ready !== this._chargeReady) {
+      this._chargeReady = ready;
+      this.el.charge.classList.toggle('ready', ready);
+      this.el.charge.disabled = !ready;
+      this.el.chargeLabel.textContent = ready ? 'OVERCHARGE — FIRE!' : 'OVERCHARGE';
+    }
+
+    // combo
+    if (sim.combo >= 3) {
+      this.el.combo.textContent = '×' + sim.comboMult().toFixed(1) + '  TAP COMBO';
+      this.el.combo.className = 'combo on' + (sim.combo >= 12 ? ' hot' : '');
+    } else {
+      this.el.combo.className = 'combo';
+    }
+
+    // boss health
+    var boss = null;
+    for (var i = 0; i < sim.enemies.length; i++) {
+      if (sim.enemies[i].boss) { boss = sim.enemies[i]; break; }
+    }
+    if (boss) {
+      this.el.bossWrap.hidden = false;
+      this.el.bossBar.style.width = (clamp(boss.hp / boss.maxHp, 0, 1) * 100).toFixed(1) + '%';
+    } else {
+      this.el.bossWrap.hidden = true;
+    }
+
+    this.el.callWave.classList.toggle('hot', !sim.inWave && !sim.over);
+
+    for (var id in this.rows) {
+      if (!this.rows.hasOwnProperty(id)) continue;
+      var row = this.rows[id];
+      var level = sim.level(id);
+      var cost = sim.cost(id);
+      var afford = sim.gold >= cost && !sim.over;
+
+      if (level !== row.lastLevel) {
+        row.lvl.textContent = 'LV ' + level;
+        row.lastLevel = level;
+      }
+      row.cost.textContent = fmt(cost);
+      if (afford !== row.lastAfford) {
+        row.btn.disabled = !afford;
+        row.lastAfford = afford;
+      }
+      row.bar.style.width = (Math.min(1, sim.gold / cost) * 100).toFixed(1) + '%';
+    }
+  };
+
+  UI.prototype.bumpGold = function (strength) {
+    this.goldPunch = Math.min(this.goldPunch + (strength || 0.06), 0.35);
+  };
+
+  UI.prototype.banner = function (text, boss) {
+    var el = this.el.banner;
+    el.textContent = text;
+    el.className = 'banner';
+    void el.offsetWidth;
+    el.className = 'banner go' + (boss ? ' boss' : '');
+  };
+
+  /* ---------------- overlays ---------------- */
+
+  UI.prototype.showGameOver = function (wave, gain, stats) {
+    this.el.overSummary.innerHTML =
+      '<div class="row"><span>Wave reached</span><span>' + wave + '</span></div>' +
+      '<div class="row"><span>Enemies killed</span><span>' + stats.kills + '</span></div>' +
+      '<div class="row"><span>Gold earned</span><span>' + fmt(stats.earned) + '</span></div>' +
+      '<div class="row"><span>Best ever</span><span>wave ' + this.meta.bestWave + '</span></div>' +
+      '<div class="big">◈ ' + gain + '</div>';
+    this.el.over.hidden = false;
+  };
+
+  UI.prototype.openShop = function () {
+    var self = this;
+    var meta = this.meta;
+    var list = this.el.shopList;
+
+    this.el.shopRelics.innerHTML = '◈ ' + fmt(meta.relics) +
+      '<div class="shop-next">best wave ' + meta.bestWave + ' · ' + meta.runs + ' runs · ' +
+      fmt(meta.lifetime) + ' relics all-time</div>';
+
+    list.innerHTML = '';
+    NS.META.UPGRADES.forEach(function (def) {
+      var lvl = meta.level(def.id);
+      var maxed = meta.maxed(def.id);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'shop-row';
+      btn.disabled = !meta.canBuy(def.id);
+      btn.innerHTML = '<span><span class="sn"></span><br><span class="sd"></span><br>' +
+                      '<span class="sv"></span></span><span class="sc"></span>';
+      btn.querySelector('.sn').textContent = def.name;
+      btn.querySelector('.sd').textContent = def.desc;
+      btn.querySelector('.sv').textContent = 'LV ' + lvl + ' · ' + def.format(lvl);
+      btn.querySelector('.sc').textContent = maxed ? 'MAX' : '◈ ' + fmt(meta.cost(def.id));
+      btn.addEventListener('click', function () {
+        if (meta.buy(def.id)) {
+          self.handlers.onMetaBuy();
+          self.openShop();
+        }
+      });
+      list.appendChild(btn);
+    });
+
+    this.el.shop.hidden = false;
+  };
+
+  NS.UI = UI;
+})(window.SIEGE);
+</script>
+
+<script>
+/**
+ * LAST KEEP — localStorage. Never lets a bad save stop the game starting.
+ */
+(function (NS) {
+  'use strict';
+
+  var KEY = 'lastkeep.save.v1';
+  var SOUND_KEY = 'lastkeep.sound';
+
+  NS.Save = {
+    write: function (sim, meta) {
+      try {
+        localStorage.setItem(KEY, JSON.stringify({
+          v: 1, run: sim.toJSON(), meta: meta.toJSON(), at: Date.now()
+        }));
+      } catch (e) { /* private mode / quota */ }
+    },
+
+    read: function () {
+      try {
+        var raw = localStorage.getItem(KEY);
+        if (!raw) return null;
+        var data = JSON.parse(raw);
+        return data && data.v === 1 ? data : null;
+      } catch (e) { return null; }
+    },
+
+    clear: function () {
+      try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+    },
+
+    readSound: function () {
+      try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch (e) { return true; }
+    },
+
+    writeSound: function (on) {
+      try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch (e) { /* ignore */ }
+    }
+  };
+})(window.SIEGE);
+</script>
+
+<script>
+/**
+ * LAST KEEP — bootstrap and game loop.
+ */
+(function (NS) {
+  'use strict';
+
+  var C = NS.CONFIG;
+  var STEP = 1 / 60;
+  var MAX_STEPS = 5;
+
+  var canvas = document.getElementById('field');
+
+  var meta = new NS.Meta();
+  var sim = new NS.Sim(meta);
+  var fx = new NS.Fx();
+  var audio = new NS.Audio();
+  var renderer = new NS.Renderer(canvas, sim, fx);
+  var ui = new NS.UI(sim, meta, {
+    onBuy: buy,
+    onOvercharge: overcharge,
+    onCallWave: callWave,
+    onRestart: restart,
+    onMetaBuy: function () { audio.buy(); NS.Save.write(sim, meta); }
+  });
+
+  var acc = 0, lastFrame = 0, saveTimer = 0, fps = 60;
+
+  NS.game = {
+    sim: sim, meta: meta, fx: fx, audio: audio, renderer: renderer, ui: ui, canvas: canvas,
+    fps: function () { return fps; }
+  };
+
+  /* ---------------- start ---------------- */
+
+  var saved = NS.Save.read();
+  if (saved) {
+    if (saved.meta) meta.load(saved.meta);
+    if (saved.run) sim.load(saved.run);
+  }
+  if (sim.over) sim.reset();       // a finished run never resumes; it restarts
+
+  renderer.resize();
+  audio.setEnabled(NS.Save.readSound());
+  updateMuteLabel();
+
+  /* ---------------- input ---------------- */
+
+  canvas.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    audio.unlock();
+    if (ui.anyPanelOpen()) return;
+
+    var rect = canvas.getBoundingClientRect();
+    var p = renderer.toField(e.clientX - rect.left, e.clientY - rect.top);
+    sim.tap(p.x, p.y);
+  }, { passive: false });
+
+  document.getElementById('mute').addEventListener('click', function () {
+    audio.unlock();
+    audio.setEnabled(!audio.enabled);
+    NS.Save.writeSound(audio.enabled);
+    updateMuteLabel();
+  });
+
+  window.addEventListener('resize', function () { renderer.resize(); });
+  window.addEventListener('orientationchange', function () {
+    setTimeout(function () { renderer.resize(); }, 150);
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) NS.Save.write(sim, meta);
+    else lastFrame = 0;
+  });
+  window.addEventListener('pagehide', function () { NS.Save.write(sim, meta); });
+
+  function updateMuteLabel() {
+    document.getElementById('mute').textContent = audio.enabled ? 'sound on' : 'sound off';
+  }
+
+  function buzz(pattern) {
+    if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) { /* ignore */ } }
+  }
+
+  /* ---------------- actions ---------------- */
+
+  function buy(id) {
+    if (!sim.buy(id)) return;
+    audio.buy();
+    NS.Save.write(sim, meta);
+  }
+
+  function overcharge() {
+    if (!sim.fireOvercharge()) return;
+    buzz([0, 40, 30, 90]);
+  }
+
+  function callWave() {
+    if (sim.callEarly()) buzz(20);
+  }
+
+  function restart() {
+    sim.reset();
+    fx.clear();
+    NS.Save.write(sim, meta);
+  }
+
+  /* ---------------- events ---------------- */
+
+  function drainEvents() {
+    var events = sim.events;
+
+    for (var i = 0; i < events.length; i++) {
+      var e = events[i];
+
+      switch (e.type) {
+        case 'shot':
+          audio.shoot(e.tower);
+          if (e.tower === 'tesla') {
+            fx.bolt(e.x, e.y, e.tx, e.ty, 'rgba(210,170,255,0.95)', 0.005);
+          }
+          break;
+
+        case 'hit':
+          fx.hit(e.x, e.y, e.boss ? '#ff9b9b' : '#ffd9a0', e.killed);
+          break;
+
+        case 'kill':
+          audio.kill(sim.combo);
+          ui.bumpGold(e.boss ? 0.3 : 0.05);
+          if (e.boss) {
+            fx.bossDown(e.x, e.y);
+            ui.banner('BOSS DOWN', true);
+            buzz([0, 60, 40, 120]);
+          }
+          if (e.boss || e.gold >= 12) {
+            fx.number(e.x, e.y, '+' + NS.fmt(e.gold), 'rgba(255,207,92,ALPHA)', e.boss);
+          }
+          break;
+
+        case 'tap':
+          fx.tap(e.x, e.y, e.hit);
+          audio.tap(e.hit, e.combo);
+          if (e.hit && e.combo >= 3 && e.combo % 3 === 0) {
+            fx.number(e.x, e.y - 0.03, '×' + sim.comboMult().toFixed(1), 'rgba(255,240,180,ALPHA)');
+          }
+          break;
+
+        case 'leak':
+          fx.leak(e.x, e.y);
+          audio.leak();
+          buzz([0, 80]);
+          break;
+
+        case 'wave':
+          fx.flash = Math.min(fx.flash + 0.25, 0.6);
+          fx.flashColor = e.boss ? '255,80,100' : '140,190,255';
+          ui.banner(e.boss ? 'BOSS WAVE ' + e.n : 'WAVE ' + e.n, e.boss);
+          audio.wave(e.boss);
+          if (e.boss) buzz([0, 40, 60, 40, 60, 120]);
+          break;
+
+        case 'cleared':
+          fx.number(0.5, 0.42, '+' + NS.fmt(e.bonus) + ' GOLD', 'rgba(255,207,92,ALPHA)', true);
+          ui.bumpGold(0.2);
+          NS.Save.write(sim, meta);
+          break;
+
+        case 'overcharge':
+          fx.overcharge();
+          audio.overcharge();
+          break;
+
+        case 'over':
+          endRun(e.wave);
+          break;
+      }
+    }
+    events.length = 0;
+  }
+
+  function endRun(wave) {
+    var stats = { kills: sim.kills, earned: sim.earned };
+    var gain = meta.bank(wave);
+    audio.over();
+    buzz([0, 120, 60, 200]);
+    fx.flash = 0.9;
+    fx.flashColor = '255,60,60';
+    ui.showGameOver(wave, gain, stats);
+    NS.Save.write(sim, meta);
+  }
+
+  /* ---------------- loop ---------------- */
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+
+    if (!lastFrame) lastFrame = now;
+    var dt = (now - lastFrame) / 1000;
+    lastFrame = now;
+    if (dt > 0.25) dt = 0.25;
+    if (dt > 0) fps += (1 / dt - fps) * 0.05;
+
+    audio.frame();
+
+    var paused = ui.anyPanelOpen() || sim.over;
+
+    if (paused) {
+      acc = 0;
+    } else if (fx.hitstop > 0) {
+      fx.hitstop -= dt;
+      acc = 0;
+    } else {
+      acc += dt;
+      var steps = 0;
+      while (acc >= STEP && steps < MAX_STEPS) {
+        sim.update(STEP);
+        acc -= STEP;
+        steps++;
+      }
+      if (steps === MAX_STEPS) acc = 0;
+    }
+
+    drainEvents();
+    fx.update(dt, sim.maxHp ? sim.hp / sim.maxHp : 1);
+    ui.update(dt);
+    renderer.draw(now);
+
+    saveTimer += dt;
+    if (saveTimer >= C.SAVE_INTERVAL) {
+      saveTimer = 0;
+      if (!sim.over) NS.Save.write(sim, meta);
+    }
+  }
+
+  requestAnimationFrame(frame);
+})(window.SIEGE);
+</script>

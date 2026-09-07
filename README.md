@@ -1,3 +1,17 @@
+# popthecorn
+
+Two mobile-first browser games, no build step, no dependencies, no backend.
+
+| Game | Play | What it is |
+| --- | --- | --- |
+| **POPCORE** | `index.html` | An idle popcorn chain-reaction game |
+| **LAST KEEP** | `siege/index.html` | Endless top-down wave defence ([details](siege/README.md)) |
+
+`node build.js popcore` and `node build.js lastkeep` inline either one into a
+single self-contained page under `dist/`.
+
+---
+
 # POPCORE
 
 A mobile-first browser prototype of an idle popcorn game. Tap a kernel, it pops.

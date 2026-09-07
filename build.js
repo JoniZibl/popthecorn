@@ -11,28 +11,46 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = __dirname;
-const OUT = process.argv[2] || path.join(ROOT, 'dist', 'popcore.html');
 
-const SCRIPTS = ['config', 'cards', 'meta', 'sim', 'fx', 'audio', 'render', 'ui', 'save', 'main']
-  .map(name => path.join('js', name + '.js'));
+const GAMES = {
+  popcore: {
+    dir: '.',
+    title: 'POPCORE',
+    scripts: ['config', 'cards', 'meta', 'sim', 'fx', 'audio', 'render', 'ui', 'save', 'main']
+  },
+  lastkeep: {
+    dir: 'siege',
+    title: 'LAST KEEP',
+    scripts: ['content', 'meta', 'sim', 'fx', 'audio', 'render', 'ui', 'save', 'main']
+  }
+};
 
-const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8').trimEnd();
+const which = process.argv[2] || 'popcore';
+const out = process.argv[3] || path.join(ROOT, 'dist', which + '.html');
+const game = GAMES[which];
+
+if (!game) {
+  console.error(`unknown game "${which}" — expected one of ${Object.keys(GAMES).join(', ')}`);
+  process.exit(1);
+}
+
+const read = rel => fs.readFileSync(path.join(ROOT, game.dir, rel), 'utf8').trimEnd();
 
 // The markup between <body> and the script tags, lifted from index.html so the
-// two versions cannot drift.
+// bundled and multi-file versions cannot drift.
 const html = read('index.html');
 const body = html.slice(html.indexOf('<div id="app">'), html.indexOf('<script'));
 
-const page = `<title>POPCORE</title>
+const page = `<title>${game.title}</title>
 <style>
 ${read('css/style.css')}
 </style>
 
 ${body.trim()}
 
-${SCRIPTS.map(f => `<script>\n${read(f)}\n</script>`).join('\n\n')}
+${game.scripts.map(n => `<script>\n${read(path.join('js', n + '.js'))}\n</script>`).join('\n\n')}
 `;
 
-fs.mkdirSync(path.dirname(OUT), { recursive: true });
-fs.writeFileSync(OUT, page);
-console.log(`wrote ${OUT} (${(page.length / 1024).toFixed(1)} kB)`);
+fs.mkdirSync(path.dirname(out), { recursive: true });
+fs.writeFileSync(out, page);
+console.log(`wrote ${out} (${(page.length / 1024).toFixed(1)} kB)`);
