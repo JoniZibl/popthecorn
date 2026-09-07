@@ -57,9 +57,9 @@ html, body {
   line-height: 1;
   color: var(--cream);
   text-shadow: 0 0 24px rgba(255, 178, 60, 0.35);
-  transition: transform 90ms ease-out;
+  transform-origin: left center;   /* scale is driven per-frame from ui.js */
+  will-change: transform;
 }
-.money.bump { transform: scale(1.09); }
 
 .rate {
   margin-top: 4px;
@@ -162,6 +162,86 @@ html, body {
   50% { opacity: 0.85; }
 }
 
+/* ---------------- Callout ---------------- */
+
+.callout {
+  position: absolute;
+  left: 0; right: 0;
+  top: 34%;
+  text-align: center;
+  pointer-events: none;
+  font-weight: 900;
+  font-style: italic;
+  font-size: clamp(34px, 13vw, 62px);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  color: #fff3d0;
+  text-shadow: 0 0 30px rgba(255, 150, 30, 0.95), 0 6px 0 rgba(180, 60, 0, 0.35);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.callout.go { animation: callout-slam 900ms cubic-bezier(0.15, 1.5, 0.4, 1) both; }
+
+@keyframes callout-slam {
+  0%   { opacity: 0; transform: scale(2.4) rotate(-9deg); }
+  16%  { opacity: 1; transform: scale(0.92) rotate(-3deg); }
+  30%  { transform: scale(1.06) rotate(-4deg); }
+  70%  { opacity: 1; transform: scale(1) rotate(-3deg); }
+  100% { opacity: 0; transform: scale(1.25) translateY(-26px) rotate(-3deg); }
+}
+
+/* ---------------- MEGA POP ---------------- */
+
+.mega {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--dim);
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  cursor: default;
+  transition: transform 90ms ease, color 160ms ease, border-color 160ms ease;
+}
+.mega-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(255, 122, 24, 0.55), rgba(255, 194, 75, 0.75));
+  transition: width 160ms linear;
+}
+.mega-label {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 13px;
+}
+.mega.ready {
+  cursor: pointer;
+  color: #1a0d02;
+  border-color: rgba(255, 214, 110, 0.9);
+  animation: mega-throb 620ms ease-in-out infinite;
+}
+.mega.ready .mega-fill {
+  background: linear-gradient(90deg, #ff7a18, #ffd76a, #ff7a18);
+}
+.mega.ready:active { transform: scale(0.97); }
+.mega.fired { animation: mega-fired 420ms ease-out; }
+
+@keyframes mega-throb {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 170, 40, 0); }
+  50% { box-shadow: 0 0 26px rgba(255, 170, 40, 0.75); }
+}
+@keyframes mega-fired {
+  0% { transform: scale(1.04); filter: brightness(2.2); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
 /* ---------------- Upgrades ---------------- */
 
 .upgrades {
@@ -260,5 +340,6 @@ html, body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chain.pulse, .hint { animation: none; }
+  .chain.pulse, .hint, .mega.ready { animation: none; }
+  .callout.go { animation-duration: 600ms; }
 }

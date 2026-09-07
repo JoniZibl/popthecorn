@@ -19,7 +19,15 @@ npx http-server -p 8080 .   # then open http://localhost:8080
   scaled down with distance, and pop if that pushes them over 100%.
 - Pops in quick succession build a **CHAIN**, which multiplies the money each
   pop pays out. The chain window tightens as the chain grows, so a big chain has
-  to come from a real cascade, not from steady tapping.
+  to come from a real cascade, not from steady tapping. Every chain of 8+ banks
+  a bonus when it ends, and a chain that reaches `CHAIN_MAX` banks itself for
+  triple — so a self-running pan pays a jackpot on a loop instead of counting
+  toward infinity.
+- **Golden kernels** are worth `GOLDEN_MULT` times a normal pop and arrive every
+  half minute or so. Spawn Rate levels raise their odds, which is what that
+  upgrade keeps buying once the raw spawn rate hits its ceiling.
+- **MEGA POP** fills one notch per pop. Full, it fires a pan-wide wave that pops
+  everything it touches — an always-nearby goal, and a guaranteed cascade.
 - Four upgrades, all exponentially priced: **Spawn Rate**, **Heat Speed**,
   **Shockwave**, **Pop Value**. Cost growth is deliberately faster than value
   growth, so progression keeps going without the economy running away.
@@ -62,7 +70,14 @@ the console (`POPCORE.game.sim.money = 1e6`).
 Visible objects are capped (kernels, popcorn, particles, floating numbers,
 shockwaves), popcorn and glows are stamped from pre-rendered sprites rather than
 per-frame gradients, and the simulation runs on a fixed timestep with a
-catch-up limit.
+catch-up limit. Spawning is bounded per step and by `MAX_SPAWN_RATE`, so no
+upgrade level can ask for an unreadable firehose.
+
+Impact feedback is layered on top of the same loop: hit-stop (`fx.hitstop`)
+freezes the simulation for a beat while effects keep animating, and a camera
+punch (`fx.zoom`) scales the view. Both decay on their own; the renderer feeds
+the zoomed scale back into hit-testing so a tap lands where the kernel is
+drawn.
 
 ## Not included yet
 

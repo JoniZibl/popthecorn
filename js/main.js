@@ -35,7 +35,10 @@
 
   var loaded = NS.Save.read();
   if (loaded) sim.load(loaded);
-  sim.spawnKernel();
+
+  // Open with a small handful, not a single kernel: there is never a moment
+  // where the player taps and finds nothing to hit.
+  for (var i = 0; i < 3; i++) sim.spawnKernel();
 
   // The upgrade buttons change the stage height, so re-measure once the DOM is final.
   renderer.resize();
@@ -55,13 +58,17 @@
 
     if (hit) {
       if (!hasTapped) { hasTapped = true; ui.hideHint(); }
-      ui.bumpMoney();
       buzz(8);
     } else {
       // Small acknowledgement so a miss still feels responsive.
       fx.addRing(p.x, p.y, 0.14, 'rgba(255,255,255,0.35)', 0.008);
     }
   }, { passive: false });
+
+  document.getElementById('mega').addEventListener('click', function () {
+    audio.unlock();
+    sim.fireMega();
+  });
 
   document.getElementById('mute').addEventListener('click', function () {
     audio.unlock();
@@ -109,9 +116,9 @@
   });
   window.addEventListener('pagehide', function () { NS.Save.write(sim); });
 
-  /** Short haptic tick where the platform supports it (Android Chrome). */
-  function buzz(ms) {
-    if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) { /* ignore */ } }
+  /** Haptic tick or pattern, where the platform supports it (Android Chrome). */
+  function buzz(pattern) {
+    if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) { /* ignore */ } }
   }
 
   function updateMuteLabel() {
@@ -134,16 +141,37 @@
       var e = events[i];
 
       if (e.type === 'pop') {
-        fx.pop(e.x, e.y, e.chain, e.manual);
+        fx.pop(e.x, e.y, e.chain, e.manual, e.golden);
         audio.pop(e.chain, e.manual);
-        // Floating numbers are rate-limited during long chains so the pan stays readable.
-        if (e.manual || e.chain <= 3 || e.chain % (e.chain > 40 ? 20 : 5) === 0) {
+        ui.bumpMoney(e.golden ? 0.3 : e.manual ? 0.1 : 0.05);
+
+        if (e.golden) {
+          audio.golden();
+          ui.callout('GOLDEN!');
+          fx.addFloater(e.x, e.y, '+$' + NS.formatMoney(e.value, true), 60);
+          buzz([0, 30, 40, 30]);
+        } else if (e.manual || e.chain <= 3 || e.chain % (e.chain > 40 ? 15 : 3) === 0) {
+          // Floating numbers are rate-limited during long chains so the pan stays readable.
           fx.addFloater(e.x, e.y, '+$' + NS.formatMoney(e.value, true), e.chain);
         }
       } else if (e.type === 'tier') {
         fx.tier(e.tier, e.x || 0, e.y || 0);
         audio.tier(e.tier);
-        buzz(18 + e.tier * 12);
+        ui.callout(e.word + ' ×' + e.chain);
+        buzz(18 + e.tier * 14);
+      } else if (e.type === 'chainEnd' && e.bonus > 0) {
+        ui.callout(e.maxed ? 'MAX CHAIN!' : 'CHAIN ×' + e.count);
+        ui.bumpMoney(e.maxed ? 0.4 : 0.22);
+        fx.addFloater(0, -0.1, '+$' + NS.formatMoney(e.bonus, true), 80);
+        fx.tier(e.maxed ? 6 : 2, 0, 0);
+        audio.tier(e.maxed ? 5 : 2);
+        buzz(e.maxed ? [0, 60, 40, 60, 40, 120] : 24);
+      } else if (e.type === 'mega') {
+        fx.mega();
+        audio.mega();
+        ui.callout('MEGA POP');
+        ui.flashMega();
+        buzz([0, 50, 30, 90]);
       }
     }
     events.length = 0;
@@ -162,14 +190,21 @@
 
     audio.frame();
 
-    acc += dt;
-    var steps = 0;
-    while (acc >= STEP && steps < MAX_STEPS) {
-      sim.update(STEP);
-      acc -= STEP;
-      steps++;
+    // Hit-stop: the simulation freezes for a beat on a big impact while the
+    // effects keep animating. It is what makes a hit feel like it landed.
+    if (fx.hitstop > 0) {
+      fx.hitstop -= dt;
+      acc = 0;
+    } else {
+      acc += dt;
+      var steps = 0;
+      while (acc >= STEP && steps < MAX_STEPS) {
+        sim.update(STEP);
+        acc -= STEP;
+        steps++;
+      }
+      if (steps === MAX_STEPS) acc = 0;
     }
-    if (steps === MAX_STEPS) acc = 0;
 
     drainEvents();
     fx.update(dt, sim.chain);
@@ -177,7 +212,7 @@
     if (sim.chain >= 2) ui.showChain(sim.chain);
     else if (sim.chain === 0) ui.hideChain();
 
-    ui.update();
+    ui.update(dt);
     renderer.draw(now);
 
     saveTimer += dt;

@@ -6,10 +6,11 @@
  * which is how the presentation layers learn what happened.
  *
  * Event shapes:
- *   { type:'pop',      x, y, chain, value, manual }
+ *   { type:'pop',      x, y, chain, value, manual, golden }
  *   { type:'chainEnd', count }
- *   { type:'tier',     tier, chain }      // chain crossed a milestone
- *   { type:'spawn',    x, y }
+ *   { type:'tier',     tier, chain, word, x, y }   // chain crossed a milestone
+ *   { type:'spawn',    x, y, golden }
+ *   { type:'mega' }                                // MEGA POP fired
  *   { type:'buy',      id, level }
  */
 (function (NS) {
@@ -32,11 +33,13 @@
     this.levels = {};
     for (var i = 0; i < C.UPGRADES.length; i++) this.levels[C.UPGRADES[i].id] = 0;
 
+    this.mega = 0;           // MEGA POP charge, 0..MEGA_MAX
     this.chain = 0;
     this.chainTimer = 0;
     this.chainTier = 0;      // index into CHAIN_TIERS already announced
     this.time = 0;
     this.spawnAcc = 0;
+    this.emptyFor = 0;
 
     // Rolling earnings history for the "$ / s" readout.
     this._earnings = [];
@@ -79,6 +82,13 @@
   Sim.prototype.shockRadius = function () { return C.shockRadius(this.level('shock')); };
   Sim.prototype.popValue = function () { return this.upgradeDef('value').value(this.level('value')); };
 
+  /** Odds a new kernel is golden. Spawn levels keep buying these after the
+   *  raw spawn rate has hit its ceiling, so the upgrade never goes dead. */
+  Sim.prototype.goldenChance = function () {
+    return Math.min(C.GOLDEN_CHANCE + this.level('spawn') * C.GOLDEN_PER_SPAWN_LEVEL,
+                    C.GOLDEN_MAX_CHANCE);
+  };
+
   /** Money earned per pop at the current chain length (sub-linear in the chain). */
   Sim.prototype.valueAtChain = function (chain) {
     return this.popValue() * (1 + C.CHAIN_BONUS * Math.sqrt(chain));
@@ -111,6 +121,7 @@
       id: nextId++,
       x: best.x,
       y: best.y,
+      golden: Math.random() < this.goldenChance(),
       heat: 0,
       rate: this.heatRate() * rand(1 - C.HEAT_JITTER, 1 + C.HEAT_JITTER),
       angle: rand(0, Math.PI * 2),
@@ -118,7 +129,7 @@
       age: 0
     };
     this.kernels.push(k);
-    this.events.push({ type: 'spawn', x: k.x, y: k.y });
+    this.events.push({ type: 'spawn', x: k.x, y: k.y, golden: k.golden });
     return k;
   };
 
@@ -160,12 +171,14 @@
     this.kernels.splice(idx, 1);
 
     var value = this.valueAtChain(this.chain);
+    if (kernel.golden) value *= C.GOLDEN_MULT;
     this.money += value;
     this._earned += value;
     this.totalPops++;
 
     this.chain++;
     this.chainTimer = C.chainWindow(this.chain);
+    if (this.mega < C.MEGA_MAX) this.mega = Math.min(C.MEGA_MAX, this.mega + 1);
     if (this.chain > this.bestChain) this.bestChain = this.chain;
 
     this.addShockwave(kernel.x, kernel.y);
@@ -176,8 +189,16 @@
       y: kernel.y,
       chain: this.chain,
       value: value,
-      manual: !!manual
+      manual: !!manual,
+      golden: !!kernel.golden
     });
+
+    // A chain that hits the cap banks itself immediately — the counter stays
+    // meaningful and the player gets a jackpot beat on a loop.
+    if (this.chain >= C.CHAIN_MAX) {
+      this.endChain(true);
+      return;
+    }
 
     // Announce milestones once each, in order.
     while (this.chainTier < C.CHAIN_TIERS.length && this.chain >= C.CHAIN_TIERS[this.chainTier]) {
@@ -185,11 +206,38 @@
         type: 'tier',
         tier: this.chainTier + 1,
         chain: this.chain,
+        word: C.TIER_WORDS[this.chainTier] || C.TIER_WORDS[C.TIER_WORDS.length - 1],
         x: kernel.x,
         y: kernel.y
       });
       this.chainTier++;
     }
+  };
+
+  /* ---------------- MEGA POP ---------------- */
+
+  Sim.prototype.megaReady = function () { return this.mega >= C.MEGA_MAX; };
+
+  Sim.prototype.megaProgress = function () { return this.mega / C.MEGA_MAX; };
+
+  /** Spend a full meter on one pan-wide wave that pops everything it reaches. */
+  Sim.prototype.fireMega = function () {
+    if (!this.megaReady()) return false;
+    this.mega = 0;
+
+    if (this.shockwaves.length >= C.MAX_SHOCKWAVES) this.shockwaves.shift();
+    this.shockwaves.push({
+      x: 0, y: 0, r: 0,
+      maxR: C.MEGA_RADIUS,
+      heat: C.MEGA_HEAT,
+      chain: Math.max(this.chain, 40),
+      hit: {}
+    });
+
+    // Keep any running chain alive long enough for the wave to reach the rim.
+    this.chainTimer = Math.max(this.chainTimer, C.CHAIN_WINDOW);
+    this.events.push({ type: 'mega' });
+    return true;
   };
 
   Sim.prototype.addShockwave = function (x, y) {
@@ -220,11 +268,30 @@
   Sim.prototype._updateChain = function (dt) {
     if (this.chain <= 0) return;
     this.chainTimer -= dt;
-    if (this.chainTimer <= 0) {
-      this.events.push({ type: 'chainEnd', count: this.chain });
-      this.chain = 0;
-      this.chainTier = 0;
+    if (this.chainTimer <= 0) this.endChain(false);
+  };
+
+  /**
+   * Close out the running chain and bank its bonus. Every cascade therefore
+   * finishes on a payout rather than just petering out, and CHAIN_MAX means a
+   * self-sustaining pan banks a jackpot on a loop instead of counting to
+   * infinity.
+   */
+  Sim.prototype.endChain = function (maxed) {
+    var count = this.chain;
+    var bonus = 0;
+
+    if (count >= C.CHAIN_BONUS_MIN) {
+      bonus = this.popValue() * count * C.CHAIN_BONUS_FACTOR;
+      if (maxed) bonus *= 3;
+      this.money += bonus;
+      this._earned += bonus;
     }
+
+    this.chain = 0;
+    this.chainTier = 0;
+    this.chainTimer = 0;
+    this.events.push({ type: 'chainEnd', count: count, bonus: bonus, maxed: !!maxed });
   };
 
   Sim.prototype._updateSpawning = function (dt) {
@@ -237,10 +304,19 @@
       this.spawnAcc -= 1;
       if (!this.spawnKernel()) { this.spawnAcc = 0; break; }   // pan is full
     }
-    // The pan is never allowed to sit empty — there is always something to tap.
+    // The pan is never allowed to sit empty for long — there is always
+    // something to tap. This is an anti-stall floor, not a spawn source: it
+    // waits out a delay first, otherwise an empty pan would spawn (and, once
+    // shockwaves are strong, immediately pop) one kernel every single frame.
     if (this.kernels.length === 0) {
-      this.spawnAcc = 0;
-      this.spawnKernel();
+      this.emptyFor += dt;
+      if (this.emptyFor >= C.EMPTY_REFILL_DELAY) {
+        this.emptyFor = 0;
+        this.spawnAcc = 0;
+        this.spawnKernel();
+      }
+    } else {
+      this.emptyFor = 0;
     }
   };
 
@@ -300,6 +376,7 @@
       money: this.money,
       totalPops: this.totalPops,
       bestChain: this.bestChain,
+      mega: this.mega,
       levels: this.levels
     };
   };
@@ -309,6 +386,7 @@
     this.money = Math.max(0, Number(data.money) || 0);
     this.totalPops = Math.max(0, Math.floor(Number(data.totalPops) || 0));
     this.bestChain = Math.max(0, Math.floor(Number(data.bestChain) || 0));
+    this.mega = clamp(Math.floor(Number(data.mega) || 0), 0, C.MEGA_MAX);
     for (var i = 0; i < C.UPGRADES.length; i++) {
       var id = C.UPGRADES[i].id;
       var lvl = Math.floor(Number(data.levels && data.levels[id]) || 0);
@@ -326,7 +404,9 @@
     this.bestChain = 0;
     this.chain = 0;
     this.chainTier = 0;
+    this.mega = 0;
     this.spawnAcc = 0;
+    this.emptyFor = 0;
     this._earnings.length = 0;
     for (var i = 0; i < C.UPGRADES.length; i++) this.levels[C.UPGRADES[i].id] = 0;
     this.spawnKernel();

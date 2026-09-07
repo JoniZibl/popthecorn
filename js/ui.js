@@ -20,7 +20,11 @@
       best: document.getElementById('best'),
       pops: document.getElementById('pops'),
       chain: document.getElementById('chain'),
+      callout: document.getElementById('callout'),
       hint: document.getElementById('hint'),
+      mega: document.getElementById('mega'),
+      megaFill: document.getElementById('megaFill'),
+      megaLabel: document.getElementById('megaLabel'),
       upgrades: document.getElementById('upgrades')
     };
 
@@ -28,6 +32,8 @@
     this._lastMoney = -1;
     this._chainShown = 0;
     this._hintHidden = false;
+    this._megaReady = null;
+    this.moneyPunch = 0;      // decays each frame; drives the counter's scale
 
     this.buildUpgrades();
   }
@@ -78,12 +84,33 @@
 
   /* ---------------- per-frame refresh ---------------- */
 
-  UI.prototype.update = function () {
+  UI.prototype.update = function (dt) {
     var sim = this.sim;
 
     if (sim.money !== this._lastMoney) {
       this.el.money.textContent = '$' + fmt(sim.money);
       this._lastMoney = sim.money;
+    }
+
+    // Every pop kicks the counter; the kick decays continuously rather than
+    // through a CSS class, so rapid-fire pops stack instead of restarting.
+    if (this.moneyPunch > 0.001) {
+      this.moneyPunch *= Math.pow(0.0015, dt || 0.016);
+      this.el.money.style.transform = 'scale(' + (1 + this.moneyPunch).toFixed(4) + ')';
+    } else if (this.moneyPunch !== 0) {
+      this.moneyPunch = 0;
+      this.el.money.style.transform = '';
+    }
+
+    // MEGA meter
+    var progress = sim.megaProgress();
+    this.el.megaFill.style.width = (progress * 100).toFixed(1) + '%';
+    var ready = sim.megaReady();
+    if (ready !== this._megaReady) {
+      this._megaReady = ready;
+      this.el.mega.classList.toggle('ready', ready);
+      this.el.mega.disabled = !ready;
+      this.el.megaLabel.textContent = ready ? 'MEGA POP — TAP!' : 'MEGA POP';
     }
     this.el.rate.textContent = '$' + fmt(sim.moneyPerSecond(), true) + ' / s';
     this.el.best.textContent = sim.bestChain > 0 ? 'BEST CHAIN ×' + sim.bestChain : 'BEST CHAIN —';
@@ -98,7 +125,7 @@
 
       if (level !== row.lastLevel) {
         row.lvl.textContent = 'LV ' + level;
-        row.val.textContent = def.format(def.value(level));
+        row.val.textContent = def.format(def.value(level), level);
         row.cost.textContent = '$' + fmt(cost);
         row.lastLevel = level;
       }
@@ -110,12 +137,25 @@
     }
   };
 
-  /** Money readout punch — called on manual pops. */
-  UI.prototype.bumpMoney = function () {
-    var el = this.el.money;
-    el.classList.remove('bump');
+  /** Money readout punch. Strength scales with how big the pop was. */
+  UI.prototype.bumpMoney = function (strength) {
+    this.moneyPunch = Math.min(this.moneyPunch + (strength || 0.06), 0.42);
+  };
+
+  /** Big slam-in word: "NICE", "INSANE", "GOLDEN!" … */
+  UI.prototype.callout = function (text) {
+    var el = this.el.callout;
+    el.textContent = text;
+    el.classList.remove('go');
     void el.offsetWidth;
-    el.classList.add('bump');
+    el.classList.add('go');
+  };
+
+  UI.prototype.flashMega = function () {
+    var el = this.el.mega;
+    el.classList.remove('fired');
+    void el.offsetWidth;
+    el.classList.add('fired');
   };
 
   /* ---------------- chain banner ---------------- */
@@ -132,7 +172,7 @@
       el.classList.add('pulse');
     }
 
-    var tier = chain >= 100 ? 't4' : chain >= 50 ? 't3' : chain >= 25 ? 't2' : chain >= 10 ? 't1' : '';
+    var tier = chain >= 100 ? 't4' : chain >= 40 ? 't3' : chain >= 25 ? 't2' : chain >= 8 ? 't1' : '';
     el.className = 'chain on pulse' + (tier ? ' ' + tier : '');
   };
 

@@ -15,7 +15,7 @@
 
   // Hard caps keep the frame budget predictable on phones.
   var MAX_POPCORN = 42;
-  var MAX_PARTICLES = 340;
+  var MAX_PARTICLES = 250;
   var MAX_FLOATERS = 22;
   var MAX_RINGS = 30;
 
@@ -31,20 +31,55 @@
     this.flash = 0;       // white-out overlay strength 0..1
     this.flashHue = 40;
     this.heatGlow = 0;    // ambient pan glow, rises with chain intensity
+    this.hitstop = 0;     // seconds of frozen simulation — the "impact" pause
+    this.zoom = 0;        // camera punch, added to the render scale
     this.time = 0;
   }
 
   /* ---------------- spawners ---------------- */
 
   /** The main "a kernel just popped" burst. */
-  Fx.prototype.pop = function (x, y, chain, manual) {
+  Fx.prototype.pop = function (x, y, chain, manual, golden) {
     var intensity = clamp(chain / 40, 0, 1);
 
     this.addPopcorn(x, y, intensity);
-    this.addParticles(x, y, manual ? 14 : 10, intensity);
+    this.addParticles(x, y, (manual ? 20 : 14) + Math.round(intensity * 10), intensity, golden);
+    this.addRing(x, y, 0.34 + intensity * 0.2,
+      golden ? 'rgba(255,232,140,0.95)' : 'rgba(255,220,170,0.55)', golden ? 0.02 : 0.01);
 
-    this.shake = Math.min(this.shake + (manual ? 0.012 : 0.008) + intensity * 0.02, 0.14);
-    this.heatGlow = Math.min(this.heatGlow + 0.05 + intensity * 0.1, 1);
+    this.shake = Math.min(this.shake + (manual ? 0.016 : 0.011) + intensity * 0.026, 0.16);
+    this.zoom = Math.min(this.zoom + 0.004 + intensity * 0.008, 0.05);
+    this.heatGlow = Math.min(this.heatGlow + 0.06 + intensity * 0.1, 1);
+
+    if (golden) this.golden(x, y);
+  };
+
+  /** Jackpot burst: gold everywhere, a hard freeze frame, a big camera punch. */
+  Fx.prototype.golden = function (x, y) {
+    this.hitstop = Math.max(this.hitstop, 0.09);
+    this.zoom = Math.min(this.zoom + 0.05, 0.1);
+    this.shake = Math.min(this.shake + 0.09, 0.2);
+    this.flash = Math.min(this.flash + 0.4, 0.8);
+    this.flashHue = 48;
+    this.heatGlow = 1;
+
+    this.addRing(x, y, 1.6, 'rgba(255,236,150,1)', 0.03);
+    this.addRing(x, y, 1.1, 'rgba(255,255,255,0.9)', 0.014);
+    this.addParticles(x, y, 60, 1, true);
+  };
+
+  /** MEGA POP: the biggest punch in the game. */
+  Fx.prototype.mega = function () {
+    this.hitstop = Math.max(this.hitstop, 0.14);
+    this.zoom = Math.min(this.zoom + 0.09, 0.14);
+    this.shake = Math.min(this.shake + 0.2, 0.26);
+    this.flash = Math.min(this.flash + 0.6, 0.9);
+    this.flashHue = 30;
+    this.heatGlow = 1;
+
+    this.addRing(0, 0, 2.0, 'rgba(255,255,255,1)', 0.05);
+    this.addRing(0, 0, 1.6, 'rgba(255,170,50,0.9)', 0.08);
+    this.addParticles(0, 0, 90, 1, true);
   };
 
   Fx.prototype.addPopcorn = function (x, y, intensity) {
@@ -78,21 +113,21 @@
     });
   };
 
-  Fx.prototype.addParticles = function (x, y, count, intensity) {
+  Fx.prototype.addParticles = function (x, y, count, intensity, golden) {
     for (var i = 0; i < count; i++) {
       if (this.particles.length >= MAX_PARTICLES) this.particles.shift();
       var a = Math.random() * Math.PI * 2;
-      var speed = rand(0.25, 1.0) * (1 + intensity * 0.8);
+      var speed = rand(0.3, 1.35) * (1 + intensity * 0.9);
       this.particles.push({
         x: x,
         y: y,
         vx: Math.cos(a) * speed,
         vy: Math.sin(a) * speed,
         life: 0,
-        maxLife: rand(0.35, 0.8),
-        size: rand(0.008, 0.02),
-        hue: rand(24, 48),
-        light: rand(55, 80)
+        maxLife: rand(0.4, 0.95),
+        size: rand(0.008, 0.024) * (golden ? 1.4 : 1),
+        hue: golden ? rand(42, 54) : rand(24, 48),
+        light: golden ? rand(70, 92) : rand(55, 80)
       });
     }
   };
@@ -118,17 +153,21 @@
 
   /** Chain milestone reached — escalating punch. */
   Fx.prototype.tier = function (tier, x, y) {
-    var strength = 0.1 + tier * 0.12;
-    this.shake = Math.min(this.shake + strength * 0.5, 0.22);
-    this.flash = Math.min(this.flash + 0.14 + tier * 0.07, 0.75);
-    this.flashHue = 44 - tier * 4;
+    var t = Math.min(tier, 8);
+
+    this.hitstop = Math.max(this.hitstop, 0.03 + t * 0.012);
+    this.zoom = Math.min(this.zoom + 0.02 + t * 0.008, 0.12);
+    this.shake = Math.min(this.shake + 0.06 + t * 0.03, 0.24);
+    this.flash = Math.min(this.flash + 0.18 + t * 0.06, 0.85);
+    this.flashHue = Math.max(12, 46 - t * 5);
     this.heatGlow = 1;
 
-    this.addRing(x, y, 1.15 + tier * 0.12, 'rgba(255,220,150,0.9)', 0.018 + tier * 0.006);
-    this.addParticles(x, y, 16 + tier * 10, 1);
+    this.addRing(x, y, 1.15 + t * 0.12, 'rgba(255,225,160,0.95)', 0.018 + t * 0.006);
+    this.addParticles(x, y, 24 + t * 12, 1, t >= 4);
 
-    // From tier 3 (chain 50) the whole pan throws a second wave.
-    if (tier >= 3) this.addRing(0, 0, 1.35, 'rgba(255,150,40,0.75)', 0.03);
+    // From tier 3 the whole pan throws a second wave behind the local one.
+    if (t >= 3) this.addRing(0, 0, 1.5, 'rgba(255,150,40,0.8)', 0.035);
+    if (t >= 5) this.addRing(0, 0, 1.9, 'rgba(255,255,255,0.7)', 0.02);
   };
 
   /** Ambient sparks so an idle pan never feels dead. */
@@ -205,6 +244,9 @@
     this.flash *= Math.pow(0.002, dt);
     if (this.flash < 0.004) this.flash = 0;
 
+    this.zoom *= Math.pow(0.0009, dt);
+    if (this.zoom < 0.0004) this.zoom = 0;
+
     // ambient glow tracks how hot things currently are
     var target = clamp(chain / 60, 0, 1);
     this.heatGlow += (target - this.heatGlow) * Math.min(1, dt * 2.2);
@@ -218,6 +260,7 @@
     this.floaters.length = 0;
     this.rings.length = 0;
     this.shake = this.flash = this.heatGlow = 0;
+    this.hitstop = this.zoom = 0;
   };
 
   NS.Fx = Fx;

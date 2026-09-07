@@ -1,0 +1,2353 @@
+<title>POPCORE</title>
+<style>
+/* POPCORE — mobile-first layout. Dark, warm, minimal. */
+
+:root {
+  color-scheme: dark;
+  --bg: #08070a;
+  --bg-2: #100d13;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f6f1e8;
+  --dim: rgba(246, 241, 232, 0.45);
+  --gold: #ffc24b;
+  --orange: #ff7a18;
+  --cream: #fff6e2;
+  --ok: #7ee08a;
+  --pad: 12px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: max(8px, env(safe-area-inset-top)) var(--pad) max(8px, env(safe-area-inset-bottom));
+  gap: 8px;
+}
+
+/* ---------------- HUD ---------------- */
+
+#hud {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.money {
+  font-size: clamp(26px, 8vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--cream);
+  text-shadow: 0 0 24px rgba(255, 178, 60, 0.35);
+  transform-origin: left center;   /* scale is driven per-frame from ui.js */
+  will-change: transform;
+}
+
+.rate {
+  margin-top: 4px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.hud-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.best {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+}
+
+.icon-btn, .text-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+.icon-btn:active, .text-btn:active { transform: scale(0.95); }
+.icon-btn:focus-visible, .text-btn:focus-visible,
+.up:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.text-btn.armed { color: #ff8a4b; border-color: rgba(255, 122, 24, 0.6); }
+
+/* ---------------- Stage ---------------- */
+
+#stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.chain {
+  position: absolute;
+  white-space: nowrap;
+  left: 0;
+  right: 0;
+  top: 6%;
+  text-align: center;
+  pointer-events: none;
+  font-weight: 900;
+  font-size: clamp(26px, 8vw, 32px);
+  letter-spacing: 0.02em;
+  color: var(--gold);
+  opacity: 0;
+  transform: scale(0.7);
+  text-shadow: 0 0 20px rgba(255, 140, 30, 0.55);
+  will-change: transform, opacity;
+}
+.chain.on { opacity: 1; }
+.chain.pulse { animation: chain-pop 260ms cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+
+@keyframes chain-pop {
+  0%   { transform: scale(0.72) rotate(-2deg); }
+  55%  { transform: scale(1.22) rotate(1.5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Escalating chain tiers */
+.chain.t1 { color: var(--gold); font-size: clamp(30px, 9vw, 36px); }
+.chain.t2 { color: #ffa53d; font-size: clamp(34px, 10.5vw, 42px); text-shadow: 0 0 26px rgba(255, 140, 30, 0.8); }
+.chain.t3 { color: #ff7a18; font-size: clamp(38px, 12vw, 48px); text-shadow: 0 0 34px rgba(255, 90, 10, 0.95); }
+.chain.t4 { color: #fff2c4; font-size: clamp(42px, 13.5vw, 56px); text-shadow: 0 0 44px rgba(255, 210, 90, 1), 0 0 90px rgba(255, 90, 10, 0.8); }
+
+.hint {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--dim);
+  pointer-events: none;
+  animation: hint-breathe 2.4s ease-in-out infinite;
+  transition: opacity 400ms ease;
+}
+.hint.hide { opacity: 0; animation: none; }
+
+@keyframes hint-breathe {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.85; }
+}
+
+/* ---------------- Callout ---------------- */
+
+.callout {
+  position: absolute;
+  left: 0; right: 0;
+  top: 34%;
+  text-align: center;
+  pointer-events: none;
+  font-weight: 900;
+  font-style: italic;
+  font-size: clamp(34px, 13vw, 62px);
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  color: #fff3d0;
+  text-shadow: 0 0 30px rgba(255, 150, 30, 0.95), 0 6px 0 rgba(180, 60, 0, 0.35);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+.callout.go { animation: callout-slam 900ms cubic-bezier(0.15, 1.5, 0.4, 1) both; }
+
+@keyframes callout-slam {
+  0%   { opacity: 0; transform: scale(2.4) rotate(-9deg); }
+  16%  { opacity: 1; transform: scale(0.92) rotate(-3deg); }
+  30%  { transform: scale(1.06) rotate(-4deg); }
+  70%  { opacity: 1; transform: scale(1) rotate(-3deg); }
+  100% { opacity: 0; transform: scale(1.25) translateY(-26px) rotate(-3deg); }
+}
+
+/* ---------------- MEGA POP ---------------- */
+
+.mega {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+  height: 46px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--dim);
+  font: inherit;
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  cursor: default;
+  transition: transform 90ms ease, color 160ms ease, border-color 160ms ease;
+}
+.mega-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+  background: linear-gradient(90deg, rgba(255, 122, 24, 0.55), rgba(255, 194, 75, 0.75));
+  transition: width 160ms linear;
+}
+.mega-label {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 100%;
+  font-size: 13px;
+}
+.mega.ready {
+  cursor: pointer;
+  color: #1a0d02;
+  border-color: rgba(255, 214, 110, 0.9);
+  animation: mega-throb 620ms ease-in-out infinite;
+}
+.mega.ready .mega-fill {
+  background: linear-gradient(90deg, #ff7a18, #ffd76a, #ff7a18);
+}
+.mega.ready:active { transform: scale(0.97); }
+.mega.fired { animation: mega-fired 420ms ease-out; }
+
+@keyframes mega-throb {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 170, 40, 0); }
+  50% { box-shadow: 0 0 26px rgba(255, 170, 40, 0.75); }
+}
+@keyframes mega-fired {
+  0% { transform: scale(1.04); filter: brightness(2.2); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+/* ---------------- Upgrades ---------------- */
+
+.upgrades {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.up {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 90ms ease, border-color 160ms ease, background 160ms ease;
+}
+.up:disabled { cursor: default; opacity: 0.55; }
+.up:not(:disabled) { border-color: rgba(255, 194, 75, 0.42); }
+.up:not(:disabled):active { transform: scale(0.97); }
+.up.flash { animation: up-flash 420ms ease-out; }
+
+@keyframes up-flash {
+  0% { background: rgba(255, 194, 75, 0.55); }
+  100% { background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)); }
+}
+
+.up-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.up-name {
+  font-size: clamp(11px, 3.4vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.up-lvl {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.up-val {
+  font-size: 10px;
+  white-space: nowrap;
+  color: rgba(246, 241, 232, 0.6);
+  letter-spacing: 0.04em;
+}
+.up-cost {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--dim);
+  letter-spacing: 0.02em;
+}
+.up:not(:disabled) .up-cost { color: var(--gold); }
+
+/* progress toward affording the next level */
+.up-bar {
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--orange), var(--gold));
+  opacity: 0.75;
+  transition: width 180ms linear;
+}
+
+/* ---------------- Footer ---------------- */
+
+#footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: rgba(246, 241, 232, 0.28);
+}
+
+@media (min-height: 720px) {
+  .upgrades { gap: 10px; }
+  .up { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chain.pulse, .hint, .mega.ready { animation: none; }
+  .callout.go { animation-duration: 600ms; }
+}
+</style>
+
+<div id="app">
+
+  <header id="hud">
+    <div class="hud-left">
+      <div id="money" class="money">$0</div>
+      <div id="rate" class="rate">$0.0 / s</div>
+    </div>
+    <div class="hud-right">
+      <div id="best" class="best">BEST CHAIN —</div>
+      <button id="mute" class="icon-btn" type="button" aria-label="Toggle sound">SOUND ON</button>
+    </div>
+  </header>
+
+  <main id="stage">
+    <canvas id="game"></canvas>
+    <div id="chain" class="chain" aria-live="off"></div>
+    <div id="callout" class="callout" aria-hidden="true"></div>
+    <div id="hint" class="hint">TAP THE KERNEL</div>
+  </main>
+
+  <button id="mega" class="mega" type="button" disabled>
+    <span id="megaFill" class="mega-fill"></span>
+    <span id="megaLabel" class="mega-label">MEGA POP</span>
+  </button>
+
+  <section id="upgrades" class="upgrades"></section>
+
+  <footer id="footer">
+    <span id="pops">0 pops</span>
+    <button id="reset" class="text-btn" type="button">reset save</button>
+  </footer>
+
+</div>
+
+<script>
+/**
+ * POPCORE — balance & tuning constants.
+ *
+ * Everything gameplay-facing lives here so the numbers can be tweaked without
+ * touching simulation or rendering code.
+ *
+ * Simulation space is normalized: the pan is a circle of radius 1 centred on
+ * (0, 0). The renderer maps that to pixels, so balance is resolution
+ * independent.
+ */
+window.POPCORE = window.POPCORE || {};
+
+POPCORE.CONFIG = {
+  /* ---- world ---- */
+  PAN_RADIUS: 1,
+  SPAWN_RADIUS: 0.84,       // kernels spawn inside this, keeping clear of the rim
+  KERNEL_RADIUS: 0.07,      // base kernel size in pan units
+  MAX_KERNELS: 46,          // hard cap: keeps the pan readable and the sim cheap
+  TAP_RADIUS: 0.11,         // forgiving touch radius (fat-finger friendly)
+  MAX_SPAWN_RATE: 14,       // ceiling on kernels per second: past this the pan is
+                            // an unreadable firehose rather than a game
+  MAX_SPAWN_PER_STEP: 4,    // bounds the work done in a single simulation step
+  EMPTY_REFILL_DELAY: 0.4,  // how long an empty pan may stay empty before one
+                            // kernel is placed regardless of the spawn rate
+
+  /* ---- heat ---- */
+  HEAT_JITTER: 0.25,        // per-kernel heat-rate variation (±25%), avoids lockstep
+  SHOCK_SPEED: 1.5,         // shockwave expansion speed, pan units / second
+  SHOCK_BAND: 0.06,         // ring thickness used for heat hit detection
+  MAX_SHOCKWAVES: 45,
+
+  /* ---- chains ----
+   * The window tightens as the chain grows: a slow, metronomic tapper can hold
+   * a chain of ~10, but only a real cascade (pops ~0.15s apart) can hold 50+.
+   * That keeps CHAIN a measure of chain *reactions*, not of tapping stamina.
+   */
+  CHAIN_WINDOW: 0.7,        // window at chain 1
+  CHAIN_WINDOW_MIN: 0.24,   // window a very long chain converges to
+  CHAIN_WINDOW_DECAY: 22,   // chain length over which it decays
+  CHAIN_BONUS: 0.5,         // money multiplier = 1 + CHAIN_BONUS * sqrt(chain).
+                            // Sub-linear on purpose: huge chains stay exciting
+                            // without the economy exploding.
+
+  // Milestones are close together at the start so something lands every few
+  // seconds, then spread out to keep the top end meaningful.
+  CHAIN_MAX: 500,           // a chain this long banks itself: the counter always
+                            // means something, and the cap is its own climax
+  CHAIN_BONUS_MIN: 8,       // shortest chain that pays an end-of-chain bonus
+  CHAIN_BONUS_FACTOR: 0.7,  // bonus = popValue * chain * this
+  CHAIN_TIERS: [8, 15, 25, 40, 60, 100, 150, 250, 400],
+  TIER_WORDS: ['NICE', 'SWEET', 'WILD', 'CRAZY', 'INSANE',
+               'UNREAL', 'GODLIKE', 'LEGENDARY', 'COSMIC'],
+
+  /* ---- golden kernels ----
+   * A jackpot target that shows up every ~half minute: worth a pile of money,
+   * pops with its own callout, and gives the eye something to hunt for.
+   */
+  GOLDEN_CHANCE: 0.05,          // base odds that a new kernel is golden
+  GOLDEN_PER_SPAWN_LEVEL: 0.002, // Spawn Rate keeps paying once the rate caps:
+  GOLDEN_MAX_CHANCE: 0.16,       // it buys golden kernels instead
+  GOLDEN_MULT: 18,
+
+  /* ---- MEGA POP ----
+   * A meter that fills with every pop. When it is full the player gets one
+   * screen-clearing wave on demand — a goal that is always a few seconds away.
+   */
+  MEGA_MAX: 40,             // pops needed to fill the meter
+  MEGA_HEAT: 3,             // enough to pop anything the wave touches
+  MEGA_RADIUS: 2.3,
+
+  /* ---- misc ---- */
+  RATE_WINDOW: 6,           // seconds of history behind the "$ / s" readout
+  SAVE_INTERVAL: 5,         // seconds between autosaves
+  MAX_DT: 0.05,             // clamp for a single simulation step (tab-switch safety)
+
+  /* ---- upgrades ----
+   * cost(level)  = baseCost * costMult^level   → exponential, endless progression
+   * value(level) feeds the simulation directly.
+   *
+   * Every cost multiplier is deliberately larger than the matching value
+   * multiplier: output per level grows ~1.13 * 1.18 while a level costs ~1.44
+   * more, so each purchase takes a little longer than the last instead of the
+   * economy running away.
+   */
+  UPGRADES: [
+    {
+      id: 'spawn',
+      name: 'Spawn Rate',
+      baseCost: 12,
+      costMult: 1.45,
+      value: function (lvl) { return 1.40 * Math.pow(1.15, lvl); },
+      format: function (v, lvl) {
+        var C = POPCORE.CONFIG;
+        var rate = Math.min(v, C.MAX_SPAWN_RATE);
+        var gold = Math.min(C.GOLDEN_CHANCE + lvl * C.GOLDEN_PER_SPAWN_LEVEL, C.GOLDEN_MAX_CHANCE);
+        return rate.toFixed(2) + '/s · ' + Math.round(gold * 100) + '% gold';
+      }
+    },
+    {
+      id: 'heat',
+      name: 'Heat Speed',
+      baseCost: 14,
+      costMult: 1.42,
+      value: function (lvl) { return 0.055 * Math.pow(1.10, lvl); },
+      format: function (v) { return (1 / v).toFixed(1) + 's to pop'; }
+    },
+    {
+      id: 'shock',
+      name: 'Shockwave',
+      baseCost: 20,
+      costMult: 1.46,
+      value: function (lvl) { return 0.30 * Math.pow(1.11, lvl); },
+      format: function (v) { return '+' + Math.round(v * 100) + '% heat'; }
+    },
+    {
+      id: 'value',
+      name: 'Pop Value',
+      baseCost: 12,
+      costMult: 1.48,
+      value: function (lvl) { return 1 * Math.pow(1.22, lvl); },
+      format: function (v) { return '$' + POPCORE.formatMoney(v, true); }
+    }
+  ],
+
+  /* Shockwave radius grows with the shockwave upgrade but is capped so a single
+   * pop can never trivially cover the whole pan too early. */
+  shockRadius: function (lvl) {
+    return Math.min(0.36 * Math.pow(1.06, lvl), 1.8);
+  },
+
+  /** Seconds a chain survives without a pop, at the given chain length. */
+  chainWindow: function (chain) {
+    var C = POPCORE.CONFIG;
+    return C.CHAIN_WINDOW_MIN +
+      (C.CHAIN_WINDOW - C.CHAIN_WINDOW_MIN) * Math.exp(-chain / C.CHAIN_WINDOW_DECAY);
+  }
+};
+
+/* ---- shared helpers ---- */
+
+POPCORE.SUFFIX = ['', 'K', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'];
+
+/** Compact money formatting: 1234567 -> "1.23M". */
+POPCORE.formatMoney = function (n, short) {
+  if (!isFinite(n)) return '∞';
+  if (n < 1000) {
+    if (short) return n < 10 ? n.toFixed(2) : n.toFixed(0);
+    return n < 10 ? n.toFixed(1) : Math.floor(n).toString();
+  }
+  var tier = Math.floor(Math.log10(n) / 3);
+  var suffix = POPCORE.SUFFIX[tier];
+  if (!suffix) return n.toExponential(2);
+  var scaled = n / Math.pow(1000, tier);
+  return (scaled < 10 ? scaled.toFixed(2) : scaled < 100 ? scaled.toFixed(1) : scaled.toFixed(0)) + suffix;
+};
+
+POPCORE.clamp = function (v, lo, hi) { return v < lo ? lo : v > hi ? hi : v; };
+POPCORE.lerp = function (a, b, t) { return a + (b - a) * t; };
+POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
+</script>
+
+<script>
+/**
+ * POPCORE — simulation.
+ *
+ * Pure gameplay state: kernels, heat, shockwaves, chains, money, upgrades.
+ * Knows nothing about canvas, DOM or audio. Every frame it drains `events`,
+ * which is how the presentation layers learn what happened.
+ *
+ * Event shapes:
+ *   { type:'pop',      x, y, chain, value, manual, golden }
+ *   { type:'chainEnd', count }
+ *   { type:'tier',     tier, chain, word, x, y }   // chain crossed a milestone
+ *   { type:'spawn',    x, y, golden }
+ *   { type:'mega' }                                // MEGA POP fired
+ *   { type:'buy',      id, level }
+ */
+(function (NS) {
+  'use strict';
+
+  var C = NS.CONFIG;
+  var clamp = NS.clamp;
+  var rand = NS.rand;
+
+  var nextId = 1;
+
+  function Sim() {
+    this.kernels = [];
+    this.shockwaves = [];
+    this.events = [];
+
+    this.money = 0;
+    this.totalPops = 0;
+    this.bestChain = 0;
+    this.levels = {};
+    for (var i = 0; i < C.UPGRADES.length; i++) this.levels[C.UPGRADES[i].id] = 0;
+
+    this.mega = 0;           // MEGA POP charge, 0..MEGA_MAX
+    this.chain = 0;
+    this.chainTimer = 0;
+    this.chainTier = 0;      // index into CHAIN_TIERS already announced
+    this.time = 0;
+    this.spawnAcc = 0;
+    this.emptyFor = 0;
+
+    // Rolling earnings history for the "$ / s" readout.
+    this._earnings = [];
+    this._earned = 0;
+  }
+
+  /* ---------------- upgrades ---------------- */
+
+  Sim.prototype.level = function (id) { return this.levels[id] || 0; };
+
+  Sim.prototype.upgradeDef = function (id) {
+    for (var i = 0; i < C.UPGRADES.length; i++) {
+      if (C.UPGRADES[i].id === id) return C.UPGRADES[i];
+    }
+    return null;
+  };
+
+  Sim.prototype.cost = function (id) {
+    var def = this.upgradeDef(id);
+    return def.baseCost * Math.pow(def.costMult, this.level(id));
+  };
+
+  Sim.prototype.canBuy = function (id) { return this.money >= this.cost(id); };
+
+  Sim.prototype.buy = function (id) {
+    var price = this.cost(id);
+    if (this.money < price) return false;
+    this.money -= price;
+    this.levels[id] = this.level(id) + 1;
+    this.events.push({ type: 'buy', id: id, level: this.levels[id] });
+    return true;
+  };
+
+  /* Derived stats — read straight from the upgrade table. */
+  Sim.prototype.spawnRate = function () {
+    return Math.min(this.upgradeDef('spawn').value(this.level('spawn')), C.MAX_SPAWN_RATE);
+  };
+  Sim.prototype.heatRate = function () { return this.upgradeDef('heat').value(this.level('heat')); };
+  Sim.prototype.shockHeat = function () { return this.upgradeDef('shock').value(this.level('shock')); };
+  Sim.prototype.shockRadius = function () { return C.shockRadius(this.level('shock')); };
+  Sim.prototype.popValue = function () { return this.upgradeDef('value').value(this.level('value')); };
+
+  /** Odds a new kernel is golden. Spawn levels keep buying these after the
+   *  raw spawn rate has hit its ceiling, so the upgrade never goes dead. */
+  Sim.prototype.goldenChance = function () {
+    return Math.min(C.GOLDEN_CHANCE + this.level('spawn') * C.GOLDEN_PER_SPAWN_LEVEL,
+                    C.GOLDEN_MAX_CHANCE);
+  };
+
+  /** Money earned per pop at the current chain length (sub-linear in the chain). */
+  Sim.prototype.valueAtChain = function (chain) {
+    return this.popValue() * (1 + C.CHAIN_BONUS * Math.sqrt(chain));
+  };
+
+  Sim.prototype.moneyPerSecond = function () {
+    var total = 0;
+    for (var i = 0; i < this._earnings.length; i++) total += this._earnings[i].amount;
+    return total / C.RATE_WINDOW;
+  };
+
+  /* ---------------- kernels ---------------- */
+
+  Sim.prototype.spawnKernel = function () {
+    if (this.kernels.length >= C.MAX_KERNELS) return null;
+
+    // A few placement attempts, keeping some breathing room between kernels.
+    var best = null, bestDist = -1;
+    for (var attempt = 0; attempt < 8; attempt++) {
+      var a = Math.random() * Math.PI * 2;
+      // sqrt keeps the distribution even across the disc instead of centre-heavy
+      var r = Math.sqrt(Math.random()) * C.SPAWN_RADIUS;
+      var x = Math.cos(a) * r, y = Math.sin(a) * r;
+      var d = this._nearestDistance(x, y);
+      if (d > bestDist) { bestDist = d; best = { x: x, y: y }; }
+      if (d > C.KERNEL_RADIUS * 3) break;
+    }
+
+    var k = {
+      id: nextId++,
+      x: best.x,
+      y: best.y,
+      golden: Math.random() < this.goldenChance(),
+      heat: 0,
+      rate: this.heatRate() * rand(1 - C.HEAT_JITTER, 1 + C.HEAT_JITTER),
+      angle: rand(0, Math.PI * 2),
+      seed: Math.random() * 1000,
+      age: 0
+    };
+    this.kernels.push(k);
+    this.events.push({ type: 'spawn', x: k.x, y: k.y, golden: k.golden });
+    return k;
+  };
+
+  Sim.prototype._nearestDistance = function (x, y) {
+    var min = Infinity;
+    for (var i = 0; i < this.kernels.length; i++) {
+      var k = this.kernels[i];
+      var dx = k.x - x, dy = k.y - y;
+      var d = Math.sqrt(dx * dx + dy * dy);
+      if (d < min) min = d;
+    }
+    return min;
+  };
+
+  /** Kernel nearest to a tap, within TAP_RADIUS. Hottest wins on a tie-ish tap. */
+  Sim.prototype.kernelAt = function (x, y) {
+    var best = null, bestScore = Infinity;
+    for (var i = 0; i < this.kernels.length; i++) {
+      var k = this.kernels[i];
+      var dx = k.x - x, dy = k.y - y;
+      var d = Math.sqrt(dx * dx + dy * dy);
+      if (d <= C.TAP_RADIUS && d < bestScore) { bestScore = d; best = k; }
+    }
+    return best;
+  };
+
+  Sim.prototype.tap = function (x, y) {
+    var k = this.kernelAt(x, y);
+    if (!k) return false;
+    this.pop(k, true);
+    return true;
+  };
+
+  /* ---------------- popping ---------------- */
+
+  Sim.prototype.pop = function (kernel, manual) {
+    var idx = this.kernels.indexOf(kernel);
+    if (idx === -1) return;
+    this.kernels.splice(idx, 1);
+
+    var value = this.valueAtChain(this.chain);
+    if (kernel.golden) value *= C.GOLDEN_MULT;
+    this.money += value;
+    this._earned += value;
+    this.totalPops++;
+
+    this.chain++;
+    this.chainTimer = C.chainWindow(this.chain);
+    if (this.mega < C.MEGA_MAX) this.mega = Math.min(C.MEGA_MAX, this.mega + 1);
+    if (this.chain > this.bestChain) this.bestChain = this.chain;
+
+    this.addShockwave(kernel.x, kernel.y);
+
+    this.events.push({
+      type: 'pop',
+      x: kernel.x,
+      y: kernel.y,
+      chain: this.chain,
+      value: value,
+      manual: !!manual,
+      golden: !!kernel.golden
+    });
+
+    // A chain that hits the cap banks itself immediately — the counter stays
+    // meaningful and the player gets a jackpot beat on a loop.
+    if (this.chain >= C.CHAIN_MAX) {
+      this.endChain(true);
+      return;
+    }
+
+    // Announce milestones once each, in order.
+    while (this.chainTier < C.CHAIN_TIERS.length && this.chain >= C.CHAIN_TIERS[this.chainTier]) {
+      this.events.push({
+        type: 'tier',
+        tier: this.chainTier + 1,
+        chain: this.chain,
+        word: C.TIER_WORDS[this.chainTier] || C.TIER_WORDS[C.TIER_WORDS.length - 1],
+        x: kernel.x,
+        y: kernel.y
+      });
+      this.chainTier++;
+    }
+  };
+
+  /* ---------------- MEGA POP ---------------- */
+
+  Sim.prototype.megaReady = function () { return this.mega >= C.MEGA_MAX; };
+
+  Sim.prototype.megaProgress = function () { return this.mega / C.MEGA_MAX; };
+
+  /** Spend a full meter on one pan-wide wave that pops everything it reaches. */
+  Sim.prototype.fireMega = function () {
+    if (!this.megaReady()) return false;
+    this.mega = 0;
+
+    if (this.shockwaves.length >= C.MAX_SHOCKWAVES) this.shockwaves.shift();
+    this.shockwaves.push({
+      x: 0, y: 0, r: 0,
+      maxR: C.MEGA_RADIUS,
+      heat: C.MEGA_HEAT,
+      chain: Math.max(this.chain, 40),
+      hit: {}
+    });
+
+    // Keep any running chain alive long enough for the wave to reach the rim.
+    this.chainTimer = Math.max(this.chainTimer, C.CHAIN_WINDOW);
+    this.events.push({ type: 'mega' });
+    return true;
+  };
+
+  Sim.prototype.addShockwave = function (x, y) {
+    if (this.shockwaves.length >= C.MAX_SHOCKWAVES) this.shockwaves.shift();
+    this.shockwaves.push({
+      x: x,
+      y: y,
+      r: 0,
+      maxR: this.shockRadius(),
+      heat: this.shockHeat(),
+      chain: this.chain,
+      hit: {}          // kernel ids already touched by this ring
+    });
+  };
+
+  /* ---------------- step ---------------- */
+
+  Sim.prototype.update = function (dt) {
+    this.time += dt;
+
+    this._updateChain(dt);
+    this._updateSpawning(dt);
+    this._updateHeat(dt);
+    this._updateShockwaves(dt);
+    this._updateEarnings(dt);
+  };
+
+  Sim.prototype._updateChain = function (dt) {
+    if (this.chain <= 0) return;
+    this.chainTimer -= dt;
+    if (this.chainTimer <= 0) this.endChain(false);
+  };
+
+  /**
+   * Close out the running chain and bank its bonus. Every cascade therefore
+   * finishes on a payout rather than just petering out, and CHAIN_MAX means a
+   * self-sustaining pan banks a jackpot on a loop instead of counting to
+   * infinity.
+   */
+  Sim.prototype.endChain = function (maxed) {
+    var count = this.chain;
+    var bonus = 0;
+
+    if (count >= C.CHAIN_BONUS_MIN) {
+      bonus = this.popValue() * count * C.CHAIN_BONUS_FACTOR;
+      if (maxed) bonus *= 3;
+      this.money += bonus;
+      this._earned += bonus;
+    }
+
+    this.chain = 0;
+    this.chainTier = 0;
+    this.chainTimer = 0;
+    this.events.push({ type: 'chainEnd', count: count, bonus: bonus, maxed: !!maxed });
+  };
+
+  Sim.prototype._updateSpawning = function (dt) {
+    this.spawnAcc += this.spawnRate() * dt;
+    // Bounded burst: the accumulator can never queue up unbounded work, even if
+    // the tab was frozen or the spawn level is enormous.
+    if (this.spawnAcc > C.MAX_SPAWN_PER_STEP) this.spawnAcc = C.MAX_SPAWN_PER_STEP;
+
+    while (this.spawnAcc >= 1) {
+      this.spawnAcc -= 1;
+      if (!this.spawnKernel()) { this.spawnAcc = 0; break; }   // pan is full
+    }
+    // The pan is never allowed to sit empty for long — there is always
+    // something to tap. This is an anti-stall floor, not a spawn source: it
+    // waits out a delay first, otherwise an empty pan would spawn (and, once
+    // shockwaves are strong, immediately pop) one kernel every single frame.
+    if (this.kernels.length === 0) {
+      this.emptyFor += dt;
+      if (this.emptyFor >= C.EMPTY_REFILL_DELAY) {
+        this.emptyFor = 0;
+        this.spawnAcc = 0;
+        this.spawnKernel();
+      }
+    } else {
+      this.emptyFor = 0;
+    }
+  };
+
+  Sim.prototype._updateHeat = function (dt) {
+    var popped = null;
+    for (var i = 0; i < this.kernels.length; i++) {
+      var k = this.kernels[i];
+      k.age += dt;
+      k.heat += k.rate * dt;
+      if (k.heat >= 1) (popped || (popped = [])).push(k);
+    }
+    if (popped) for (var j = 0; j < popped.length; j++) this.pop(popped[j], false);
+  };
+
+  Sim.prototype._updateShockwaves = function (dt) {
+    for (var i = this.shockwaves.length - 1; i >= 0; i--) {
+      var w = this.shockwaves[i];
+      var prev = w.r;
+      w.r += C.SHOCK_SPEED * dt;
+
+      // Heat every kernel the ring swept across this step (each one only once).
+      var popped = null;
+      for (var j = 0; j < this.kernels.length; j++) {
+        var k = this.kernels[j];
+        if (w.hit[k.id]) continue;
+        var dx = k.x - w.x, dy = k.y - w.y;
+        var d = Math.sqrt(dx * dx + dy * dy);
+        if (d > w.maxR) continue;
+        if (d <= w.r + C.SHOCK_BAND && d >= prev - C.SHOCK_BAND) {
+          w.hit[k.id] = 1;
+          // Closer kernels take more heat than ones out near the edge.
+          var falloff = 1 - 0.55 * (d / w.maxR);
+          k.heat += w.heat * falloff;
+          if (k.heat >= 1) (popped || (popped = [])).push(k);
+        }
+      }
+      if (popped) for (var p = 0; p < popped.length; p++) this.pop(popped[p], false);
+
+      if (w.r >= w.maxR) this.shockwaves.splice(i, 1);
+    }
+  };
+
+  Sim.prototype._updateEarnings = function (dt) {
+    if (this._earned > 0) {
+      this._earnings.push({ t: this.time, amount: this._earned });
+      this._earned = 0;
+    }
+    var cutoff = this.time - C.RATE_WINDOW;
+    while (this._earnings.length && this._earnings[0].t < cutoff) this._earnings.shift();
+  };
+
+  /* ---------------- save / load ---------------- */
+
+  Sim.prototype.toJSON = function () {
+    return {
+      v: 1,
+      money: this.money,
+      totalPops: this.totalPops,
+      bestChain: this.bestChain,
+      mega: this.mega,
+      levels: this.levels
+    };
+  };
+
+  Sim.prototype.load = function (data) {
+    if (!data || data.v !== 1) return false;
+    this.money = Math.max(0, Number(data.money) || 0);
+    this.totalPops = Math.max(0, Math.floor(Number(data.totalPops) || 0));
+    this.bestChain = Math.max(0, Math.floor(Number(data.bestChain) || 0));
+    this.mega = clamp(Math.floor(Number(data.mega) || 0), 0, C.MEGA_MAX);
+    for (var i = 0; i < C.UPGRADES.length; i++) {
+      var id = C.UPGRADES[i].id;
+      var lvl = Math.floor(Number(data.levels && data.levels[id]) || 0);
+      this.levels[id] = Math.max(0, lvl);
+    }
+    return true;
+  };
+
+  Sim.prototype.reset = function () {
+    this.kernels.length = 0;
+    this.shockwaves.length = 0;
+    this.events.length = 0;
+    this.money = 0;
+    this.totalPops = 0;
+    this.bestChain = 0;
+    this.chain = 0;
+    this.chainTier = 0;
+    this.mega = 0;
+    this.spawnAcc = 0;
+    this.emptyFor = 0;
+    this._earnings.length = 0;
+    for (var i = 0; i < C.UPGRADES.length; i++) this.levels[C.UPGRADES[i].id] = 0;
+    this.spawnKernel();
+  };
+
+  NS.Sim = Sim;
+})(window.POPCORE);
+</script>
+
+<script>
+/**
+ * POPCORE — effects layer.
+ *
+ * Owns everything that is *only* visual: popcorn puffs, particles, floating
+ * money, screen shake, screen flashes and the extra rings that fire on big
+ * chains. It never affects gameplay, and the simulation never reads from it.
+ *
+ * All coordinates are in pan units, same as the simulation.
+ */
+(function (NS) {
+  'use strict';
+
+  var rand = NS.rand;
+  var clamp = NS.clamp;
+
+  // Hard caps keep the frame budget predictable on phones.
+  var MAX_POPCORN = 42;
+  var MAX_PARTICLES = 250;
+  var MAX_FLOATERS = 22;
+  var MAX_RINGS = 30;
+
+  function Fx() {
+    this.popcorn = [];
+    this.particles = [];
+    this.floaters = [];
+    this.rings = [];      // decorative rings (chain milestones), not sim shockwaves
+
+    this.shake = 0;       // current shake amplitude, pan units
+    this.shakeX = 0;
+    this.shakeY = 0;
+    this.flash = 0;       // white-out overlay strength 0..1
+    this.flashHue = 40;
+    this.heatGlow = 0;    // ambient pan glow, rises with chain intensity
+    this.hitstop = 0;     // seconds of frozen simulation — the "impact" pause
+    this.zoom = 0;        // camera punch, added to the render scale
+    this.time = 0;
+  }
+
+  /* ---------------- spawners ---------------- */
+
+  /** The main "a kernel just popped" burst. */
+  Fx.prototype.pop = function (x, y, chain, manual, golden) {
+    var intensity = clamp(chain / 40, 0, 1);
+
+    this.addPopcorn(x, y, intensity);
+    this.addParticles(x, y, (manual ? 20 : 14) + Math.round(intensity * 10), intensity, golden);
+    this.addRing(x, y, 0.34 + intensity * 0.2,
+      golden ? 'rgba(255,232,140,0.95)' : 'rgba(255,220,170,0.55)', golden ? 0.02 : 0.01);
+
+    this.shake = Math.min(this.shake + (manual ? 0.016 : 0.011) + intensity * 0.026, 0.16);
+    this.zoom = Math.min(this.zoom + 0.004 + intensity * 0.008, 0.05);
+    this.heatGlow = Math.min(this.heatGlow + 0.06 + intensity * 0.1, 1);
+
+    if (golden) this.golden(x, y);
+  };
+
+  /** Jackpot burst: gold everywhere, a hard freeze frame, a big camera punch. */
+  Fx.prototype.golden = function (x, y) {
+    this.hitstop = Math.max(this.hitstop, 0.09);
+    this.zoom = Math.min(this.zoom + 0.05, 0.1);
+    this.shake = Math.min(this.shake + 0.09, 0.2);
+    this.flash = Math.min(this.flash + 0.4, 0.8);
+    this.flashHue = 48;
+    this.heatGlow = 1;
+
+    this.addRing(x, y, 1.6, 'rgba(255,236,150,1)', 0.03);
+    this.addRing(x, y, 1.1, 'rgba(255,255,255,0.9)', 0.014);
+    this.addParticles(x, y, 60, 1, true);
+  };
+
+  /** MEGA POP: the biggest punch in the game. */
+  Fx.prototype.mega = function () {
+    this.hitstop = Math.max(this.hitstop, 0.14);
+    this.zoom = Math.min(this.zoom + 0.09, 0.14);
+    this.shake = Math.min(this.shake + 0.2, 0.26);
+    this.flash = Math.min(this.flash + 0.6, 0.9);
+    this.flashHue = 30;
+    this.heatGlow = 1;
+
+    this.addRing(0, 0, 2.0, 'rgba(255,255,255,1)', 0.05);
+    this.addRing(0, 0, 1.6, 'rgba(255,170,50,0.9)', 0.08);
+    this.addParticles(0, 0, 90, 1, true);
+  };
+
+  Fx.prototype.addPopcorn = function (x, y, intensity) {
+    if (this.popcorn.length >= MAX_POPCORN) this.popcorn.shift();
+
+    // A puff is a few overlapping blobs — cheap, and reads as "fluffy".
+    var blobs = [];
+    var count = 4 + (Math.random() * 3 | 0);
+    for (var i = 0; i < count; i++) {
+      var a = (i / count) * Math.PI * 2 + rand(-0.4, 0.4);
+      var d = rand(0.1, 0.5);
+      blobs.push({
+        dx: Math.cos(a) * d,
+        dy: Math.sin(a) * d,
+        r: rand(0.45, 0.78)
+      });
+    }
+
+    this.popcorn.push({
+      x: x,
+      y: y,
+      vx: rand(-0.16, 0.16),
+      vy: rand(-0.22, -0.02),
+      size: NS.CONFIG.KERNEL_RADIUS * rand(0.95, 1.25),
+      rot: rand(0, Math.PI * 2),
+      vr: rand(-2.4, 2.4),
+      life: 0,
+      maxLife: rand(1.5, 2.3),
+      warm: intensity,
+      blobs: blobs
+    });
+  };
+
+  Fx.prototype.addParticles = function (x, y, count, intensity, golden) {
+    for (var i = 0; i < count; i++) {
+      if (this.particles.length >= MAX_PARTICLES) this.particles.shift();
+      var a = Math.random() * Math.PI * 2;
+      var speed = rand(0.3, 1.35) * (1 + intensity * 0.9);
+      this.particles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(a) * speed,
+        vy: Math.sin(a) * speed,
+        life: 0,
+        maxLife: rand(0.4, 0.95),
+        size: rand(0.008, 0.024) * (golden ? 1.4 : 1),
+        hue: golden ? rand(42, 54) : rand(24, 48),
+        light: golden ? rand(70, 92) : rand(55, 80)
+      });
+    }
+  };
+
+  Fx.prototype.addFloater = function (x, y, text, chain) {
+    if (this.floaters.length >= MAX_FLOATERS) this.floaters.shift();
+    this.floaters.push({
+      x: x,
+      y: y,
+      vy: -0.42,
+      life: 0,
+      maxLife: 0.95,
+      text: text,
+      scale: 1 + clamp(chain / 60, 0, 0.9)
+    });
+  };
+
+  /** Extra flair ring — used for milestones, on top of the sim's shockwave. */
+  Fx.prototype.addRing = function (x, y, maxR, color, width) {
+    if (this.rings.length >= MAX_RINGS) this.rings.shift();
+    this.rings.push({ x: x, y: y, r: 0, maxR: maxR, color: color, width: width || 0.02 });
+  };
+
+  /** Chain milestone reached — escalating punch. */
+  Fx.prototype.tier = function (tier, x, y) {
+    var t = Math.min(tier, 8);
+
+    this.hitstop = Math.max(this.hitstop, 0.03 + t * 0.012);
+    this.zoom = Math.min(this.zoom + 0.02 + t * 0.008, 0.12);
+    this.shake = Math.min(this.shake + 0.06 + t * 0.03, 0.24);
+    this.flash = Math.min(this.flash + 0.18 + t * 0.06, 0.85);
+    this.flashHue = Math.max(12, 46 - t * 5);
+    this.heatGlow = 1;
+
+    this.addRing(x, y, 1.15 + t * 0.12, 'rgba(255,225,160,0.95)', 0.018 + t * 0.006);
+    this.addParticles(x, y, 24 + t * 12, 1, t >= 4);
+
+    // From tier 3 the whole pan throws a second wave behind the local one.
+    if (t >= 3) this.addRing(0, 0, 1.5, 'rgba(255,150,40,0.8)', 0.035);
+    if (t >= 5) this.addRing(0, 0, 1.9, 'rgba(255,255,255,0.7)', 0.02);
+  };
+
+  /** Ambient sparks so an idle pan never feels dead. */
+  Fx.prototype.ember = function () {
+    if (this.particles.length >= MAX_PARTICLES) return;
+    var a = Math.random() * Math.PI * 2;
+    var r = Math.sqrt(Math.random()) * 0.9;
+    this.particles.push({
+      x: Math.cos(a) * r,
+      y: Math.sin(a) * r,
+      vx: rand(-0.04, 0.04),
+      vy: rand(-0.14, -0.04),
+      life: 0,
+      maxLife: rand(0.9, 1.8),
+      size: rand(0.004, 0.009),
+      hue: rand(20, 40),
+      light: rand(45, 65)
+    });
+  };
+
+  /* ---------------- step ---------------- */
+
+  Fx.prototype.update = function (dt, chain) {
+    this.time += dt;
+
+    var i, p;
+
+    // popcorn: drift out, slow down, fade at the end of life
+    for (i = this.popcorn.length - 1; i >= 0; i--) {
+      p = this.popcorn[i];
+      p.life += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.94;
+      p.vy = p.vy * 0.94 + 0.06 * dt;   // a touch of settle
+      p.rot += p.vr * dt;
+      p.vr *= 0.97;
+      if (p.life >= p.maxLife) this.popcorn.splice(i, 1);
+    }
+
+    // particles: ballistic with drag
+    for (i = this.particles.length - 1; i >= 0; i--) {
+      p = this.particles[i];
+      p.life += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.vx *= 0.93;
+      p.vy = p.vy * 0.93 + 0.35 * dt;
+      if (p.life >= p.maxLife) this.particles.splice(i, 1);
+    }
+
+    // floating money
+    for (i = this.floaters.length - 1; i >= 0; i--) {
+      p = this.floaters[i];
+      p.life += dt;
+      p.y += p.vy * dt;
+      p.vy *= 0.96;
+      if (p.life >= p.maxLife) this.floaters.splice(i, 1);
+    }
+
+    // decorative rings
+    for (i = this.rings.length - 1; i >= 0; i--) {
+      p = this.rings[i];
+      p.r += 2.2 * dt;
+      if (p.r >= p.maxR) this.rings.splice(i, 1);
+    }
+
+    // screen shake: exponential decay, re-randomised offset each frame
+    this.shake *= Math.pow(0.0006, dt);
+    if (this.shake < 0.0008) this.shake = 0;
+    this.shakeX = rand(-1, 1) * this.shake;
+    this.shakeY = rand(-1, 1) * this.shake;
+
+    this.flash *= Math.pow(0.002, dt);
+    if (this.flash < 0.004) this.flash = 0;
+
+    this.zoom *= Math.pow(0.0009, dt);
+    if (this.zoom < 0.0004) this.zoom = 0;
+
+    // ambient glow tracks how hot things currently are
+    var target = clamp(chain / 60, 0, 1);
+    this.heatGlow += (target - this.heatGlow) * Math.min(1, dt * 2.2);
+
+    if (Math.random() < dt * (1.5 + this.heatGlow * 8)) this.ember();
+  };
+
+  Fx.prototype.clear = function () {
+    this.popcorn.length = 0;
+    this.particles.length = 0;
+    this.floaters.length = 0;
+    this.rings.length = 0;
+    this.shake = this.flash = this.heatGlow = 0;
+    this.hitstop = this.zoom = 0;
+  };
+
+  NS.Fx = Fx;
+})(window.POPCORE);
+</script>
+
+<script>
+/**
+ * POPCORE — tiny WebAudio synth. No assets, no network.
+ *
+ * Pops are a filtered noise burst plus a short pitched "thock" whose pitch
+ * climbs with the chain, so a long chain rises like an arpeggio. Voice count
+ * is capped per frame so a 200-pop chain does not blow out the mix.
+ */
+(function (NS) {
+  'use strict';
+
+  // Minor pentatonic — every note lands, whatever order the chain fires in.
+  var PENTATONIC = [0, 3, 5, 7, 10];
+
+  function Audio() {
+    this.ctx = null;
+    this.master = null;
+    this.noise = null;
+    this.enabled = true;
+    this.voicesThisFrame = 0;
+    this.maxVoicesPerFrame = 5;
+  }
+
+  Audio.prototype.init = function () {
+    if (this.ctx) return;
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+
+    this.ctx = new Ctx();
+    this.master = this.ctx.createGain();
+    this.master.gain.value = 0.5;
+    this.master.connect(this.ctx.destination);
+
+    // One second of white noise, reused by every pop.
+    var len = Math.floor(this.ctx.sampleRate * 0.5);
+    var buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    this.noise = buf;
+  };
+
+  /** Browsers require a user gesture before audio starts. */
+  Audio.prototype.unlock = function () {
+    this.init();
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+  };
+
+  Audio.prototype.setEnabled = function (on) {
+    this.enabled = !!on;
+    if (this.master) this.master.gain.value = this.enabled ? 0.5 : 0;
+  };
+
+  Audio.prototype.frame = function () { this.voicesThisFrame = 0; };
+
+  Audio.prototype._ready = function () {
+    return this.enabled && this.ctx && this.ctx.state === 'running';
+  };
+
+  Audio.prototype.pop = function (chain, manual) {
+    if (!this._ready()) return;
+    if (this.voicesThisFrame >= this.maxVoicesPerFrame) return;
+    this.voicesThisFrame++;
+
+    var ctx = this.ctx;
+    var t = ctx.currentTime;
+    // A chain climbs a minor-pentatonic ladder, so a cascade plays as a rising
+    // riff instead of a smear of noise. It wraps after four octaves.
+    var step = Math.min(chain, 40) - 1;
+    var semis = PENTATONIC[step % PENTATONIC.length] + 12 * Math.floor(step / PENTATONIC.length);
+    var pitch = 200 * Math.pow(2, Math.min(semis, 48) / 12);
+    var gain = manual ? 0.5 : 0.34;
+
+    // noise body
+    var src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.playbackRate.value = NS.rand(0.9, 1.25);
+
+    var bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.setValueAtTime(Math.min(pitch * 3.2, 9000), t);
+    bp.Q.value = 1.6;
+
+    var ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.0001, t);
+    ng.gain.exponentialRampToValueAtTime(gain, t + 0.005);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+
+    src.connect(bp); bp.connect(ng); ng.connect(this.master);
+    src.start(t); src.stop(t + 0.14);
+
+    // pitched thock
+    var osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(Math.min(pitch * 2, 3200), t);
+    osc.frequency.exponentialRampToValueAtTime(Math.min(pitch, 2000), t + 0.07);
+
+    var og = ctx.createGain();
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(gain * 0.6, t + 0.004);
+    og.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+
+    osc.connect(og); og.connect(this.master);
+    osc.start(t); osc.stop(t + 0.1);
+  };
+
+  /** Milestone boom — a low sweep under the pops. */
+  Audio.prototype.tier = function (tier) {
+    if (!this._ready()) return;
+    var ctx = this.ctx;
+    var t = ctx.currentTime;
+
+    var osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(180 + tier * 30, t);
+    osc.frequency.exponentialRampToValueAtTime(40, t + 0.5);
+
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.45, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+
+    osc.connect(g); g.connect(this.master);
+    osc.start(t); osc.stop(t + 0.62);
+  };
+
+  /** Golden kernel: a quick bright arpeggio on top of the pop. */
+  Audio.prototype.golden = function () {
+    if (!this._ready()) return;
+    var ctx = this.ctx;
+    var t0 = ctx.currentTime;
+
+    for (var i = 0; i < 4; i++) {
+      var osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = 660 * Math.pow(2, [0, 4, 7, 12][i] / 12);
+
+      var g = ctx.createGain();
+      var t = t0 + i * 0.055;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.3, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+
+      osc.connect(g); g.connect(this.master);
+      osc.start(t); osc.stop(t + 0.24);
+    }
+  };
+
+  /** MEGA POP: a downward whoosh with a deep impact underneath. */
+  Audio.prototype.mega = function () {
+    if (!this._ready()) return;
+    var ctx = this.ctx;
+    var t = ctx.currentTime;
+
+    var src = ctx.createBufferSource();
+    src.buffer = this.noise;
+
+    var bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 2.2;
+    bp.frequency.setValueAtTime(240, t);
+    bp.frequency.exponentialRampToValueAtTime(5200, t + 0.28);
+
+    var ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.0001, t);
+    ng.gain.exponentialRampToValueAtTime(0.5, t + 0.05);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+
+    src.connect(bp); bp.connect(ng); ng.connect(this.master);
+    src.start(t); src.stop(t + 0.52);
+
+    var osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(32, t + 0.7);
+
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+
+    osc.connect(g); g.connect(this.master);
+    osc.start(t); osc.stop(t + 0.82);
+  };
+
+  /** Purchase blip. */
+  Audio.prototype.buy = function () {
+    if (!this._ready()) return;
+    var ctx = this.ctx;
+    var t = ctx.currentTime;
+
+    var osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(660, t);
+    osc.frequency.setValueAtTime(990, t + 0.06);
+
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.18, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+
+    osc.connect(g); g.connect(this.master);
+    osc.start(t); osc.stop(t + 0.18);
+  };
+
+  NS.Audio = Audio;
+})(window.POPCORE);
+</script>
+
+<script>
+/**
+ * POPCORE — canvas renderer.
+ *
+ * Reads simulation state (kernels, shockwaves) and effect state (popcorn,
+ * particles, floaters) and draws them. It owns no game state of its own beyond
+ * the pan-units → pixels transform.
+ */
+(function (NS) {
+  'use strict';
+
+  var clamp = NS.clamp;
+  var lerp = NS.lerp;
+
+  var SPRITE = 128;
+
+  function spriteCanvas() {
+    var c = document.createElement('canvas');
+    c.width = c.height = SPRITE;
+    return c;
+  }
+
+  /** One fluffy white popcorn blob, lit from the upper left. */
+  function makeBlobSprite() {
+    var c = spriteCanvas();
+    var g = c.getContext('2d');
+    var r = SPRITE / 2;
+    var grad = g.createRadialGradient(r * 0.7, r * 0.65, r * 0.1, r, r, r);
+    grad.addColorStop(0, '#ffffff');
+    grad.addColorStop(0.68, '#fff6e4');
+    grad.addColorStop(0.94, '#efdcba');
+    grad.addColorStop(1, 'rgba(239,220,186,0)');
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(r, r, r, 0, Math.PI * 2);
+    g.fill();
+    return c;
+  }
+
+  /** Soft warm glow, stamped for kernel heat and fresh popcorn. */
+  function makeGlowSprite() {
+    var c = spriteCanvas();
+    var g = c.getContext('2d');
+    var r = SPRITE / 2;
+    var grad = g.createRadialGradient(r, r, 0, r, r, r);
+    grad.addColorStop(0, 'rgba(255,214,140,1)');
+    grad.addColorStop(0.35, 'rgba(255,164,54,0.45)');
+    grad.addColorStop(1, 'rgba(255,120,20,0)');
+    g.fillStyle = grad;
+    g.fillRect(0, 0, SPRITE, SPRITE);
+    return c;
+  }
+
+  /** Stamp a sprite centred on (x, y) with the given radius. */
+  function stamp(ctx, sprite, x, y, radius, alpha) {
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(sprite, x - radius, y - radius, radius * 2, radius * 2);
+    ctx.globalAlpha = 1;
+  }
+
+  function Renderer(canvas, sim, fx) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.sim = sim;
+    this.fx = fx;
+
+    this.w = 0; this.h = 0;
+    this.cx = 0; this.cy = 0;
+    this.scale = 100;      // pixels per pan unit
+    this.dpr = 1;
+
+    // Sprites are rendered once and stamped with drawImage. Building a radial
+    // gradient per blob per frame was the single biggest cost during big chains.
+    this.blobSprite = makeBlobSprite();
+    this.glowSprite = makeGlowSprite();
+
+    this.resize();
+
+    // The stage changes size whenever the layout settles, the phone rotates or
+    // a mobile browser's URL bar slides away — keep the transform in step.
+    if (window.ResizeObserver) {
+      var self = this;
+      this._observer = new ResizeObserver(function () { self.resize(); });
+      this._observer.observe(canvas);
+    }
+  }
+
+  Renderer.prototype.resize = function () {
+    var rect = this.canvas.getBoundingClientRect();
+    this.dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    this.w = Math.max(1, Math.round(rect.width));
+    this.h = Math.max(1, Math.round(rect.height));
+    this.canvas.width = Math.round(this.w * this.dpr);
+    this.canvas.height = Math.round(this.h * this.dpr);
+    this.cx = this.w / 2;
+    this.cy = this.h / 2;
+    this.scale = Math.min(this.w, this.h) * 0.46;
+    this.effScale = this.effScale || this.scale;
+  };
+
+  /** Screen (CSS px, canvas-relative) → pan units, using the scale last drawn
+   *  so a tap lands where the player sees the kernel mid-zoom-punch. */
+  Renderer.prototype.toPan = function (px, py) {
+    return { x: (px - this.cx) / this.effScale, y: (py - this.cy) / this.effScale };
+  };
+
+  Renderer.prototype.draw = function (now) {
+    var ctx = this.ctx, fx = this.fx, sim = this.sim;
+    var s = this.scale * (1 + fx.zoom);
+    this.effScale = s;
+
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, this.w, this.h);
+
+    ctx.save();
+    ctx.translate(this.cx + fx.shakeX * s, this.cy + fx.shakeY * s);
+
+    this.drawPan(ctx, s, now);
+
+    // Everything inside the pan is clipped to it, so nothing spills onto the HUD.
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 1.0, 0, Math.PI * 2);
+    ctx.clip();
+
+    this.drawShockwaves(ctx, s);
+    this.drawRings(ctx, s);
+    this.drawKernels(ctx, s, now);
+    this.drawPopcorn(ctx, s);
+    this.drawParticles(ctx, s);
+    ctx.restore();
+
+    this.drawFloaters(ctx, s);
+    ctx.restore();
+
+    this.drawFlash(ctx);
+  };
+
+  /* ---------------- pan ---------------- */
+
+  Renderer.prototype.drawPan = function (ctx, s, now) {
+    var glow = this.fx.heatGlow;
+
+    // outer heat halo
+    if (glow > 0.01) {
+      var halo = ctx.createRadialGradient(0, 0, s * 0.85, 0, 0, s * 1.5);
+      halo.addColorStop(0, 'rgba(255,120,20,' + (0.22 * glow).toFixed(3) + ')');
+      halo.addColorStop(1, 'rgba(255,120,20,0)');
+      ctx.fillStyle = halo;
+      ctx.beginPath();
+      ctx.arc(0, 0, s * 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // pan body
+    var body = ctx.createRadialGradient(0, -s * 0.25, s * 0.1, 0, 0, s);
+    body.addColorStop(0, '#191419');
+    body.addColorStop(0.62, '#100c10');
+    body.addColorStop(1, '#070609');
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.arc(0, 0, s, 0, Math.PI * 2);
+    ctx.fill();
+
+    // warm oil pooling at the bottom, breathing slowly
+    var pulse = 0.5 + 0.5 * Math.sin(now * 0.0011);
+    var heatAlpha = 0.05 + glow * 0.22 + pulse * 0.02;
+    var pool = ctx.createRadialGradient(0, s * 0.35, s * 0.05, 0, s * 0.3, s * 0.95);
+    pool.addColorStop(0, 'rgba(255,110,20,' + heatAlpha.toFixed(3) + ')');
+    pool.addColorStop(1, 'rgba(255,110,20,0)');
+    ctx.fillStyle = pool;
+    ctx.beginPath();
+    ctx.arc(0, 0, s, 0, Math.PI * 2);
+    ctx.fill();
+
+    // rim
+    ctx.lineWidth = Math.max(1.5, s * 0.018);
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.995, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.lineWidth = Math.max(1, s * 0.006);
+    ctx.strokeStyle = 'rgba(255,170,60,' + (0.1 + glow * 0.5).toFixed(3) + ')';
+    ctx.beginPath();
+    ctx.arc(0, 0, s * 0.975, 0, Math.PI * 2);
+    ctx.stroke();
+  };
+
+  /* ---------------- shockwaves ---------------- */
+
+  // Only the newest rings are drawn; during a huge chain the older ones are
+  // invisible under everything else anyway.
+  var MAX_DRAWN_WAVES = 26;
+
+  Renderer.prototype.drawShockwaves = function (ctx, s) {
+    var waves = this.sim.shockwaves;
+    var start = Math.max(0, waves.length - MAX_DRAWN_WAVES);
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Three concentric strokes fake a glowing band far more cheaply than a
+    // per-ring radial gradient.
+    for (var i = start; i < waves.length; i++) {
+      var w = waves[i];
+      var fade = 1 - clamp(w.r / w.maxR, 0, 1);
+      var hot = clamp(w.chain / 50, 0, 1);
+      var x = w.x * s, y = w.y * s;
+      var r = Math.max(w.r * s, 1);
+
+      ctx.strokeStyle = 'rgba(255,' + Math.round(150 + hot * 60) + ',50,' + (0.16 * fade).toFixed(3) + ')';
+      ctx.lineWidth = Math.max(2, s * (0.05 + hot * 0.03) * (0.4 + fade));
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255,' + Math.round(190 + hot * 50) + ',' + Math.round(110 + hot * 90) + ',' + (0.26 * fade).toFixed(3) + ')';
+      ctx.lineWidth = Math.max(1.5, s * 0.018 * (0.4 + fade));
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255,244,220,' + (0.45 * fade).toFixed(3) + ')';
+      ctx.lineWidth = Math.max(1, s * 0.005);
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  };
+
+  Renderer.prototype.drawRings = function (ctx, s) {
+    var rings = this.fx.rings;
+    if (!rings.length) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < rings.length; i++) {
+      var r = rings[i];
+      var fade = 1 - clamp(r.r / r.maxR, 0, 1);
+      ctx.strokeStyle = r.color;
+      ctx.globalAlpha = fade * fade;
+      ctx.lineWidth = Math.max(1, r.width * s * (0.4 + fade));
+      ctx.beginPath();
+      ctx.arc(r.x * s, r.y * s, Math.max(r.r * s, 1), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  };
+
+  /* ---------------- kernels ---------------- */
+
+  Renderer.prototype.drawKernels = function (ctx, s, now) {
+    var kernels = this.sim.kernels;
+    var base = NS.CONFIG.KERNEL_RADIUS * s;
+    var t = now * 0.001;
+
+    for (var i = 0; i < kernels.length; i++) {
+      var k = kernels[i];
+      var h = clamp(k.heat, 0, 1);
+
+      // Hotter kernels rattle harder — the tell that a pop is imminent.
+      var shakeAmp = Math.pow(h, 3.2) * base * 0.42;
+      var jx = Math.sin(t * 46 + k.seed) * shakeAmp;
+      var jy = Math.cos(t * 53 + k.seed * 1.7) * shakeAmp;
+
+      // spawn pop-in
+      var grow = clamp(k.age / 0.28, 0, 1);
+      var appear = 1 + 0.35 * Math.sin(grow * Math.PI) - (1 - grow) * 0.75;
+
+      // squash/stretch breathing, faster and deeper as heat rises
+      var breathe = Math.sin(t * (5 + h * 26) + k.seed);
+      var sx = (1 + breathe * 0.09 * h) * appear;
+      var sy = (1 - breathe * 0.09 * h) * appear;
+
+      var x = k.x * s + jx;
+      var y = k.y * s + jy;
+
+      // glow — golden kernels always shine, and pulse so the eye finds them
+      if (h > 0.12 || k.golden) {
+        var pulse = k.golden ? 0.75 + 0.25 * Math.sin(t * 7 + k.seed) : 1;
+        var alpha = k.golden ? (0.5 + 0.4 * h) * pulse : 0.55 * h;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        stamp(ctx, this.glowSprite, x, y, base * (1.8 + h * 3.4) * (k.golden ? 1.5 : 1), alpha);
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(k.angle + breathe * 0.12 * h);
+      ctx.scale(sx, sy);
+
+      // body: warm yellow → white-hot (golden kernels get their own palette)
+      var body = ctx.createLinearGradient(0, -base, 0, base);
+      if (k.golden) {
+        body.addColorStop(0, '#fffce8');
+        body.addColorStop(0.5, 'rgb(255,' + Math.round(lerp(226, 246, h)) + ',120)');
+        body.addColorStop(1, 'rgb(255,' + Math.round(lerp(178, 210, h)) + ',30)');
+      } else {
+        body.addColorStop(0, 'rgb(255,' + Math.round(lerp(214, 250, h)) + ',' + Math.round(lerp(120, 220, h)) + ')');
+        body.addColorStop(1, 'rgb(' + Math.round(lerp(228, 255, h)) + ',' + Math.round(lerp(140, 190, h)) + ',' + Math.round(lerp(38, 90, h)) + ')');
+      }
+      ctx.fillStyle = body;
+
+      // Teardrop silhouette: rounded base, pointed tip — reads as a corn kernel
+      // rather than an egg, and gives the rotation something to show.
+      ctx.beginPath();
+      ctx.moveTo(0, -base * 1.16);
+      ctx.bezierCurveTo(base * 0.86, -base * 0.52, base * 0.84, base * 0.56, 0, base * 0.98);
+      ctx.bezierCurveTo(-base * 0.84, base * 0.56, -base * 0.86, -base * 0.52, 0, -base * 1.16);
+      ctx.closePath();
+      ctx.fill();
+
+      // highlight
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.32 + h * 0.4).toFixed(2) + ')';
+      ctx.beginPath();
+      ctx.ellipse(-base * 0.22, -base * 0.34, base * 0.24, base * 0.32, -0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // turning sparkle crown, so a golden kernel is unmistakable
+      if (k.golden) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = 'rgba(255,255,235,0.95)';
+        for (var sp = 0; sp < 4; sp++) {
+          var sa = t * 2.2 + k.seed + sp * Math.PI / 2;
+          var sr = base * 1.5;
+          var sz = base * (0.13 + 0.05 * Math.sin(t * 6 + sp));
+          ctx.beginPath();
+          ctx.arc(Math.cos(sa) * sr, Math.sin(sa) * sr, sz, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      ctx.restore();
+    }
+  };
+
+  /* ---------------- popcorn ---------------- */
+
+  Renderer.prototype.drawPopcorn = function (ctx, s) {
+    var list = this.fx.popcorn;
+
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      var life = p.life;
+
+      // Squash/stretch pop-in: overshoot, then settle.
+      var scale;
+      if (life < 0.09) scale = lerp(0.25, 1.42, life / 0.09);
+      else if (life < 0.26) scale = lerp(1.42, 1.0, (life - 0.09) / 0.17);
+      else scale = 1;
+
+      var stretch = life < 0.09 ? lerp(1.5, 1.0, life / 0.09) : 1;
+
+      var remain = p.maxLife - life;
+      var alpha = remain < 0.7 ? clamp(remain / 0.7, 0, 1) : 1;
+      if (life < 0.05) alpha *= life / 0.05;
+
+      var size = p.size * s * scale;
+      var x = p.x * s, y = p.y * s;
+
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(p.rot);
+      ctx.scale(1 / stretch, stretch);
+
+      // soft warm halo just after popping
+      if (life < 0.35) {
+        var f = 1 - life / 0.35;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        stamp(ctx, this.glowSprite, 0, 0, size * 2.4, 0.6 * f * alpha);
+        ctx.restore();
+      }
+
+      // fluffy blobs
+      for (var b = 0; b < p.blobs.length; b++) {
+        var blob = p.blobs[b];
+        stamp(ctx, this.blobSprite, blob.dx * size, blob.dy * size, blob.r * size, alpha);
+      }
+
+      ctx.restore();
+    }
+    ctx.globalAlpha = 1;
+  };
+
+  /* ---------------- particles ---------------- */
+
+  Renderer.prototype.drawParticles = function (ctx, s) {
+    var list = this.fx.particles;
+    if (!list.length) return;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (var i = 0; i < list.length; i++) {
+      var p = list[i];
+      var f = 1 - p.life / p.maxLife;
+      ctx.fillStyle = 'hsla(' + p.hue.toFixed(0) + ', 100%, ' + p.light.toFixed(0) + '%, ' + (f * 0.9).toFixed(3) + ')';
+      ctx.beginPath();
+      ctx.arc(p.x * s, p.y * s, Math.max(0.6, p.size * s * (0.4 + f * 0.8)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  };
+
+  /* ---------------- floating money ---------------- */
+
+  Renderer.prototype.drawFloaters = function (ctx, s) {
+    var list = this.fx.floaters;
+    if (!list.length) return;
+
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (var i = 0; i < list.length; i++) {
+      var f = list[i];
+      var t = f.life / f.maxLife;
+      var alpha = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+      var a = clamp(alpha, 0, 1);
+      var px = Math.max(10, s * 0.058 * f.scale);
+      ctx.font = '800 ' + px.toFixed(1) + 'px ui-rounded, "SF Pro Rounded", system-ui, sans-serif';
+      ctx.lineWidth = Math.max(2, px * 0.18);
+      ctx.strokeStyle = 'rgba(20,10,0,' + (a * 0.75).toFixed(3) + ')';
+      ctx.strokeText(f.text, f.x * s, f.y * s);
+      ctx.fillStyle = 'rgba(255,246,214,' + a.toFixed(3) + ')';
+      ctx.fillText(f.text, f.x * s, f.y * s);
+    }
+    ctx.restore();
+  };
+
+  /* ---------------- overlays ---------------- */
+
+  Renderer.prototype.drawFlash = function (ctx) {
+    var f = this.fx.flash;
+    if (f <= 0) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.fillStyle = 'hsla(' + this.fx.flashHue.toFixed(0) + ', 100%, 70%, ' + (f * 0.5).toFixed(3) + ')';
+    ctx.fillRect(0, 0, this.w, this.h);
+    ctx.restore();
+  };
+
+  NS.Renderer = Renderer;
+})(window.POPCORE);
+</script>
+
+<script>
+/**
+ * POPCORE — DOM layer: money readout, chain banner, upgrade buttons.
+ *
+ * Reads from the simulation, writes to the DOM. Buying is routed back through
+ * a callback so main.js can play sound / spawn effects in one place.
+ */
+(function (NS) {
+  'use strict';
+
+  var C = NS.CONFIG;
+  var fmt = NS.formatMoney;
+
+  function UI(sim, onBuy) {
+    this.sim = sim;
+    this.onBuy = onBuy;
+
+    this.el = {
+      money: document.getElementById('money'),
+      rate: document.getElementById('rate'),
+      best: document.getElementById('best'),
+      pops: document.getElementById('pops'),
+      chain: document.getElementById('chain'),
+      callout: document.getElementById('callout'),
+      hint: document.getElementById('hint'),
+      mega: document.getElementById('mega'),
+      megaFill: document.getElementById('megaFill'),
+      megaLabel: document.getElementById('megaLabel'),
+      upgrades: document.getElementById('upgrades')
+    };
+
+    this.rows = {};
+    this._lastMoney = -1;
+    this._chainShown = 0;
+    this._hintHidden = false;
+    this._megaReady = null;
+    this.moneyPunch = 0;      // decays each frame; drives the counter's scale
+
+    this.buildUpgrades();
+  }
+
+  /* ---------------- upgrades ---------------- */
+
+  UI.prototype.buildUpgrades = function () {
+    var self = this;
+    var frag = document.createDocumentFragment();
+
+    C.UPGRADES.forEach(function (def) {
+      var btn = document.createElement('button');
+      btn.className = 'up';
+      btn.type = 'button';
+      btn.innerHTML =
+        '<span class="up-top"><span class="up-name"></span><span class="up-lvl"></span></span>' +
+        '<span class="up-val"></span>' +
+        '<span class="up-cost"></span>' +
+        '<span class="up-bar"></span>';
+
+      btn.querySelector('.up-name').textContent = def.name;
+
+      var row = {
+        def: def,
+        btn: btn,
+        lvl: btn.querySelector('.up-lvl'),
+        val: btn.querySelector('.up-val'),
+        cost: btn.querySelector('.up-cost'),
+        bar: btn.querySelector('.up-bar'),
+        lastLevel: -1,
+        lastAffordable: null
+      };
+
+      btn.addEventListener('click', function () {
+        if (!self.sim.canBuy(def.id)) return;
+        self.onBuy(def.id);
+        btn.classList.remove('flash');
+        void btn.offsetWidth;          // restart the CSS animation
+        btn.classList.add('flash');
+      });
+
+      self.rows[def.id] = row;
+      frag.appendChild(btn);
+    });
+
+    this.el.upgrades.appendChild(frag);
+  };
+
+  /* ---------------- per-frame refresh ---------------- */
+
+  UI.prototype.update = function (dt) {
+    var sim = this.sim;
+
+    if (sim.money !== this._lastMoney) {
+      this.el.money.textContent = '$' + fmt(sim.money);
+      this._lastMoney = sim.money;
+    }
+
+    // Every pop kicks the counter; the kick decays continuously rather than
+    // through a CSS class, so rapid-fire pops stack instead of restarting.
+    if (this.moneyPunch > 0.001) {
+      this.moneyPunch *= Math.pow(0.0015, dt || 0.016);
+      this.el.money.style.transform = 'scale(' + (1 + this.moneyPunch).toFixed(4) + ')';
+    } else if (this.moneyPunch !== 0) {
+      this.moneyPunch = 0;
+      this.el.money.style.transform = '';
+    }
+
+    // MEGA meter
+    var progress = sim.megaProgress();
+    this.el.megaFill.style.width = (progress * 100).toFixed(1) + '%';
+    var ready = sim.megaReady();
+    if (ready !== this._megaReady) {
+      this._megaReady = ready;
+      this.el.mega.classList.toggle('ready', ready);
+      this.el.mega.disabled = !ready;
+      this.el.megaLabel.textContent = ready ? 'MEGA POP — TAP!' : 'MEGA POP';
+    }
+    this.el.rate.textContent = '$' + fmt(sim.moneyPerSecond(), true) + ' / s';
+    this.el.best.textContent = sim.bestChain > 0 ? 'BEST CHAIN ×' + sim.bestChain : 'BEST CHAIN —';
+    this.el.pops.textContent = sim.totalPops + ' pops';
+
+    for (var i = 0; i < C.UPGRADES.length; i++) {
+      var row = this.rows[C.UPGRADES[i].id];
+      var def = row.def;
+      var level = sim.level(def.id);
+      var cost = sim.cost(def.id);
+      var affordable = sim.money >= cost;
+
+      if (level !== row.lastLevel) {
+        row.lvl.textContent = 'LV ' + level;
+        row.val.textContent = def.format(def.value(level), level);
+        row.cost.textContent = '$' + fmt(cost);
+        row.lastLevel = level;
+      }
+      if (affordable !== row.lastAffordable) {
+        row.btn.disabled = !affordable;
+        row.lastAffordable = affordable;
+      }
+      row.bar.style.width = (Math.min(1, sim.money / cost) * 100).toFixed(1) + '%';
+    }
+  };
+
+  /** Money readout punch. Strength scales with how big the pop was. */
+  UI.prototype.bumpMoney = function (strength) {
+    this.moneyPunch = Math.min(this.moneyPunch + (strength || 0.06), 0.42);
+  };
+
+  /** Big slam-in word: "NICE", "INSANE", "GOLDEN!" … */
+  UI.prototype.callout = function (text) {
+    var el = this.el.callout;
+    el.textContent = text;
+    el.classList.remove('go');
+    void el.offsetWidth;
+    el.classList.add('go');
+  };
+
+  UI.prototype.flashMega = function () {
+    var el = this.el.mega;
+    el.classList.remove('fired');
+    void el.offsetWidth;
+    el.classList.add('fired');
+  };
+
+  /* ---------------- chain banner ---------------- */
+
+  UI.prototype.showChain = function (chain) {
+    if (chain < 2) return;
+    var el = this.el.chain;
+
+    if (chain !== this._chainShown) {
+      el.textContent = 'CHAIN ×' + chain;
+      this._chainShown = chain;
+      el.classList.remove('pulse');
+      void el.offsetWidth;
+      el.classList.add('pulse');
+    }
+
+    var tier = chain >= 100 ? 't4' : chain >= 40 ? 't3' : chain >= 25 ? 't2' : chain >= 8 ? 't1' : '';
+    el.className = 'chain on pulse' + (tier ? ' ' + tier : '');
+  };
+
+  UI.prototype.hideChain = function () {
+    this.el.chain.className = 'chain';
+    this._chainShown = 0;
+  };
+
+  UI.prototype.hideHint = function () {
+    if (this._hintHidden) return;
+    this._hintHidden = true;
+    this.el.hint.classList.add('hide');
+  };
+
+  NS.UI = UI;
+})(window.POPCORE);
+</script>
+
+<script>
+/**
+ * POPCORE — localStorage persistence. Defensive: a corrupt or unavailable
+ * store must never stop the game from starting.
+ */
+(function (NS) {
+  'use strict';
+
+  var KEY = 'popcore.save.v1';
+  var SOUND_KEY = 'popcore.sound';
+
+  NS.Save = {
+    write: function (sim) {
+      try {
+        localStorage.setItem(KEY, JSON.stringify(sim.toJSON()));
+      } catch (e) { /* private mode / quota — ignore */ }
+    },
+
+    read: function () {
+      try {
+        var raw = localStorage.getItem(KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    },
+
+    clear: function () {
+      try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+    },
+
+    readSound: function () {
+      try { return localStorage.getItem(SOUND_KEY) !== 'off'; } catch (e) { return true; }
+    },
+
+    writeSound: function (on) {
+      try { localStorage.setItem(SOUND_KEY, on ? 'on' : 'off'); } catch (e) { /* ignore */ }
+    }
+  };
+})(window.POPCORE);
+</script>
+
+<script>
+/**
+ * POPCORE — bootstrap and game loop.
+ *
+ * Wires the simulation to the presentation layers: a fixed-timestep update,
+ * one drain of the simulation's event queue per frame, then a render.
+ */
+(function (NS) {
+  'use strict';
+
+  var C = NS.CONFIG;
+  var STEP = 1 / 60;          // fixed simulation step
+  var MAX_STEPS = 5;          // catch-up limit after a stall / tab switch
+
+  var canvas = document.getElementById('game');
+
+  var sim = new NS.Sim();
+  var fx = new NS.Fx();
+  var audio = new NS.Audio();
+  var renderer = new NS.Renderer(canvas, sim, fx);
+  var ui = new NS.UI(sim, buy);
+
+  var acc = 0;
+  var lastFrame = 0;
+  var saveTimer = 0;
+  var hasTapped = false;
+  var fps = 60;
+
+  // Handy for tinkering from the console (and for automated smoke tests).
+  NS.game = {
+    sim: sim, fx: fx, audio: audio, renderer: renderer, canvas: canvas,
+    fps: function () { return fps; }
+  };
+
+  /* ---------------- start-up ---------------- */
+
+  var loaded = NS.Save.read();
+  if (loaded) sim.load(loaded);
+
+  // Open with a small handful, not a single kernel: there is never a moment
+  // where the player taps and finds nothing to hit.
+  for (var i = 0; i < 3; i++) sim.spawnKernel();
+
+  // The upgrade buttons change the stage height, so re-measure once the DOM is final.
+  renderer.resize();
+
+  audio.setEnabled(NS.Save.readSound());
+  updateMuteLabel();
+
+  /* ---------------- input ---------------- */
+
+  canvas.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    audio.unlock();
+
+    var rect = canvas.getBoundingClientRect();
+    var p = renderer.toPan(e.clientX - rect.left, e.clientY - rect.top);
+    var hit = sim.tap(p.x, p.y);
+
+    if (hit) {
+      if (!hasTapped) { hasTapped = true; ui.hideHint(); }
+      buzz(8);
+    } else {
+      // Small acknowledgement so a miss still feels responsive.
+      fx.addRing(p.x, p.y, 0.14, 'rgba(255,255,255,0.35)', 0.008);
+    }
+  }, { passive: false });
+
+  document.getElementById('mega').addEventListener('click', function () {
+    audio.unlock();
+    sim.fireMega();
+  });
+
+  document.getElementById('mute').addEventListener('click', function () {
+    audio.unlock();
+    audio.setEnabled(!audio.enabled);
+    NS.Save.writeSound(audio.enabled);
+    updateMuteLabel();
+  });
+
+  // Two-step reset: the first tap arms the button, the second wipes progress.
+  // A native confirm() is blocked in some embedded contexts, and this reads
+  // better on a phone anyway.
+  var resetBtn = document.getElementById('reset');
+  var resetArmed = 0;
+
+  resetBtn.addEventListener('click', function () {
+    if (Date.now() > resetArmed) {
+      resetArmed = Date.now() + 3000;
+      resetBtn.textContent = 'tap again to erase';
+      resetBtn.classList.add('armed');
+      setTimeout(function () {
+        if (Date.now() > resetArmed) {
+          resetBtn.textContent = 'reset save';
+          resetBtn.classList.remove('armed');
+        }
+      }, 3100);
+      return;
+    }
+    resetArmed = 0;
+    resetBtn.textContent = 'reset save';
+    resetBtn.classList.remove('armed');
+    sim.reset();
+    fx.clear();
+    ui.hideChain();
+    NS.Save.clear();
+  });
+
+  window.addEventListener('resize', function () { renderer.resize(); });
+  window.addEventListener('orientationchange', function () {
+    setTimeout(function () { renderer.resize(); }, 150);
+  });
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) NS.Save.write(sim);
+    else lastFrame = 0;   // avoid a huge catch-up step on return
+  });
+  window.addEventListener('pagehide', function () { NS.Save.write(sim); });
+
+  /** Haptic tick or pattern, where the platform supports it (Android Chrome). */
+  function buzz(pattern) {
+    if (navigator.vibrate) { try { navigator.vibrate(pattern); } catch (e) { /* ignore */ } }
+  }
+
+  function updateMuteLabel() {
+    document.getElementById('mute').textContent = audio.enabled ? 'SOUND ON' : 'SOUND OFF';
+  }
+
+  /* ---------------- purchases ---------------- */
+
+  function buy(id) {
+    if (!sim.buy(id)) return;
+    audio.buy();
+    fx.addRing(0, 0, 1.1, 'rgba(255,200,110,0.5)', 0.012);
+  }
+
+  /* ---------------- events ---------------- */
+
+  function drainEvents() {
+    var events = sim.events;
+    for (var i = 0; i < events.length; i++) {
+      var e = events[i];
+
+      if (e.type === 'pop') {
+        fx.pop(e.x, e.y, e.chain, e.manual, e.golden);
+        audio.pop(e.chain, e.manual);
+        ui.bumpMoney(e.golden ? 0.3 : e.manual ? 0.1 : 0.05);
+
+        if (e.golden) {
+          audio.golden();
+          ui.callout('GOLDEN!');
+          fx.addFloater(e.x, e.y, '+$' + NS.formatMoney(e.value, true), 60);
+          buzz([0, 30, 40, 30]);
+        } else if (e.manual || e.chain <= 3 || e.chain % (e.chain > 40 ? 15 : 3) === 0) {
+          // Floating numbers are rate-limited during long chains so the pan stays readable.
+          fx.addFloater(e.x, e.y, '+$' + NS.formatMoney(e.value, true), e.chain);
+        }
+      } else if (e.type === 'tier') {
+        fx.tier(e.tier, e.x || 0, e.y || 0);
+        audio.tier(e.tier);
+        ui.callout(e.word + ' ×' + e.chain);
+        buzz(18 + e.tier * 14);
+      } else if (e.type === 'chainEnd' && e.bonus > 0) {
+        ui.callout(e.maxed ? 'MAX CHAIN!' : 'CHAIN ×' + e.count);
+        ui.bumpMoney(e.maxed ? 0.4 : 0.22);
+        fx.addFloater(0, -0.1, '+$' + NS.formatMoney(e.bonus, true), 80);
+        fx.tier(e.maxed ? 6 : 2, 0, 0);
+        audio.tier(e.maxed ? 5 : 2);
+        buzz(e.maxed ? [0, 60, 40, 60, 40, 120] : 24);
+      } else if (e.type === 'mega') {
+        fx.mega();
+        audio.mega();
+        ui.callout('MEGA POP');
+        ui.flashMega();
+        buzz([0, 50, 30, 90]);
+      }
+    }
+    events.length = 0;
+  }
+
+  /* ---------------- loop ---------------- */
+
+  function frame(now) {
+    requestAnimationFrame(frame);
+
+    if (!lastFrame) lastFrame = now;
+    var dt = (now - lastFrame) / 1000;
+    lastFrame = now;
+    if (dt > 0.25) dt = 0.25;      // never simulate more than a quarter second at once
+    if (dt > 0) fps += (1 / dt - fps) * 0.05;
+
+    audio.frame();
+
+    // Hit-stop: the simulation freezes for a beat on a big impact while the
+    // effects keep animating. It is what makes a hit feel like it landed.
+    if (fx.hitstop > 0) {
+      fx.hitstop -= dt;
+      acc = 0;
+    } else {
+      acc += dt;
+      var steps = 0;
+      while (acc >= STEP && steps < MAX_STEPS) {
+        sim.update(STEP);
+        acc -= STEP;
+        steps++;
+      }
+      if (steps === MAX_STEPS) acc = 0;
+    }
+
+    drainEvents();
+    fx.update(dt, sim.chain);
+
+    if (sim.chain >= 2) ui.showChain(sim.chain);
+    else if (sim.chain === 0) ui.hideChain();
+
+    ui.update(dt);
+    renderer.draw(now);
+
+    saveTimer += dt;
+    if (saveTimer >= C.SAVE_INTERVAL) {
+      saveTimer = 0;
+      NS.Save.write(sim);
+    }
+  }
+
+  requestAnimationFrame(frame);
+})(window.POPCORE);
+</script>

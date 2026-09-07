@@ -8,13 +8,16 @@
 (function (NS) {
   'use strict';
 
+  // Minor pentatonic — every note lands, whatever order the chain fires in.
+  var PENTATONIC = [0, 3, 5, 7, 10];
+
   function Audio() {
     this.ctx = null;
     this.master = null;
     this.noise = null;
     this.enabled = true;
     this.voicesThisFrame = 0;
-    this.maxVoicesPerFrame = 4;
+    this.maxVoicesPerFrame = 5;
   }
 
   Audio.prototype.init = function () {
@@ -59,9 +62,11 @@
 
     var ctx = this.ctx;
     var t = ctx.currentTime;
-    // Pitch walks up a scale-ish curve with the chain, then plateaus.
-    var step = Math.min(chain, 60);
-    var pitch = 220 * Math.pow(2, (step * 0.6) / 12);
+    // A chain climbs a minor-pentatonic ladder, so a cascade plays as a rising
+    // riff instead of a smear of noise. It wraps after four octaves.
+    var step = Math.min(chain, 40) - 1;
+    var semis = PENTATONIC[step % PENTATONIC.length] + 12 * Math.floor(step / PENTATONIC.length);
+    var pitch = 200 * Math.pow(2, Math.min(semis, 48) / 12);
     var gain = manual ? 0.5 : 0.34;
 
     // noise body
@@ -115,6 +120,65 @@
 
     osc.connect(g); g.connect(this.master);
     osc.start(t); osc.stop(t + 0.62);
+  };
+
+  /** Golden kernel: a quick bright arpeggio on top of the pop. */
+  Audio.prototype.golden = function () {
+    if (!this._ready()) return;
+    var ctx = this.ctx;
+    var t0 = ctx.currentTime;
+
+    for (var i = 0; i < 4; i++) {
+      var osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = 660 * Math.pow(2, [0, 4, 7, 12][i] / 12);
+
+      var g = ctx.createGain();
+      var t = t0 + i * 0.055;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.3, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+
+      osc.connect(g); g.connect(this.master);
+      osc.start(t); osc.stop(t + 0.24);
+    }
+  };
+
+  /** MEGA POP: a downward whoosh with a deep impact underneath. */
+  Audio.prototype.mega = function () {
+    if (!this._ready()) return;
+    var ctx = this.ctx;
+    var t = ctx.currentTime;
+
+    var src = ctx.createBufferSource();
+    src.buffer = this.noise;
+
+    var bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.Q.value = 2.2;
+    bp.frequency.setValueAtTime(240, t);
+    bp.frequency.exponentialRampToValueAtTime(5200, t + 0.28);
+
+    var ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.0001, t);
+    ng.gain.exponentialRampToValueAtTime(0.5, t + 0.05);
+    ng.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+
+    src.connect(bp); bp.connect(ng); ng.connect(this.master);
+    src.start(t); src.stop(t + 0.52);
+
+    var osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(32, t + 0.7);
+
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.6, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.8);
+
+    osc.connect(g); g.connect(this.master);
+    osc.start(t); osc.stop(t + 0.82);
   };
 
   /** Purchase blip. */

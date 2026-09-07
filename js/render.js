@@ -94,16 +94,19 @@
     this.cx = this.w / 2;
     this.cy = this.h / 2;
     this.scale = Math.min(this.w, this.h) * 0.46;
+    this.effScale = this.effScale || this.scale;
   };
 
-  /** Screen (CSS px, canvas-relative) → pan units. */
+  /** Screen (CSS px, canvas-relative) → pan units, using the scale last drawn
+   *  so a tap lands where the player sees the kernel mid-zoom-punch. */
   Renderer.prototype.toPan = function (px, py) {
-    return { x: (px - this.cx) / this.scale, y: (py - this.cy) / this.scale };
+    return { x: (px - this.cx) / this.effScale, y: (py - this.cy) / this.effScale };
   };
 
   Renderer.prototype.draw = function (now) {
     var ctx = this.ctx, fx = this.fx, sim = this.sim;
-    var s = this.scale;
+    var s = this.scale * (1 + fx.zoom);
+    this.effScale = s;
 
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
     ctx.clearRect(0, 0, this.w, this.h);
@@ -187,7 +190,7 @@
 
   // Only the newest rings are drawn; during a huge chain the older ones are
   // invisible under everything else anyway.
-  var MAX_DRAWN_WAVES = 42;
+  var MAX_DRAWN_WAVES = 26;
 
   Renderer.prototype.drawShockwaves = function (ctx, s) {
     var waves = this.sim.shockwaves;
@@ -272,11 +275,13 @@
       var x = k.x * s + jx;
       var y = k.y * s + jy;
 
-      // glow
-      if (h > 0.12) {
+      // glow — golden kernels always shine, and pulse so the eye finds them
+      if (h > 0.12 || k.golden) {
+        var pulse = k.golden ? 0.75 + 0.25 * Math.sin(t * 7 + k.seed) : 1;
+        var alpha = k.golden ? (0.5 + 0.4 * h) * pulse : 0.55 * h;
         ctx.save();
         ctx.globalCompositeOperation = 'lighter';
-        stamp(ctx, this.glowSprite, x, y, base * (1.8 + h * 3.4), 0.55 * h);
+        stamp(ctx, this.glowSprite, x, y, base * (1.8 + h * 3.4) * (k.golden ? 1.5 : 1), alpha);
         ctx.restore();
       }
 
@@ -285,10 +290,16 @@
       ctx.rotate(k.angle + breathe * 0.12 * h);
       ctx.scale(sx, sy);
 
-      // body: warm yellow → white-hot
+      // body: warm yellow → white-hot (golden kernels get their own palette)
       var body = ctx.createLinearGradient(0, -base, 0, base);
-      body.addColorStop(0, 'rgb(255,' + Math.round(lerp(214, 250, h)) + ',' + Math.round(lerp(120, 220, h)) + ')');
-      body.addColorStop(1, 'rgb(' + Math.round(lerp(228, 255, h)) + ',' + Math.round(lerp(140, 190, h)) + ',' + Math.round(lerp(38, 90, h)) + ')');
+      if (k.golden) {
+        body.addColorStop(0, '#fffce8');
+        body.addColorStop(0.5, 'rgb(255,' + Math.round(lerp(226, 246, h)) + ',120)');
+        body.addColorStop(1, 'rgb(255,' + Math.round(lerp(178, 210, h)) + ',30)');
+      } else {
+        body.addColorStop(0, 'rgb(255,' + Math.round(lerp(214, 250, h)) + ',' + Math.round(lerp(120, 220, h)) + ')');
+        body.addColorStop(1, 'rgb(' + Math.round(lerp(228, 255, h)) + ',' + Math.round(lerp(140, 190, h)) + ',' + Math.round(lerp(38, 90, h)) + ')');
+      }
       ctx.fillStyle = body;
 
       // Teardrop silhouette: rounded base, pointed tip — reads as a corn kernel
@@ -305,6 +316,20 @@
       ctx.beginPath();
       ctx.ellipse(-base * 0.22, -base * 0.34, base * 0.24, base * 0.32, -0.5, 0, Math.PI * 2);
       ctx.fill();
+
+      // turning sparkle crown, so a golden kernel is unmistakable
+      if (k.golden) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.fillStyle = 'rgba(255,255,235,0.95)';
+        for (var sp = 0; sp < 4; sp++) {
+          var sa = t * 2.2 + k.seed + sp * Math.PI / 2;
+          var sr = base * 1.5;
+          var sz = base * (0.13 + 0.05 * Math.sin(t * 6 + sp));
+          ctx.beginPath();
+          ctx.arc(Math.cos(sa) * sr, Math.sin(sa) * sr, sz, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
 
       ctx.restore();
     }
