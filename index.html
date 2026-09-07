@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#08070a">
+<meta name="description" content="POPCORE — an idle popcorn chain-reaction game.">
+<title>POPCORE</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🍿</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+
+  <header id="hud">
+    <div class="hud-left">
+      <div id="money" class="money">$0</div>
+      <div id="rate" class="rate">$0.0 / s</div>
+    </div>
+    <div class="hud-right">
+      <div id="best" class="best">BEST CHAIN —</div>
+      <button id="mute" class="icon-btn" type="button" aria-label="Toggle sound">SOUND ON</button>
+    </div>
+  </header>
+
+  <main id="stage">
+    <canvas id="game"></canvas>
+    <div id="chain" class="chain" aria-live="off"></div>
+    <div id="hint" class="hint">TAP THE KERNEL</div>
+  </main>
+
+  <section id="upgrades" class="upgrades"></section>
+
+  <footer id="footer">
+    <span id="pops">0 pops</span>
+    <button id="reset" class="text-btn" type="button">reset save</button>
+  </footer>
+
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/save.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

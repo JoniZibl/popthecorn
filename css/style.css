@@ -1,0 +1,260 @@
+/* POPCORE — mobile-first layout. Dark, warm, minimal. */
+
+:root {
+  --bg: #08070a;
+  --bg-2: #100d13;
+  --line: rgba(255, 255, 255, 0.08);
+  --text: #f6f1e8;
+  --dim: rgba(246, 241, 232, 0.45);
+  --gold: #ffc24b;
+  --orange: #ff7a18;
+  --cream: #fff6e2;
+  --ok: #7ee08a;
+  --pad: 12px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-rounded, "SF Pro Rounded", "Segoe UI", system-ui, -apple-system, sans-serif;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: max(8px, env(safe-area-inset-top)) var(--pad) max(8px, env(safe-area-inset-bottom));
+  gap: 8px;
+}
+
+/* ---------------- HUD ---------------- */
+
+#hud {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.money {
+  font-size: clamp(26px, 8vw, 38px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: var(--cream);
+  text-shadow: 0 0 24px rgba(255, 178, 60, 0.35);
+  transition: transform 90ms ease-out;
+}
+.money.bump { transform: scale(1.09); }
+
+.rate {
+  margin-top: 4px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+}
+
+.hud-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.best {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--dim);
+}
+
+.icon-btn, .text-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+}
+.icon-btn:active, .text-btn:active { transform: scale(0.95); }
+
+/* ---------------- Stage ---------------- */
+
+#stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.chain {
+  position: absolute;
+  white-space: nowrap;
+  left: 0;
+  right: 0;
+  top: 6%;
+  text-align: center;
+  pointer-events: none;
+  font-weight: 900;
+  font-size: clamp(26px, 8vw, 32px);
+  letter-spacing: 0.02em;
+  color: var(--gold);
+  opacity: 0;
+  transform: scale(0.7);
+  text-shadow: 0 0 20px rgba(255, 140, 30, 0.55);
+  will-change: transform, opacity;
+}
+.chain.on { opacity: 1; }
+.chain.pulse { animation: chain-pop 260ms cubic-bezier(0.2, 1.6, 0.4, 1) both; }
+
+@keyframes chain-pop {
+  0%   { transform: scale(0.72) rotate(-2deg); }
+  55%  { transform: scale(1.22) rotate(1.5deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Escalating chain tiers */
+.chain.t1 { color: var(--gold); font-size: clamp(30px, 9vw, 36px); }
+.chain.t2 { color: #ffa53d; font-size: clamp(34px, 10.5vw, 42px); text-shadow: 0 0 26px rgba(255, 140, 30, 0.8); }
+.chain.t3 { color: #ff7a18; font-size: clamp(38px, 12vw, 48px); text-shadow: 0 0 34px rgba(255, 90, 10, 0.95); }
+.chain.t4 { color: #fff2c4; font-size: clamp(42px, 13.5vw, 56px); text-shadow: 0 0 44px rgba(255, 210, 90, 1), 0 0 90px rgba(255, 90, 10, 0.8); }
+
+.hint {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  text-align: center;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--dim);
+  pointer-events: none;
+  animation: hint-breathe 2.4s ease-in-out infinite;
+  transition: opacity 400ms ease;
+}
+.hint.hide { opacity: 0; animation: none; }
+
+@keyframes hint-breathe {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.85; }
+}
+
+/* ---------------- Upgrades ---------------- */
+
+.upgrades {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.up {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015));
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 90ms ease, border-color 160ms ease, background 160ms ease;
+}
+.up:disabled { cursor: default; opacity: 0.55; }
+.up:not(:disabled) { border-color: rgba(255, 194, 75, 0.42); }
+.up:not(:disabled):active { transform: scale(0.97); }
+.up.flash { animation: up-flash 420ms ease-out; }
+
+@keyframes up-flash {
+  0% { background: rgba(255, 194, 75, 0.55); }
+  100% { background: linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.015)); }
+}
+
+.up-top {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+}
+.up-name {
+  font-size: clamp(11px, 3.4vw, 13px);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.up-lvl {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--dim);
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.up-val {
+  font-size: 10px;
+  white-space: nowrap;
+  color: rgba(246, 241, 232, 0.6);
+  letter-spacing: 0.04em;
+}
+.up-cost {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--dim);
+  letter-spacing: 0.02em;
+}
+.up:not(:disabled) .up-cost { color: var(--gold); }
+
+/* progress toward affording the next level */
+.up-bar {
+  position: absolute;
+  left: 0; bottom: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--orange), var(--gold));
+  opacity: 0.75;
+  transition: width 180ms linear;
+}
+
+/* ---------------- Footer ---------------- */
+
+#footer {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: rgba(246, 241, 232, 0.28);
+}
+
+@media (min-height: 720px) {
+  .upgrades { gap: 10px; }
+  .up { padding: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chain.pulse, .hint { animation: none; }
+}
