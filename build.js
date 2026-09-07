@@ -13,7 +13,7 @@ const path = require('path');
 const ROOT = __dirname;
 const OUT = process.argv[2] || path.join(ROOT, 'dist', 'popcore.html');
 
-const SCRIPTS = ['config', 'sim', 'fx', 'audio', 'render', 'ui', 'save', 'main']
+const SCRIPTS = ['config', 'cards', 'meta', 'sim', 'fx', 'audio', 'render', 'ui', 'save', 'main']
   .map(name => path.join('js', name + '.js'));
 
 const read = rel => fs.readFileSync(path.join(ROOT, rel), 'utf8').trimEnd();

@@ -37,16 +37,21 @@ POPCORE.CONFIG = {
   CHAIN_WINDOW: 0.7,        // window at chain 1
   CHAIN_WINDOW_MIN: 0.24,   // window a very long chain converges to
   CHAIN_WINDOW_DECAY: 22,   // chain length over which it decays
-  CHAIN_BONUS: 0.5,         // money multiplier = 1 + CHAIN_BONUS * sqrt(chain).
-                            // Sub-linear on purpose: huge chains stay exciting
-                            // without the economy exploding.
+  CHAIN_BONUS: 0.5,         // per-pop multiplier = 1 + CHAIN_BONUS * sqrt(chain)
+  CHAIN_BONUS_CAP: 60,      // …but the chain counts as at most this for that
+                            // multiplier. A self-sustaining pan holds a chain
+                            // open indefinitely, so without a cap the "burst"
+                            // bonus silently becomes a permanent 10x income
+                            // multiplier and the economy runs away. Long chains
+                            // are rewarded through the end-of-chain bonus
+                            // instead, which is where a burst belongs.
 
   // Milestones are close together at the start so something lands every few
   // seconds, then spread out to keep the top end meaningful.
   CHAIN_MAX: 500,           // a chain this long banks itself: the counter always
                             // means something, and the cap is its own climax
   CHAIN_BONUS_MIN: 8,       // shortest chain that pays an end-of-chain bonus
-  CHAIN_BONUS_FACTOR: 0.7,  // bonus = popValue * chain * this
+  CHAIN_BONUS_FACTOR: 0.35, // bonus = popValue * chain * this
   CHAIN_TIERS: [8, 15, 25, 40, 60, 100, 150, 250, 400],
   TIER_WORDS: ['NICE', 'SWEET', 'WILD', 'CRAZY', 'INSANE',
                'UNREAL', 'GODLIKE', 'LEGENDARY', 'COSMIC'],
@@ -68,6 +73,14 @@ POPCORE.CONFIG = {
   MEGA_HEAT: 3,             // enough to pop anything the wave touches
   MEGA_RADIUS: 2.3,
 
+  /* ---- away earnings ----
+   * Coming back should pay something, without making leaving the best move:
+   * a fraction of the rate you left at, over a capped window.
+   */
+  OFFLINE_RATE: 0.3,
+  OFFLINE_MAX_HOURS: 8,
+  OFFLINE_MIN_SECONDS: 120,
+
   /* ---- misc ---- */
   RATE_WINDOW: 6,           // seconds of history behind the "$ / s" readout
   SAVE_INTERVAL: 5,         // seconds between autosaves
@@ -87,7 +100,7 @@ POPCORE.CONFIG = {
       id: 'spawn',
       name: 'Spawn Rate',
       baseCost: 12,
-      costMult: 1.45,
+      costMult: 1.50,
       value: function (lvl) { return 1.40 * Math.pow(1.15, lvl); },
       format: function (v, lvl) {
         var C = POPCORE.CONFIG;
@@ -100,7 +113,7 @@ POPCORE.CONFIG = {
       id: 'heat',
       name: 'Heat Speed',
       baseCost: 14,
-      costMult: 1.42,
+      costMult: 1.48,
       value: function (lvl) { return 0.055 * Math.pow(1.10, lvl); },
       format: function (v) { return (1 / v).toFixed(1) + 's to pop'; }
     },
@@ -108,7 +121,7 @@ POPCORE.CONFIG = {
       id: 'shock',
       name: 'Shockwave',
       baseCost: 20,
-      costMult: 1.46,
+      costMult: 1.50,
       value: function (lvl) { return 0.30 * Math.pow(1.11, lvl); },
       format: function (v) { return '+' + Math.round(v * 100) + '% heat'; }
     },
@@ -116,7 +129,7 @@ POPCORE.CONFIG = {
       id: 'value',
       name: 'Pop Value',
       baseCost: 12,
-      costMult: 1.48,
+      costMult: 1.52,
       value: function (lvl) { return 1 * Math.pow(1.22, lvl); },
       format: function (v) { return '$' + POPCORE.formatMoney(v, true); }
     }

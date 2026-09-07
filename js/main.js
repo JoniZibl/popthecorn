@@ -13,11 +13,16 @@
 
   var canvas = document.getElementById('game');
 
-  var sim = new NS.Sim();
+  var meta = new NS.Meta();
+  var sim = new NS.Sim(meta);
   var fx = new NS.Fx();
   var audio = new NS.Audio();
   var renderer = new NS.Renderer(canvas, sim, fx);
-  var ui = new NS.UI(sim, buy);
+  var ui = new NS.UI(sim, meta, {
+    onBuy: buy,
+    onPickCard: pickCard,
+    onCashOut: cashOut
+  });
 
   var acc = 0;
   var lastFrame = 0;
@@ -27,18 +32,24 @@
 
   // Handy for tinkering from the console (and for automated smoke tests).
   NS.game = {
-    sim: sim, fx: fx, audio: audio, renderer: renderer, canvas: canvas,
-    fps: function () { return fps; }
+    sim: sim, fx: fx, meta: meta, audio: audio, renderer: renderer, canvas: canvas,
+    ui: ui, fps: function () { return fps; }
   };
 
   /* ---------------- start-up ---------------- */
 
   var loaded = NS.Save.read();
-  if (loaded) sim.load(loaded);
+  if (loaded) {
+    if (loaded.meta) meta.load(loaded.meta);
+    if (loaded.run) sim.load(loaded.run);
+  }
+  sim.recomputeMods();
 
   // Open with a small handful, not a single kernel: there is never a moment
   // where the player taps and finds nothing to hit.
   for (var i = 0; i < 3; i++) sim.spawnKernel();
+
+  offerOfflineEarnings(loaded);
 
   // The upgrade buttons change the stage height, so re-measure once the DOM is final.
   renderer.resize();
@@ -64,6 +75,10 @@
       fx.addRing(p.x, p.y, 0.14, 'rgba(255,255,255,0.35)', 0.008);
     }
   }, { passive: false });
+
+  document.getElementById('butter').addEventListener('click', function () {
+    ui.openShop();
+  });
 
   document.getElementById('mega').addEventListener('click', function () {
     audio.unlock();
@@ -100,6 +115,12 @@
     resetBtn.textContent = 'reset save';
     resetBtn.classList.remove('armed');
     sim.reset();
+    meta.load(null);
+    meta.butter = 0;
+    meta.lifetimeButter = 0;
+    meta.batches = 0;
+    meta.bestBatch = 0;
+    for (var m = 0; m < NS.META.UPGRADES.length; m++) meta.levels[NS.META.UPGRADES[m].id] = 0;
     fx.clear();
     ui.hideChain();
     NS.Save.clear();
@@ -111,10 +132,10 @@
   });
 
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) NS.Save.write(sim);
+    if (document.hidden) NS.Save.write(sim, meta);
     else lastFrame = 0;   // avoid a huge catch-up step on return
   });
-  window.addEventListener('pagehide', function () { NS.Save.write(sim); });
+  window.addEventListener('pagehide', function () { NS.Save.write(sim, meta); });
 
   /** Haptic tick or pattern, where the platform supports it (Android Chrome). */
   function buzz(pattern) {
@@ -123,6 +144,66 @@
 
   function updateMuteLabel() {
     document.getElementById('mute').textContent = audio.enabled ? 'SOUND ON' : 'SOUND OFF';
+  }
+
+  /* ---------------- batches, cards, away time ---------------- */
+
+  function pickCard(id) {
+    sim.draftsTaken++;
+    sim.addCard(id);
+    audio.golden();
+    fx.golden(0, 0);
+    ui.callout('MUTATED');
+  }
+
+  /** Offer a draft the moment one is due, unless a panel is already up. */
+  function checkDraft() {
+    if (!sim.draftDue() || ui.anyPanelOpen()) return;
+    var cards = NS.drawCards(meta.cardsPerDraft(), meta.lifetimeButter, meta.luck(), sim.cards);
+    if (!cards.length) { sim.draftsTaken++; return; }
+    audio.tier(3);
+    buzz([0, 30, 30, 30]);
+    ui.openDraft(cards);
+  }
+
+  function cashOut() {
+    var gain = meta.cashOut(sim.earned);
+    if (!gain) return;
+
+    sim.startBatch();
+    fx.clear();
+    fx.mega();
+    ui.hideChain();
+    ui.callout('+' + gain + ' BUTTER');
+    audio.mega();
+    buzz([0, 60, 40, 60, 40, 140]);
+    NS.Save.write(sim, meta);
+
+    // The shop is the whole point of cashing out, so open it straight away.
+    ui.openShop();
+  }
+
+  /**
+   * Pay out a share of the rate the player left at. Capped, and only when they
+   * were away long enough for it to feel like a return rather than a refresh.
+   */
+  function offerOfflineEarnings(saved) {
+    if (!saved || !saved.at || !saved.rate) return;
+
+    var seconds = (Date.now() - saved.at) / 1000;
+    if (seconds < C.OFFLINE_MIN_SECONDS) return;
+
+    var capped = Math.min(seconds, C.OFFLINE_MAX_HOURS * 3600);
+    var amount = saved.rate * capped * C.OFFLINE_RATE;
+    if (amount < 1) return;
+
+    ui.openWelcome(seconds, amount, function () {
+      sim.money += amount;
+      sim.earned += amount;
+      ui.bumpMoney(0.35);
+      fx.golden(0, 0);
+      audio.golden();
+    });
   }
 
   /* ---------------- purchases ---------------- */
@@ -190,9 +271,15 @@
 
     audio.frame();
 
+    // A panel (draft, shop, cash-out) pauses the pan: the choice is the moment,
+    // and nothing should pop away behind it.
+    var paused = ui.anyPanelOpen();
+
     // Hit-stop: the simulation freezes for a beat on a big impact while the
     // effects keep animating. It is what makes a hit feel like it landed.
-    if (fx.hitstop > 0) {
+    if (paused) {
+      acc = 0;
+    } else if (fx.hitstop > 0) {
       fx.hitstop -= dt;
       acc = 0;
     } else {
@@ -207,6 +294,7 @@
     }
 
     drainEvents();
+    if (!paused) checkDraft();
     fx.update(dt, sim.chain);
 
     if (sim.chain >= 2) ui.showChain(sim.chain);
@@ -218,7 +306,7 @@
     saveTimer += dt;
     if (saveTimer >= C.SAVE_INTERVAL) {
       saveTimer = 0;
-      NS.Save.write(sim);
+      NS.Save.write(sim, meta);
     }
   }
 

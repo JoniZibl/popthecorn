@@ -11,6 +11,7 @@
  *   { type:'tier',     tier, chain, word, x, y }   // chain crossed a milestone
  *   { type:'spawn',    x, y, golden }
  *   { type:'mega' }                                // MEGA POP fired
+ *   { type:'card',     id }                        // a mutation card was drafted
  *   { type:'buy',      id, level }
  */
 (function (NS) {
@@ -22,10 +23,17 @@
 
   var nextId = 1;
 
-  function Sim() {
+  function Sim(meta) {
+    this.meta = meta || null;      // may be absent in headless tests
     this.kernels = [];
     this.shockwaves = [];
     this.events = [];
+
+    this.cards = [];               // card ids drafted this batch
+    this.mods = defaultMods();
+    this.earned = 0;               // money earned this batch, drives butter
+    this.runPops = 0;              // pops this batch, drives card drafts
+    this.draftsTaken = 0;
 
     this.money = 0;
     this.totalPops = 0;
@@ -45,6 +53,52 @@
     this._earnings = [];
     this._earned = 0;
   }
+
+  /* ---------------- card modifiers ---------------- */
+
+  function defaultMods() {
+    return {
+      popValue: 1, spawnRate: 1, heatRate: 1, shockHeat: 1, shockRadius: 1,
+      chainWindow: 1, chainBonus: 1, golden: 1, goldenMult: 1, megaCharge: 1,
+      startHeat: 0, doublePop: 0, chainRadius: 0
+    };
+  }
+
+  /** Fold every drafted card (and the permanent meta bonus) into one object. */
+  Sim.prototype.recomputeMods = function () {
+    var m = defaultMods();
+
+    for (var i = 0; i < this.cards.length; i++) {
+      var card = NS.cardById(this.cards[i]);
+      if (!card) continue;
+      for (var key in card.mods) {
+        if (!card.mods.hasOwnProperty(key)) continue;
+        // Multiplicative fields start at 1, additive ones at 0.
+        if (key === 'startHeat' || key === 'doublePop' || key === 'chainRadius') {
+          m[key] += card.mods[key];
+        } else {
+          m[key] *= card.mods[key];
+        }
+      }
+    }
+
+    if (this.meta) m.popValue *= this.meta.popValueMult();
+    m.startHeat = clamp(m.startHeat, 0, 0.9);
+    m.doublePop = clamp(m.doublePop, 0, 0.85);
+
+    this.mods = m;
+  };
+
+  Sim.prototype.addCard = function (id) {
+    this.cards.push(id);
+    this.recomputeMods();
+    this.events.push({ type: 'card', id: id });
+  };
+
+  /** Pops at which the next draft is due, or null once none is pending. */
+  Sim.prototype.nextDraftAt = function () { return NS.draftAt(this.draftsTaken); };
+
+  Sim.prototype.draftDue = function () { return this.runPops >= this.nextDraftAt(); };
 
   /* ---------------- upgrades ---------------- */
 
@@ -75,23 +129,35 @@
 
   /* Derived stats — read straight from the upgrade table. */
   Sim.prototype.spawnRate = function () {
-    return Math.min(this.upgradeDef('spawn').value(this.level('spawn')), C.MAX_SPAWN_RATE);
+    var rate = this.upgradeDef('spawn').value(this.level('spawn')) * this.mods.spawnRate;
+    return Math.min(rate, C.MAX_SPAWN_RATE);
   };
-  Sim.prototype.heatRate = function () { return this.upgradeDef('heat').value(this.level('heat')); };
-  Sim.prototype.shockHeat = function () { return this.upgradeDef('shock').value(this.level('shock')); };
-  Sim.prototype.shockRadius = function () { return C.shockRadius(this.level('shock')); };
-  Sim.prototype.popValue = function () { return this.upgradeDef('value').value(this.level('value')); };
+  Sim.prototype.heatRate = function () {
+    return this.upgradeDef('heat').value(this.level('heat')) * this.mods.heatRate;
+  };
+  Sim.prototype.shockHeat = function () {
+    return this.upgradeDef('shock').value(this.level('shock')) * this.mods.shockHeat;
+  };
+  Sim.prototype.shockRadius = function () {
+    // Chain Reactor widens every wave as the chain climbs.
+    var growth = 1 + this.mods.chainRadius * this.chain;
+    return Math.min(C.shockRadius(this.level('shock')) * this.mods.shockRadius * growth, 2.4);
+  };
+  Sim.prototype.popValue = function () {
+    return this.upgradeDef('value').value(this.level('value')) * this.mods.popValue;
+  };
 
   /** Odds a new kernel is golden. Spawn levels keep buying these after the
    *  raw spawn rate has hit its ceiling, so the upgrade never goes dead. */
   Sim.prototype.goldenChance = function () {
-    return Math.min(C.GOLDEN_CHANCE + this.level('spawn') * C.GOLDEN_PER_SPAWN_LEVEL,
-                    C.GOLDEN_MAX_CHANCE);
+    var base = Math.min(C.GOLDEN_CHANCE + this.level('spawn') * C.GOLDEN_PER_SPAWN_LEVEL,
+                        C.GOLDEN_MAX_CHANCE);
+    return Math.min(base * this.mods.golden, 0.5);
   };
 
   /** Money earned per pop at the current chain length (sub-linear in the chain). */
   Sim.prototype.valueAtChain = function (chain) {
-    return this.popValue() * (1 + C.CHAIN_BONUS * Math.sqrt(chain));
+    return this.popValue() * (1 + C.CHAIN_BONUS * Math.sqrt(Math.min(chain, C.CHAIN_BONUS_CAP)));
   };
 
   Sim.prototype.moneyPerSecond = function () {
@@ -122,7 +188,7 @@
       x: best.x,
       y: best.y,
       golden: Math.random() < this.goldenChance(),
-      heat: 0,
+      heat: this.mods.startHeat,
       rate: this.heatRate() * rand(1 - C.HEAT_JITTER, 1 + C.HEAT_JITTER),
       angle: rand(0, Math.PI * 2),
       seed: Math.random() * 1000,
@@ -171,17 +237,27 @@
     this.kernels.splice(idx, 1);
 
     var value = this.valueAtChain(this.chain);
-    if (kernel.golden) value *= C.GOLDEN_MULT;
+    if (kernel.golden) value *= C.GOLDEN_MULT * this.mods.goldenMult;
+
+    // Double Feature and friends: the pop pays twice and throws a second wave.
+    var doubled = this.mods.doublePop > 0 && Math.random() < this.mods.doublePop;
+    if (doubled) value *= 2;
+
     this.money += value;
+    this.earned += value;
     this._earned += value;
     this.totalPops++;
+    this.runPops++;
 
     this.chain++;
-    this.chainTimer = C.chainWindow(this.chain);
-    if (this.mega < C.MEGA_MAX) this.mega = Math.min(C.MEGA_MAX, this.mega + 1);
+    this.chainTimer = C.chainWindow(this.chain) * this.mods.chainWindow;
+    if (this.mega < C.MEGA_MAX) {
+      this.mega = Math.min(C.MEGA_MAX, this.mega + this.mods.megaCharge);
+    }
     if (this.chain > this.bestChain) this.bestChain = this.chain;
 
     this.addShockwave(kernel.x, kernel.y);
+    if (doubled) this.addShockwave(kernel.x, kernel.y);
 
     this.events.push({
       type: 'pop',
@@ -190,7 +266,8 @@
       chain: this.chain,
       value: value,
       manual: !!manual,
-      golden: !!kernel.golden
+      golden: !!kernel.golden,
+      doubled: doubled
     });
 
     // A chain that hits the cap banks itself immediately — the counter stays
@@ -282,9 +359,10 @@
     var bonus = 0;
 
     if (count >= C.CHAIN_BONUS_MIN) {
-      bonus = this.popValue() * count * C.CHAIN_BONUS_FACTOR;
-      if (maxed) bonus *= 3;
+      bonus = this.popValue() * count * C.CHAIN_BONUS_FACTOR * this.mods.chainBonus;
+      if (maxed) bonus *= 2.5;
       this.money += bonus;
+      this.earned += bonus;
       this._earned += bonus;
     }
 
@@ -377,7 +455,11 @@
       totalPops: this.totalPops,
       bestChain: this.bestChain,
       mega: this.mega,
-      levels: this.levels
+      levels: this.levels,
+      cards: this.cards,
+      earned: this.earned,
+      runPops: this.runPops,
+      draftsTaken: this.draftsTaken
     };
   };
 
@@ -387,6 +469,18 @@
     this.totalPops = Math.max(0, Math.floor(Number(data.totalPops) || 0));
     this.bestChain = Math.max(0, Math.floor(Number(data.bestChain) || 0));
     this.mega = clamp(Math.floor(Number(data.mega) || 0), 0, C.MEGA_MAX);
+    this.earned = Math.max(0, Number(data.earned) || 0);
+    this.runPops = Math.max(0, Math.floor(Number(data.runPops) || 0));
+    this.draftsTaken = Math.max(0, Math.floor(Number(data.draftsTaken) || 0));
+
+    this.cards = [];
+    var saved = data.cards;
+    if (saved && saved.length) {
+      for (var c = 0; c < saved.length; c++) {
+        if (NS.cardById(saved[c])) this.cards.push(saved[c]);
+      }
+    }
+    this.recomputeMods();
     for (var i = 0; i < C.UPGRADES.length; i++) {
       var id = C.UPGRADES[i].id;
       var lvl = Math.floor(Number(data.levels && data.levels[id]) || 0);
@@ -395,21 +489,46 @@
     return true;
   };
 
-  Sim.prototype.reset = function () {
+  /**
+   * Start a fresh batch: everything a run accumulates goes, the meta layer
+   * stays. Head Start levels are granted here, so a veteran's pan opens hotter
+   * than a beginner's.
+   */
+  Sim.prototype.startBatch = function () {
     this.kernels.length = 0;
     this.shockwaves.length = 0;
-    this.events.length = 0;
+    this.cards.length = 0;
     this.money = 0;
-    this.totalPops = 0;
-    this.bestChain = 0;
+    this.earned = 0;
+    this.runPops = 0;
+    this.draftsTaken = 0;
     this.chain = 0;
     this.chainTier = 0;
+    this.chainTimer = 0;
     this.mega = 0;
     this.spawnAcc = 0;
     this.emptyFor = 0;
     this._earnings.length = 0;
+    this._earned = 0;
+
     for (var i = 0; i < C.UPGRADES.length; i++) this.levels[C.UPGRADES[i].id] = 0;
-    this.spawnKernel();
+
+    var head = this.meta ? this.meta.headStart() : 0;
+    for (var h = 0; h < head; h++) {
+      var id = C.UPGRADES[h % C.UPGRADES.length].id;
+      this.levels[id] = this.level(id) + 1;
+    }
+
+    this.recomputeMods();
+    for (var k = 0; k < 3; k++) this.spawnKernel();
+  };
+
+  /** Full wipe, including everything a batch would normally keep. */
+  Sim.prototype.reset = function () {
+    this.events.length = 0;
+    this.totalPops = 0;
+    this.bestChain = 0;
+    this.startBatch();
   };
 
   NS.Sim = Sim;

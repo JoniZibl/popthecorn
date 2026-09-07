@@ -324,6 +324,237 @@ html, body {
   transition: width 180ms linear;
 }
 
+/* ---------------- Bottom bar ---------------- */
+
+.bottom {
+  flex: 0 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.bar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bar-btn:active { transform: scale(0.98); }
+.bar-title { font-size: 11px; font-weight: 800; letter-spacing: 0.14em; }
+.bar-sub { font-size: 10px; color: var(--dim); letter-spacing: 0.04em; }
+
+.bar-btn.cash.ready {
+  border-color: rgba(255, 214, 110, 0.75);
+  background: rgba(255, 180, 60, 0.12);
+}
+.bar-btn.cash.ready .bar-sub { color: var(--gold); }
+
+.butter {
+  font-size: 13px;
+  font-weight: 800;
+  color: #ffd98a;
+  letter-spacing: 0.04em;
+}
+
+/* ---------------- Overlays ---------------- */
+
+/* `display: grid` below outranks the browser's own [hidden] rule, so a hidden
+   overlay would otherwise stay on screen and swallow every tap. */
+.overlay[hidden] { display: none; }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(6, 5, 8, 0.93);
+  backdrop-filter: blur(3px);
+  animation: overlay-in 180ms ease-out;
+}
+
+@keyframes overlay-in { from { opacity: 0; } to { opacity: 1; } }
+
+.overlay-inner {
+  width: 100%;
+  max-width: 460px;
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.overlay-eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  color: var(--dim);
+  text-align: center;
+}
+.overlay-title {
+  margin: 0 0 4px;
+  text-align: center;
+  font-size: clamp(24px, 8vw, 32px);
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: var(--cream);
+  text-shadow: 0 0 26px rgba(255, 160, 40, 0.4);
+}
+
+/* draft cards */
+
+.cards { display: flex; flex-direction: column; gap: 8px; }
+
+.card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid var(--rarity, var(--line));
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  animation: card-in 320ms cubic-bezier(0.2, 1.3, 0.4, 1) both;
+}
+.card:nth-child(2) { animation-delay: 70ms; }
+.card:nth-child(3) { animation-delay: 140ms; }
+.card:nth-child(4) { animation-delay: 210ms; }
+.card:nth-child(5) { animation-delay: 280ms; }
+.card:active { transform: scale(0.98); }
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to   { opacity: 1; transform: none; }
+}
+
+.card-rarity {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  color: var(--rarity, var(--dim));
+}
+.card-name { font-size: 17px; font-weight: 800; letter-spacing: -0.01em; }
+.card-desc { font-size: 12px; color: rgba(246, 241, 232, 0.7); line-height: 1.35; }
+.card.legendary {
+  background: linear-gradient(135deg, rgba(255, 140, 30, 0.18), rgba(255, 255, 255, 0.02));
+  box-shadow: 0 0 30px rgba(255, 140, 30, 0.25);
+}
+
+/* deck + shop lists */
+
+.deck-list, .shop-list { display: flex; flex-direction: column; gap: 6px; }
+
+.deck-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+  border-left: 3px solid var(--rarity, var(--line));
+}
+.deck-row .n { font-size: 13px; font-weight: 700; }
+.deck-row .d { font-size: 11px; color: var(--dim); }
+.deck-empty { text-align: center; color: var(--dim); font-size: 12px; padding: 14px; }
+
+.shop-butter {
+  text-align: center;
+  font-size: 20px;
+  font-weight: 900;
+  color: #ffd98a;
+}
+.shop-next {
+  margin-top: 3px;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+}
+
+.shop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.shop-row:disabled { opacity: 0.5; cursor: default; }
+.shop-row:not(:disabled) { border-color: rgba(255, 194, 75, 0.45); }
+.shop-row .sn { font-size: 13px; font-weight: 800; }
+.shop-row .sd { font-size: 11px; color: var(--dim); }
+.shop-row .sv { font-size: 11px; color: rgba(255, 217, 138, 0.85); }
+.shop-row .sc { font-size: 14px; font-weight: 900; color: #ffd98a; white-space: nowrap; }
+
+/* cash-out + welcome */
+
+.cash-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 13px;
+}
+.cash-summary .row { display: flex; justify-content: space-between; gap: 10px; }
+.cash-summary .row span:last-child { font-weight: 800; }
+.cash-summary .big {
+  font-size: 30px;
+  font-weight: 900;
+  text-align: center;
+  color: #ffd98a;
+  padding: 4px 0;
+}
+
+.overlay-actions { display: flex; flex-direction: column; gap: 8px; }
+
+.primary-btn {
+  padding: 14px;
+  border: none;
+  border-radius: 14px;
+  background: linear-gradient(90deg, #ff7a18, #ffc24b);
+  color: #1a0d02;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 900;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+.primary-btn:active { transform: scale(0.98); }
+.primary-btn:disabled { opacity: 0.45; cursor: default; }
+
+.close-btn {
+  padding: 11px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--dim);
+  font: inherit;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  cursor: pointer;
+}
+
 /* ---------------- Footer ---------------- */
 
 #footer {
@@ -342,7 +573,7 @@ html, body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .chain.pulse, .hint, .mega.ready { animation: none; }
+  .chain.pulse, .hint, .mega.ready, .card { animation: none; }
   .callout.go { animation-duration: 600ms; }
 }
 </style>
@@ -355,6 +586,7 @@ html, body {
       <div id="rate" class="rate">$0.0 / s</div>
     </div>
     <div class="hud-right">
+      <div id="butter" class="butter">🧈 0</div>
       <div id="best" class="best">BEST CHAIN —</div>
       <button id="mute" class="icon-btn" type="button" aria-label="Toggle sound">SOUND ON</button>
     </div>
@@ -374,10 +606,70 @@ html, body {
 
   <section id="upgrades" class="upgrades"></section>
 
+  <section id="bottom" class="bottom">
+    <button id="deckBtn" class="bar-btn" type="button">
+      <span class="bar-title">DECK</span>
+      <span id="deckSub" class="bar-sub">next card in 30 pops</span>
+    </button>
+    <button id="cashBtn" class="bar-btn cash" type="button">
+      <span class="bar-title">CASH OUT</span>
+      <span id="cashSub" class="bar-sub">🧈 0</span>
+    </button>
+  </section>
+
   <footer id="footer">
     <span id="pops">0 pops</span>
     <button id="reset" class="text-btn" type="button">reset save</button>
   </footer>
+
+  <!-- Card draft: the run-defining choice, so it takes over the screen. -->
+  <div id="draft" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">MUTATION</div>
+      <h2 class="overlay-title">PICK ONE</h2>
+      <div id="draftCards" class="cards"></div>
+    </div>
+  </div>
+
+  <div id="deck" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">THIS BATCH</div>
+      <h2 class="overlay-title">YOUR DECK</h2>
+      <div id="deckList" class="deck-list"></div>
+      <button class="close-btn" type="button" data-close="deck">CLOSE</button>
+    </div>
+  </div>
+
+  <div id="shop" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">PERMANENT</div>
+      <h2 class="overlay-title">BUTTER SHOP</h2>
+      <div id="shopButter" class="shop-butter">🧈 0</div>
+      <div id="shopList" class="shop-list"></div>
+      <button class="close-btn" type="button" data-close="shop">CLOSE</button>
+    </div>
+  </div>
+
+  <div id="cashout" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">BATCH COMPLETE</div>
+      <h2 class="overlay-title">CASH OUT</h2>
+      <div id="cashSummary" class="cash-summary"></div>
+      <div class="overlay-actions">
+        <button id="cashConfirm" class="primary-btn" type="button">POP THE BATCH</button>
+        <button class="close-btn" type="button" data-close="cashout">KEEP POPPING</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="welcome" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">WHILE YOU WERE GONE</div>
+      <h2 class="overlay-title">THE PAN KEPT POPPING</h2>
+      <div id="welcomeSummary" class="cash-summary"></div>
+      <button id="welcomeClaim" class="primary-btn" type="button">COLLECT</button>
+    </div>
+  </div>
 
 </div>
 
@@ -421,16 +713,21 @@ POPCORE.CONFIG = {
   CHAIN_WINDOW: 0.7,        // window at chain 1
   CHAIN_WINDOW_MIN: 0.24,   // window a very long chain converges to
   CHAIN_WINDOW_DECAY: 22,   // chain length over which it decays
-  CHAIN_BONUS: 0.5,         // money multiplier = 1 + CHAIN_BONUS * sqrt(chain).
-                            // Sub-linear on purpose: huge chains stay exciting
-                            // without the economy exploding.
+  CHAIN_BONUS: 0.5,         // per-pop multiplier = 1 + CHAIN_BONUS * sqrt(chain)
+  CHAIN_BONUS_CAP: 60,      // …but the chain counts as at most this for that
+                            // multiplier. A self-sustaining pan holds a chain
+                            // open indefinitely, so without a cap the "burst"
+                            // bonus silently becomes a permanent 10x income
+                            // multiplier and the economy runs away. Long chains
+                            // are rewarded through the end-of-chain bonus
+                            // instead, which is where a burst belongs.
 
   // Milestones are close together at the start so something lands every few
   // seconds, then spread out to keep the top end meaningful.
   CHAIN_MAX: 500,           // a chain this long banks itself: the counter always
                             // means something, and the cap is its own climax
   CHAIN_BONUS_MIN: 8,       // shortest chain that pays an end-of-chain bonus
-  CHAIN_BONUS_FACTOR: 0.7,  // bonus = popValue * chain * this
+  CHAIN_BONUS_FACTOR: 0.35, // bonus = popValue * chain * this
   CHAIN_TIERS: [8, 15, 25, 40, 60, 100, 150, 250, 400],
   TIER_WORDS: ['NICE', 'SWEET', 'WILD', 'CRAZY', 'INSANE',
                'UNREAL', 'GODLIKE', 'LEGENDARY', 'COSMIC'],
@@ -452,6 +749,14 @@ POPCORE.CONFIG = {
   MEGA_HEAT: 3,             // enough to pop anything the wave touches
   MEGA_RADIUS: 2.3,
 
+  /* ---- away earnings ----
+   * Coming back should pay something, without making leaving the best move:
+   * a fraction of the rate you left at, over a capped window.
+   */
+  OFFLINE_RATE: 0.3,
+  OFFLINE_MAX_HOURS: 8,
+  OFFLINE_MIN_SECONDS: 120,
+
   /* ---- misc ---- */
   RATE_WINDOW: 6,           // seconds of history behind the "$ / s" readout
   SAVE_INTERVAL: 5,         // seconds between autosaves
@@ -471,7 +776,7 @@ POPCORE.CONFIG = {
       id: 'spawn',
       name: 'Spawn Rate',
       baseCost: 12,
-      costMult: 1.45,
+      costMult: 1.50,
       value: function (lvl) { return 1.40 * Math.pow(1.15, lvl); },
       format: function (v, lvl) {
         var C = POPCORE.CONFIG;
@@ -484,7 +789,7 @@ POPCORE.CONFIG = {
       id: 'heat',
       name: 'Heat Speed',
       baseCost: 14,
-      costMult: 1.42,
+      costMult: 1.48,
       value: function (lvl) { return 0.055 * Math.pow(1.10, lvl); },
       format: function (v) { return (1 / v).toFixed(1) + 's to pop'; }
     },
@@ -492,7 +797,7 @@ POPCORE.CONFIG = {
       id: 'shock',
       name: 'Shockwave',
       baseCost: 20,
-      costMult: 1.46,
+      costMult: 1.50,
       value: function (lvl) { return 0.30 * Math.pow(1.11, lvl); },
       format: function (v) { return '+' + Math.round(v * 100) + '% heat'; }
     },
@@ -500,7 +805,7 @@ POPCORE.CONFIG = {
       id: 'value',
       name: 'Pop Value',
       baseCost: 12,
-      costMult: 1.48,
+      costMult: 1.52,
       value: function (lvl) { return 1 * Math.pow(1.22, lvl); },
       format: function (v) { return '$' + POPCORE.formatMoney(v, true); }
     }
@@ -545,6 +850,386 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
 
 <script>
 /**
+ * POPCORE — mutation cards.
+ *
+ * Every batch drafts a random build: at rising pop counts the player is offered
+ * three cards and keeps one. Cards stack for the rest of the batch, so no two
+ * batches play the same way — one run is a slow-burn high-value pan, the next
+ * is a wide-blast chain machine.
+ *
+ * Cards are pure data. Everything they do is expressed through the modifier
+ * fields below, which the simulation multiplies into its own numbers, so a new
+ * card needs no new simulation code:
+ *
+ *   popValue, spawnRate, heatRate, shockHeat, shockRadius,
+ *   chainWindow, chainBonus, golden, goldenMult, megaCharge   — multipliers
+ *   startHeat      — kernels spawn with this much heat already (0..1)
+ *   doublePop      — chance a pop fires a second shockwave and pays twice
+ *   chainRadius    — shockwave radius grows by this fraction per chain link
+ *
+ * `unlockAt` is lifetime butter: the pool keeps growing for months of play.
+ */
+(function (NS) {
+  'use strict';
+
+  NS.RARITY = {
+    common:    { label: 'COMMON',    weight: 62, color: '#cfc6b6' },
+    rare:      { label: 'RARE',      weight: 30, color: '#5fc9ff' },
+    legendary: { label: 'LEGENDARY', weight: 8,  color: '#ff9b3d' }
+  };
+
+  NS.CARDS = [
+    /* ---- starting pool ---- */
+    { id: 'butter', name: 'Butter Coating', rarity: 'common', unlockAt: 0,
+      desc: 'Pops pay +60%, kernels arrive 20% slower',
+      mods: { popValue: 1.6, spawnRate: 0.8 } },
+
+    { id: 'hotoil', name: 'Hot Oil', rarity: 'common', unlockAt: 0,
+      desc: 'Kernels start at 20% heat',
+      mods: { startHeat: 0.2 } },
+
+    { id: 'tightpan', name: 'Tight Pan', rarity: 'common', unlockAt: 0,
+      desc: '+50% kernels, shockwaves 15% smaller',
+      mods: { spawnRate: 1.5, shockRadius: 0.85 } },
+
+    { id: 'slowburn', name: 'Slow Burn', rarity: 'common', unlockAt: 0,
+      desc: 'Heat 30% slower, pops pay double',
+      mods: { heatRate: 0.7, popValue: 2 } },
+
+    { id: 'wideblast', name: 'Wide Blast', rarity: 'common', unlockAt: 0,
+      desc: 'Shockwaves reach 30% further',
+      mods: { shockRadius: 1.3 } },
+
+    { id: 'deepheat', name: 'Deep Heat', rarity: 'common', unlockAt: 0,
+      desc: 'Shockwaves carry 35% more heat',
+      mods: { shockHeat: 1.35 } },
+
+    { id: 'sticky', name: 'Sticky Combo', rarity: 'common', unlockAt: 0,
+      desc: 'Chains survive 35% longer',
+      mods: { chainWindow: 1.35 } },
+
+    { id: 'salty', name: 'Salted', rarity: 'common', unlockAt: 0,
+      desc: 'Chain bonuses pay +50%',
+      mods: { chainBonus: 1.5 } },
+
+    { id: 'goldrush', name: 'Gold Rush', rarity: 'rare', unlockAt: 0,
+      desc: 'Golden kernels 2.5× as often',
+      mods: { golden: 2.5 } },
+
+    /* ---- unlocked by playing ---- */
+    { id: 'double', name: 'Double Feature', rarity: 'rare', unlockAt: 15,
+      desc: '12% of pops fire twice',
+      mods: { doublePop: 0.12 } },
+
+    { id: 'kettle', name: 'Kettle Corn', rarity: 'rare', unlockAt: 35,
+      desc: 'MEGA POP charges twice as fast',
+      mods: { megaCharge: 2 } },
+
+    { id: 'reactor', name: 'Chain Reactor', rarity: 'rare', unlockAt: 120,
+      desc: 'Each chain link widens the next shockwave',
+      mods: { chainRadius: 0.014 } },
+
+    { id: 'caramel', name: 'Caramel Bath', rarity: 'rare', unlockAt: 70,
+      desc: 'Chain bonuses pay 2.2×, chains end 15% sooner',
+      mods: { chainBonus: 2.2, chainWindow: 0.85 } },
+
+    { id: 'airpopper', name: 'Air Popper', rarity: 'rare', unlockAt: 190,
+      desc: 'Double the kernels, pops pay 30% less',
+      mods: { spawnRate: 2, popValue: 0.7 } },
+
+    { id: 'nuclear', name: 'Nuclear Kernel', rarity: 'legendary', unlockAt: 290,
+      desc: 'Shockwaves: double heat, +50% reach. 30% fewer kernels',
+      mods: { shockHeat: 2, shockRadius: 1.5, spawnRate: 0.7 } },
+
+    { id: 'midas', name: 'Midas Corn', rarity: 'legendary', unlockAt: 430,
+      desc: 'Golden kernels 4× as often and worth 50% more',
+      mods: { golden: 4, goldenMult: 1.5 } },
+
+    { id: 'perpetual', name: 'Perpetual Motion', rarity: 'legendary', unlockAt: 620,
+      desc: '20% of pops fire twice, chains survive 20% longer',
+      mods: { doublePop: 0.2, chainWindow: 1.2 } },
+
+    { id: 'storm', name: 'Butter Storm', rarity: 'legendary', unlockAt: 880,
+      desc: 'Pops pay 3×, heat builds 40% slower',
+      mods: { popValue: 3, heatRate: 0.6 } },
+
+    /* ---- the long tail ---- */
+    { id: 'popping', name: 'Popping Corn', rarity: 'rare', unlockAt: 1200,
+      desc: 'Chains survive 50% longer, pops pay 15% less',
+      mods: { chainWindow: 1.5, popValue: 0.85 } },
+
+    { id: 'slick', name: 'Oil Slick', rarity: 'rare', unlockAt: 1700,
+      desc: 'Shockwaves reach 80% further but carry 25% less heat',
+      mods: { shockRadius: 1.8, shockHeat: 0.75 } },
+
+    { id: 'jumbo', name: 'Jumbo Kernels', rarity: 'legendary', unlockAt: 2400,
+      desc: 'Pops pay 2.5×, kernels arrive 45% slower',
+      mods: { popValue: 2.5, spawnRate: 0.55 } },
+
+    { id: 'static', name: 'Static Charge', rarity: 'legendary', unlockAt: 3300,
+      desc: 'Shockwaves widen sharply as the chain climbs',
+      mods: { chainRadius: 0.03 } },
+
+    { id: 'goldenage', name: 'Golden Age', rarity: 'legendary', unlockAt: 4500,
+      desc: 'Golden kernels 3× as often and worth double, pops pay 20% less',
+      mods: { golden: 3, goldenMult: 2, popValue: 0.8 } },
+
+    { id: 'chaos', name: 'Chaos Theory', rarity: 'legendary', unlockAt: 6000,
+      desc: '30% of pops fire twice, chains end 10% sooner',
+      mods: { doublePop: 0.3, chainWindow: 0.9 } }
+  ];
+
+  /** Lifetime butter at which the next locked card opens up, or null. */
+  NS.nextUnlock = function (lifetimeButter) {
+    var best = null;
+    for (var i = 0; i < NS.CARDS.length; i++) {
+      var at = NS.CARDS[i].unlockAt;
+      if (at > lifetimeButter && (best === null || at < best)) best = at;
+    }
+    return best;
+  };
+
+  NS.cardById = function (id) {
+    for (var i = 0; i < NS.CARDS.length; i++) {
+      if (NS.CARDS[i].id === id) return NS.CARDS[i];
+    }
+    return null;
+  };
+
+  /** Cards whose unlock threshold the player's lifetime butter has passed. */
+  NS.unlockedCards = function (lifetimeButter) {
+    return NS.CARDS.filter(function (c) { return lifetimeButter >= c.unlockAt; });
+  };
+
+  /**
+   * Draw `count` distinct cards, weighted by rarity. `luck` shifts the roll
+   * toward the good stuff (the Rare Blend meta upgrade).
+   */
+  NS.drawCards = function (count, lifetimeButter, luck, exclude) {
+    var pool = NS.unlockedCards(lifetimeButter).filter(function (c) {
+      return !exclude || exclude.indexOf(c.id) === -1;
+    });
+    // Falling back to the full unlocked pool beats offering nothing once the
+    // player has drafted most of it in a single very long batch.
+    if (pool.length < count) pool = NS.unlockedCards(lifetimeButter);
+
+    var picks = [];
+    var available = pool.slice();
+
+    while (picks.length < count && available.length) {
+      var total = 0, i;
+      for (i = 0; i < available.length; i++) total += weightOf(available[i], luck);
+
+      var roll = Math.random() * total;
+      var chosen = available.length - 1;
+      for (i = 0; i < available.length; i++) {
+        roll -= weightOf(available[i], luck);
+        if (roll <= 0) { chosen = i; break; }
+      }
+      picks.push(available[chosen]);
+      available.splice(chosen, 1);
+    }
+    return picks;
+  };
+
+  function weightOf(card, luck) {
+    var w = NS.RARITY[card.rarity].weight;
+    if (card.rarity === 'rare') w *= 1 + (luck || 0) * 0.5;
+    if (card.rarity === 'legendary') w *= 1 + (luck || 0);
+    return w;
+  }
+
+  /** Pop count at which the nth draft (0-based) is offered. */
+  NS.draftAt = function (n) {
+    return Math.round(30 * Math.pow(1.42, n));
+  };
+})(window.POPCORE);
+</script>
+
+<script>
+/**
+ * POPCORE — the layer above a single batch.
+ *
+ * A batch is one panful: you pop, upgrade, draft cards, and the numbers run
+ * away from you. Cashing out ends the batch and converts everything it earned
+ * into BUTTER, the permanent currency. Butter buys upgrades that apply to every
+ * future batch and unlocks new cards into the draft pool.
+ *
+ * That is the long arc: a batch is ten minutes, the butter it leaves behind is
+ * forever, and the card pool keeps opening up for months.
+ */
+(function (NS) {
+  'use strict';
+
+  NS.META = {
+    /* Butter is logarithmic in what a batch earned: every tenfold increase in
+     * batch power is worth the same fixed step. That is what makes the meta
+     * layer last — a batch a thousand times stronger than your first pays
+     * three steps more, not a thousand times more, so the deep upgrades stay
+     * expensive no matter how absurd the in-batch numbers get. */
+    BUTTER_PER_DECADE: 2.2,
+    BUTTER_LOG_FLOOR: 4,      // a batch under $10k is not worth cashing out
+
+    /* Cashing out below this is refused — it would burn a batch for nothing. */
+    MIN_CASHOUT: 1,
+
+    UPGRADES: [
+      {
+        id: 'slots',
+        name: 'Wider Selection',
+        desc: 'One more card to choose from at every draft',
+        baseCost: 26,
+        costMult: 5,
+        max: 3,
+        format: function (lvl) { return (3 + lvl) + ' cards per draft'; }
+      },
+      {
+        id: 'luck',
+        name: 'Rare Blend',
+        desc: 'Better odds of rare and legendary cards',
+        baseCost: 20,
+        costMult: 2.6,
+        max: 6,
+        format: function (lvl) { return '+' + (lvl * 50) + '% rare odds'; }
+      },
+      {
+        id: 'headstart',
+        name: 'Head Start',
+        desc: 'Every batch begins with free upgrade levels',
+        baseCost: 10,
+        costMult: 1.55,
+        max: 20,
+        format: function (lvl) { return lvl + ' free levels each'; }
+      },
+      {
+        id: 'churn',
+        name: 'Butter Churn',
+        desc: 'Every batch yields more butter',
+        baseCost: 16,
+        costMult: 1.7,
+        max: 25,
+        format: function (lvl) { return '+' + (lvl * 12) + '% butter'; }
+      },
+      {
+        id: 'richer',
+        name: 'Deep Fryer',
+        desc: 'Permanently raises what every pop pays',
+        baseCost: 14,
+        costMult: 1.6,
+        max: 40,
+        format: function (lvl) { return '×' + POPCORE.formatMoney(Math.pow(1.5, lvl), true) + ' pop value'; }
+      }
+    ]
+  };
+
+  function Meta() {
+    this.butter = 0;
+    this.lifetimeButter = 0;   // drives card unlocks; never spent down
+    this.batches = 0;
+    this.bestBatch = 0;        // most money earned in a single batch
+    this.levels = {};
+    for (var i = 0; i < NS.META.UPGRADES.length; i++) this.levels[NS.META.UPGRADES[i].id] = 0;
+  }
+
+  Meta.prototype.def = function (id) {
+    for (var i = 0; i < NS.META.UPGRADES.length; i++) {
+      if (NS.META.UPGRADES[i].id === id) return NS.META.UPGRADES[i];
+    }
+    return null;
+  };
+
+  Meta.prototype.level = function (id) { return this.levels[id] || 0; };
+
+  Meta.prototype.maxed = function (id) {
+    var def = this.def(id);
+    return this.level(id) >= def.max;
+  };
+
+  Meta.prototype.cost = function (id) {
+    var def = this.def(id);
+    return Math.ceil(def.baseCost * Math.pow(def.costMult, this.level(id)));
+  };
+
+  Meta.prototype.canBuy = function (id) {
+    return !this.maxed(id) && this.butter >= this.cost(id);
+  };
+
+  Meta.prototype.buy = function (id) {
+    if (!this.canBuy(id)) return false;
+    this.butter -= this.cost(id);
+    this.levels[id] = this.level(id) + 1;
+    return true;
+  };
+
+  /* ---- what the meta layer grants a batch ---- */
+
+  Meta.prototype.cardsPerDraft = function () { return 3 + this.level('slots'); };
+  Meta.prototype.luck = function () { return this.level('luck') * 0.5; };
+  Meta.prototype.headStart = function () { return this.level('headstart'); };
+  Meta.prototype.popValueMult = function () { return Math.pow(1.5, this.level('richer')); };
+  Meta.prototype.butterMult = function () { return 1 + this.level('churn') * 0.12; };
+
+  /** Butter a batch that earned `earned` would pay right now. */
+  Meta.prototype.butterFor = function (earned) {
+    var M = NS.META;
+    if (earned <= 0) return 0;
+    var decades = Math.log(earned) / Math.LN10 - M.BUTTER_LOG_FLOOR;
+    if (decades <= 0) return 0;
+    return Math.floor(decades * M.BUTTER_PER_DECADE * this.butterMult());
+  };
+
+  Meta.prototype.canCashOut = function (earned) {
+    return this.butterFor(earned) >= NS.META.MIN_CASHOUT;
+  };
+
+  /** Bank a finished batch. Returns the butter gained. */
+  Meta.prototype.cashOut = function (earned) {
+    var gain = this.butterFor(earned);
+    if (gain < NS.META.MIN_CASHOUT) return 0;
+    this.butter += gain;
+    this.lifetimeButter += gain;
+    this.batches++;
+    if (earned > this.bestBatch) this.bestBatch = earned;
+    return gain;
+  };
+
+  /** How much money is still needed for the next whole point of butter. */
+  Meta.prototype.nextButterAt = function (earned) {
+    var M = NS.META;
+    var target = this.butterFor(earned) + 1;
+    var decades = target / (M.BUTTER_PER_DECADE * this.butterMult()) + M.BUTTER_LOG_FLOOR;
+    return Math.max(0, Math.pow(10, decades) - earned);
+  };
+
+  Meta.prototype.toJSON = function () {
+    return {
+      butter: this.butter,
+      lifetimeButter: this.lifetimeButter,
+      batches: this.batches,
+      bestBatch: this.bestBatch,
+      levels: this.levels
+    };
+  };
+
+  Meta.prototype.load = function (data) {
+    if (!data) return;
+    this.butter = Math.max(0, Number(data.butter) || 0);
+    this.lifetimeButter = Math.max(0, Number(data.lifetimeButter) || 0);
+    this.batches = Math.max(0, Math.floor(Number(data.batches) || 0));
+    this.bestBatch = Math.max(0, Number(data.bestBatch) || 0);
+    for (var i = 0; i < NS.META.UPGRADES.length; i++) {
+      var def = NS.META.UPGRADES[i];
+      var lvl = Math.floor(Number(data.levels && data.levels[def.id]) || 0);
+      this.levels[def.id] = NS.clamp(lvl, 0, def.max);
+    }
+  };
+
+  NS.Meta = Meta;
+})(window.POPCORE);
+</script>
+
+<script>
+/**
  * POPCORE — simulation.
  *
  * Pure gameplay state: kernels, heat, shockwaves, chains, money, upgrades.
@@ -557,6 +1242,7 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
  *   { type:'tier',     tier, chain, word, x, y }   // chain crossed a milestone
  *   { type:'spawn',    x, y, golden }
  *   { type:'mega' }                                // MEGA POP fired
+ *   { type:'card',     id }                        // a mutation card was drafted
  *   { type:'buy',      id, level }
  */
 (function (NS) {
@@ -568,10 +1254,17 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
 
   var nextId = 1;
 
-  function Sim() {
+  function Sim(meta) {
+    this.meta = meta || null;      // may be absent in headless tests
     this.kernels = [];
     this.shockwaves = [];
     this.events = [];
+
+    this.cards = [];               // card ids drafted this batch
+    this.mods = defaultMods();
+    this.earned = 0;               // money earned this batch, drives butter
+    this.runPops = 0;              // pops this batch, drives card drafts
+    this.draftsTaken = 0;
 
     this.money = 0;
     this.totalPops = 0;
@@ -591,6 +1284,52 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
     this._earnings = [];
     this._earned = 0;
   }
+
+  /* ---------------- card modifiers ---------------- */
+
+  function defaultMods() {
+    return {
+      popValue: 1, spawnRate: 1, heatRate: 1, shockHeat: 1, shockRadius: 1,
+      chainWindow: 1, chainBonus: 1, golden: 1, goldenMult: 1, megaCharge: 1,
+      startHeat: 0, doublePop: 0, chainRadius: 0
+    };
+  }
+
+  /** Fold every drafted card (and the permanent meta bonus) into one object. */
+  Sim.prototype.recomputeMods = function () {
+    var m = defaultMods();
+
+    for (var i = 0; i < this.cards.length; i++) {
+      var card = NS.cardById(this.cards[i]);
+      if (!card) continue;
+      for (var key in card.mods) {
+        if (!card.mods.hasOwnProperty(key)) continue;
+        // Multiplicative fields start at 1, additive ones at 0.
+        if (key === 'startHeat' || key === 'doublePop' || key === 'chainRadius') {
+          m[key] += card.mods[key];
+        } else {
+          m[key] *= card.mods[key];
+        }
+      }
+    }
+
+    if (this.meta) m.popValue *= this.meta.popValueMult();
+    m.startHeat = clamp(m.startHeat, 0, 0.9);
+    m.doublePop = clamp(m.doublePop, 0, 0.85);
+
+    this.mods = m;
+  };
+
+  Sim.prototype.addCard = function (id) {
+    this.cards.push(id);
+    this.recomputeMods();
+    this.events.push({ type: 'card', id: id });
+  };
+
+  /** Pops at which the next draft is due, or null once none is pending. */
+  Sim.prototype.nextDraftAt = function () { return NS.draftAt(this.draftsTaken); };
+
+  Sim.prototype.draftDue = function () { return this.runPops >= this.nextDraftAt(); };
 
   /* ---------------- upgrades ---------------- */
 
@@ -621,23 +1360,35 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
 
   /* Derived stats — read straight from the upgrade table. */
   Sim.prototype.spawnRate = function () {
-    return Math.min(this.upgradeDef('spawn').value(this.level('spawn')), C.MAX_SPAWN_RATE);
+    var rate = this.upgradeDef('spawn').value(this.level('spawn')) * this.mods.spawnRate;
+    return Math.min(rate, C.MAX_SPAWN_RATE);
   };
-  Sim.prototype.heatRate = function () { return this.upgradeDef('heat').value(this.level('heat')); };
-  Sim.prototype.shockHeat = function () { return this.upgradeDef('shock').value(this.level('shock')); };
-  Sim.prototype.shockRadius = function () { return C.shockRadius(this.level('shock')); };
-  Sim.prototype.popValue = function () { return this.upgradeDef('value').value(this.level('value')); };
+  Sim.prototype.heatRate = function () {
+    return this.upgradeDef('heat').value(this.level('heat')) * this.mods.heatRate;
+  };
+  Sim.prototype.shockHeat = function () {
+    return this.upgradeDef('shock').value(this.level('shock')) * this.mods.shockHeat;
+  };
+  Sim.prototype.shockRadius = function () {
+    // Chain Reactor widens every wave as the chain climbs.
+    var growth = 1 + this.mods.chainRadius * this.chain;
+    return Math.min(C.shockRadius(this.level('shock')) * this.mods.shockRadius * growth, 2.4);
+  };
+  Sim.prototype.popValue = function () {
+    return this.upgradeDef('value').value(this.level('value')) * this.mods.popValue;
+  };
 
   /** Odds a new kernel is golden. Spawn levels keep buying these after the
    *  raw spawn rate has hit its ceiling, so the upgrade never goes dead. */
   Sim.prototype.goldenChance = function () {
-    return Math.min(C.GOLDEN_CHANCE + this.level('spawn') * C.GOLDEN_PER_SPAWN_LEVEL,
-                    C.GOLDEN_MAX_CHANCE);
+    var base = Math.min(C.GOLDEN_CHANCE + this.level('spawn') * C.GOLDEN_PER_SPAWN_LEVEL,
+                        C.GOLDEN_MAX_CHANCE);
+    return Math.min(base * this.mods.golden, 0.5);
   };
 
   /** Money earned per pop at the current chain length (sub-linear in the chain). */
   Sim.prototype.valueAtChain = function (chain) {
-    return this.popValue() * (1 + C.CHAIN_BONUS * Math.sqrt(chain));
+    return this.popValue() * (1 + C.CHAIN_BONUS * Math.sqrt(Math.min(chain, C.CHAIN_BONUS_CAP)));
   };
 
   Sim.prototype.moneyPerSecond = function () {
@@ -668,7 +1419,7 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
       x: best.x,
       y: best.y,
       golden: Math.random() < this.goldenChance(),
-      heat: 0,
+      heat: this.mods.startHeat,
       rate: this.heatRate() * rand(1 - C.HEAT_JITTER, 1 + C.HEAT_JITTER),
       angle: rand(0, Math.PI * 2),
       seed: Math.random() * 1000,
@@ -717,17 +1468,27 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
     this.kernels.splice(idx, 1);
 
     var value = this.valueAtChain(this.chain);
-    if (kernel.golden) value *= C.GOLDEN_MULT;
+    if (kernel.golden) value *= C.GOLDEN_MULT * this.mods.goldenMult;
+
+    // Double Feature and friends: the pop pays twice and throws a second wave.
+    var doubled = this.mods.doublePop > 0 && Math.random() < this.mods.doublePop;
+    if (doubled) value *= 2;
+
     this.money += value;
+    this.earned += value;
     this._earned += value;
     this.totalPops++;
+    this.runPops++;
 
     this.chain++;
-    this.chainTimer = C.chainWindow(this.chain);
-    if (this.mega < C.MEGA_MAX) this.mega = Math.min(C.MEGA_MAX, this.mega + 1);
+    this.chainTimer = C.chainWindow(this.chain) * this.mods.chainWindow;
+    if (this.mega < C.MEGA_MAX) {
+      this.mega = Math.min(C.MEGA_MAX, this.mega + this.mods.megaCharge);
+    }
     if (this.chain > this.bestChain) this.bestChain = this.chain;
 
     this.addShockwave(kernel.x, kernel.y);
+    if (doubled) this.addShockwave(kernel.x, kernel.y);
 
     this.events.push({
       type: 'pop',
@@ -736,7 +1497,8 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
       chain: this.chain,
       value: value,
       manual: !!manual,
-      golden: !!kernel.golden
+      golden: !!kernel.golden,
+      doubled: doubled
     });
 
     // A chain that hits the cap banks itself immediately — the counter stays
@@ -828,9 +1590,10 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
     var bonus = 0;
 
     if (count >= C.CHAIN_BONUS_MIN) {
-      bonus = this.popValue() * count * C.CHAIN_BONUS_FACTOR;
-      if (maxed) bonus *= 3;
+      bonus = this.popValue() * count * C.CHAIN_BONUS_FACTOR * this.mods.chainBonus;
+      if (maxed) bonus *= 2.5;
       this.money += bonus;
+      this.earned += bonus;
       this._earned += bonus;
     }
 
@@ -923,7 +1686,11 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
       totalPops: this.totalPops,
       bestChain: this.bestChain,
       mega: this.mega,
-      levels: this.levels
+      levels: this.levels,
+      cards: this.cards,
+      earned: this.earned,
+      runPops: this.runPops,
+      draftsTaken: this.draftsTaken
     };
   };
 
@@ -933,6 +1700,18 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
     this.totalPops = Math.max(0, Math.floor(Number(data.totalPops) || 0));
     this.bestChain = Math.max(0, Math.floor(Number(data.bestChain) || 0));
     this.mega = clamp(Math.floor(Number(data.mega) || 0), 0, C.MEGA_MAX);
+    this.earned = Math.max(0, Number(data.earned) || 0);
+    this.runPops = Math.max(0, Math.floor(Number(data.runPops) || 0));
+    this.draftsTaken = Math.max(0, Math.floor(Number(data.draftsTaken) || 0));
+
+    this.cards = [];
+    var saved = data.cards;
+    if (saved && saved.length) {
+      for (var c = 0; c < saved.length; c++) {
+        if (NS.cardById(saved[c])) this.cards.push(saved[c]);
+      }
+    }
+    this.recomputeMods();
     for (var i = 0; i < C.UPGRADES.length; i++) {
       var id = C.UPGRADES[i].id;
       var lvl = Math.floor(Number(data.levels && data.levels[id]) || 0);
@@ -941,21 +1720,46 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
     return true;
   };
 
-  Sim.prototype.reset = function () {
+  /**
+   * Start a fresh batch: everything a run accumulates goes, the meta layer
+   * stays. Head Start levels are granted here, so a veteran's pan opens hotter
+   * than a beginner's.
+   */
+  Sim.prototype.startBatch = function () {
     this.kernels.length = 0;
     this.shockwaves.length = 0;
-    this.events.length = 0;
+    this.cards.length = 0;
     this.money = 0;
-    this.totalPops = 0;
-    this.bestChain = 0;
+    this.earned = 0;
+    this.runPops = 0;
+    this.draftsTaken = 0;
     this.chain = 0;
     this.chainTier = 0;
+    this.chainTimer = 0;
     this.mega = 0;
     this.spawnAcc = 0;
     this.emptyFor = 0;
     this._earnings.length = 0;
+    this._earned = 0;
+
     for (var i = 0; i < C.UPGRADES.length; i++) this.levels[C.UPGRADES[i].id] = 0;
-    this.spawnKernel();
+
+    var head = this.meta ? this.meta.headStart() : 0;
+    for (var h = 0; h < head; h++) {
+      var id = C.UPGRADES[h % C.UPGRADES.length].id;
+      this.levels[id] = this.level(id) + 1;
+    }
+
+    this.recomputeMods();
+    for (var k = 0; k < 3; k++) this.spawnKernel();
+  };
+
+  /** Full wipe, including everything a batch would normally keep. */
+  Sim.prototype.reset = function () {
+    this.events.length = 0;
+    this.totalPops = 0;
+    this.bestChain = 0;
+    this.startBatch();
   };
 
   NS.Sim = Sim;
@@ -1900,9 +2704,12 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
   var C = NS.CONFIG;
   var fmt = NS.formatMoney;
 
-  function UI(sim, onBuy) {
+  function UI(sim, meta, handlers) {
     this.sim = sim;
-    this.onBuy = onBuy;
+    this.meta = meta;
+    this.onBuy = handlers.onBuy;
+    this.onPickCard = handlers.onPickCard;
+    this.onCashOut = handlers.onCashOut;
 
     this.el = {
       money: document.getElementById('money'),
@@ -1915,7 +2722,27 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
       mega: document.getElementById('mega'),
       megaFill: document.getElementById('megaFill'),
       megaLabel: document.getElementById('megaLabel'),
-      upgrades: document.getElementById('upgrades')
+      upgrades: document.getElementById('upgrades'),
+
+      butter: document.getElementById('butter'),
+      deckBtn: document.getElementById('deckBtn'),
+      deckSub: document.getElementById('deckSub'),
+      cashBtn: document.getElementById('cashBtn'),
+      cashSub: document.getElementById('cashSub'),
+
+      draft: document.getElementById('draft'),
+      draftCards: document.getElementById('draftCards'),
+      deck: document.getElementById('deck'),
+      deckList: document.getElementById('deckList'),
+      shop: document.getElementById('shop'),
+      shopButter: document.getElementById('shopButter'),
+      shopList: document.getElementById('shopList'),
+      cashout: document.getElementById('cashout'),
+      cashSummary: document.getElementById('cashSummary'),
+      cashConfirm: document.getElementById('cashConfirm'),
+      welcome: document.getElementById('welcome'),
+      welcomeSummary: document.getElementById('welcomeSummary'),
+      welcomeClaim: document.getElementById('welcomeClaim')
     };
 
     this.rows = {};
@@ -1926,7 +2753,162 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
     this.moneyPunch = 0;      // decays each frame; drives the counter's scale
 
     this.buildUpgrades();
+    this.bindPanels();
   }
+
+  /* ---------------- panels ---------------- */
+
+  UI.prototype.bindPanels = function () {
+    var self = this;
+
+    // Any button carrying data-close dismisses its overlay.
+    var closers = document.querySelectorAll('[data-close]');
+    for (var i = 0; i < closers.length; i++) {
+      closers[i].addEventListener('click', function () {
+        document.getElementById(this.getAttribute('data-close')).hidden = true;
+      });
+    }
+
+    this.el.deckBtn.addEventListener('click', function () { self.openDeck(); });
+    this.el.cashBtn.addEventListener('click', function () { self.openCashOut(); });
+    this.el.cashConfirm.addEventListener('click', function () {
+      self.el.cashout.hidden = true;
+      self.onCashOut();
+    });
+  };
+
+  UI.prototype.anyPanelOpen = function () {
+    return !this.el.draft.hidden || !this.el.deck.hidden ||
+           !this.el.shop.hidden || !this.el.cashout.hidden || !this.el.welcome.hidden;
+  };
+
+  /** The draft: three (or more) cards, one choice, game paused behind it. */
+  UI.prototype.openDraft = function (cards) {
+    var self = this;
+    var list = this.el.draftCards;
+    list.innerHTML = '';
+
+    cards.forEach(function (card) {
+      var rarity = NS.RARITY[card.rarity];
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'card ' + card.rarity;
+      btn.style.setProperty('--rarity', rarity.color);
+      btn.innerHTML = '<span class="card-rarity"></span>' +
+                      '<span class="card-name"></span>' +
+                      '<span class="card-desc"></span>';
+      btn.querySelector('.card-rarity').textContent = rarity.label;
+      btn.querySelector('.card-name').textContent = card.name;
+      btn.querySelector('.card-desc').textContent = card.desc;
+      btn.addEventListener('click', function () {
+        self.el.draft.hidden = true;
+        self.onPickCard(card.id);
+      });
+      list.appendChild(btn);
+    });
+
+    this.el.draft.hidden = false;
+  };
+
+  UI.prototype.openDeck = function () {
+    var list = this.el.deckList;
+    list.innerHTML = '';
+
+    if (!this.sim.cards.length) {
+      var empty = document.createElement('div');
+      empty.className = 'deck-empty';
+      empty.textContent = 'No mutations yet — keep popping, the first card is close.';
+      list.appendChild(empty);
+    } else {
+      this.sim.cards.forEach(function (id) {
+        var card = NS.cardById(id);
+        if (!card) return;
+        var row = document.createElement('div');
+        row.className = 'deck-row';
+        row.style.setProperty('--rarity', NS.RARITY[card.rarity].color);
+        row.innerHTML = '<span class="n"></span><span class="d"></span>';
+        row.querySelector('.n').textContent = card.name;
+        row.querySelector('.d').textContent = card.desc;
+        list.appendChild(row);
+      });
+    }
+    this.el.deck.hidden = false;
+  };
+
+  UI.prototype.openShop = function () {
+    var self = this;
+    var meta = this.meta;
+    var list = this.el.shopList;
+
+    // The next locked card is the long-term carrot — always name it.
+    var next = NS.nextUnlock(meta.lifetimeButter);
+    this.el.shopButter.innerHTML = '🧈 ' + fmt(meta.butter) +
+      '<div class="shop-next">' +
+      (next === null
+        ? 'every mutation unlocked · ' + fmt(meta.lifetimeButter) + ' butter earned all-time'
+        : 'next mutation unlocks at 🧈 ' + fmt(next) + ' all-time (' +
+          fmt(meta.lifetimeButter) + ' so far)') +
+      '</div>';
+    list.innerHTML = '';
+
+    NS.META.UPGRADES.forEach(function (def) {
+      var lvl = meta.level(def.id);
+      var maxed = meta.maxed(def.id);
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'shop-row';
+      btn.disabled = !meta.canBuy(def.id);
+      btn.innerHTML = '<span><span class="sn"></span><br><span class="sd"></span>' +
+                      '<br><span class="sv"></span></span><span class="sc"></span>';
+      btn.querySelector('.sn').textContent = def.name;
+      btn.querySelector('.sd').textContent = def.desc;
+      btn.querySelector('.sv').textContent = 'LV ' + lvl + ' · ' + def.format(lvl);
+      btn.querySelector('.sc').textContent = maxed ? 'MAX' : '🧈 ' + fmt(meta.cost(def.id));
+      btn.addEventListener('click', function () {
+        if (meta.buy(def.id)) self.openShop();     // rebuild with new prices
+      });
+      list.appendChild(btn);
+    });
+
+    this.el.shop.hidden = false;
+  };
+
+  UI.prototype.openCashOut = function () {
+    var sim = this.sim, meta = this.meta;
+    var gain = meta.butterFor(sim.earned);
+    var ok = gain >= NS.META.MIN_CASHOUT;
+
+    this.el.cashSummary.innerHTML =
+      '<div class="row"><span>Earned this batch</span><span>$' + fmt(sim.earned) + '</span></div>' +
+      '<div class="row"><span>Pops</span><span>' + sim.runPops + '</span></div>' +
+      '<div class="row"><span>Mutations</span><span>' + sim.cards.length + '</span></div>' +
+      '<div class="big">🧈 ' + fmt(gain) + '</div>' +
+      '<div class="row"><span>Next butter at</span><span>$' +
+        fmt(sim.earned + meta.nextButterAt(sim.earned)) + '</span></div>';
+
+    this.el.cashConfirm.disabled = !ok;
+    this.el.cashConfirm.textContent = ok ? 'POP THE BATCH' : 'NOT WORTH IT YET';
+    this.el.cashout.hidden = false;
+  };
+
+  /** Shown once on return when the pan ran while the player was away. */
+  UI.prototype.openWelcome = function (seconds, amount, onClaim) {
+    var self = this;
+    var hours = Math.floor(seconds / 3600);
+    var mins = Math.floor((seconds % 3600) / 60);
+    var away = hours ? hours + 'h ' + mins + 'm' : mins + 'm';
+
+    this.el.welcomeSummary.innerHTML =
+      '<div class="row"><span>Away for</span><span>' + away + '</span></div>' +
+      '<div class="big">+$' + fmt(amount) + '</div>' +
+      '<div class="row"><span>Idle rate</span><span>30% of your pace</span></div>';
+
+    this.el.welcome.hidden = false;
+    this.el.welcomeClaim.onclick = function () {
+      self.el.welcome.hidden = true;
+      onClaim();
+    };
+  };
 
   /* ---------------- upgrades ---------------- */
 
@@ -2003,6 +2985,16 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
       this.el.megaLabel.textContent = ready ? 'MEGA POP — TAP!' : 'MEGA POP';
     }
     this.el.rate.textContent = '$' + fmt(sim.moneyPerSecond(), true) + ' / s';
+
+    this.el.butter.textContent = '🧈 ' + fmt(this.meta.butter);
+
+    var toDraft = Math.max(0, sim.nextDraftAt() - sim.runPops);
+    this.el.deckSub.textContent = sim.cards.length +
+      ' card' + (sim.cards.length === 1 ? '' : 's') + ' · next in ' + toDraft;
+
+    var gain = this.meta.butterFor(sim.earned);
+    this.el.cashSub.textContent = '🧈 ' + fmt(gain);
+    this.el.cashBtn.classList.toggle('ready', gain >= NS.META.MIN_CASHOUT);
     this.el.best.textContent = sim.bestChain > 0 ? 'BEST CHAIN ×' + sim.bestChain : 'BEST CHAIN —';
     this.el.pops.textContent = sim.totalPops + ' pops';
 
@@ -2089,27 +3081,44 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
 (function (NS) {
   'use strict';
 
-  var KEY = 'popcore.save.v1';
+  var KEY = 'popcore.save.v2';
+  var LEGACY_KEY = 'popcore.save.v1';
   var SOUND_KEY = 'popcore.sound';
 
   NS.Save = {
-    write: function (sim) {
+    write: function (sim, meta) {
       try {
-        localStorage.setItem(KEY, JSON.stringify(sim.toJSON()));
+        localStorage.setItem(KEY, JSON.stringify({
+          v: 2,
+          run: sim.toJSON(),
+          meta: meta.toJSON(),
+          at: Date.now(),
+          rate: sim.moneyPerSecond()
+        }));
       } catch (e) { /* private mode / quota — ignore */ }
     },
 
     read: function () {
       try {
         var raw = localStorage.getItem(KEY);
-        return raw ? JSON.parse(raw) : null;
+        if (raw) {
+          var data = JSON.parse(raw);
+          if (data && data.v === 2) return data;
+        }
+        // A save from before the meta layer existed still carries a batch.
+        var legacy = localStorage.getItem(LEGACY_KEY);
+        if (legacy) return { v: 2, run: JSON.parse(legacy), meta: null, at: 0, rate: 0 };
+        return null;
       } catch (e) {
         return null;
       }
     },
 
     clear: function () {
-      try { localStorage.removeItem(KEY); } catch (e) { /* ignore */ }
+      try {
+        localStorage.removeItem(KEY);
+        localStorage.removeItem(LEGACY_KEY);
+      } catch (e) { /* ignore */ }
     },
 
     readSound: function () {
@@ -2139,11 +3148,16 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
 
   var canvas = document.getElementById('game');
 
-  var sim = new NS.Sim();
+  var meta = new NS.Meta();
+  var sim = new NS.Sim(meta);
   var fx = new NS.Fx();
   var audio = new NS.Audio();
   var renderer = new NS.Renderer(canvas, sim, fx);
-  var ui = new NS.UI(sim, buy);
+  var ui = new NS.UI(sim, meta, {
+    onBuy: buy,
+    onPickCard: pickCard,
+    onCashOut: cashOut
+  });
 
   var acc = 0;
   var lastFrame = 0;
@@ -2153,18 +3167,24 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
 
   // Handy for tinkering from the console (and for automated smoke tests).
   NS.game = {
-    sim: sim, fx: fx, audio: audio, renderer: renderer, canvas: canvas,
-    fps: function () { return fps; }
+    sim: sim, fx: fx, meta: meta, audio: audio, renderer: renderer, canvas: canvas,
+    ui: ui, fps: function () { return fps; }
   };
 
   /* ---------------- start-up ---------------- */
 
   var loaded = NS.Save.read();
-  if (loaded) sim.load(loaded);
+  if (loaded) {
+    if (loaded.meta) meta.load(loaded.meta);
+    if (loaded.run) sim.load(loaded.run);
+  }
+  sim.recomputeMods();
 
   // Open with a small handful, not a single kernel: there is never a moment
   // where the player taps and finds nothing to hit.
   for (var i = 0; i < 3; i++) sim.spawnKernel();
+
+  offerOfflineEarnings(loaded);
 
   // The upgrade buttons change the stage height, so re-measure once the DOM is final.
   renderer.resize();
@@ -2190,6 +3210,10 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
       fx.addRing(p.x, p.y, 0.14, 'rgba(255,255,255,0.35)', 0.008);
     }
   }, { passive: false });
+
+  document.getElementById('butter').addEventListener('click', function () {
+    ui.openShop();
+  });
 
   document.getElementById('mega').addEventListener('click', function () {
     audio.unlock();
@@ -2226,6 +3250,12 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
     resetBtn.textContent = 'reset save';
     resetBtn.classList.remove('armed');
     sim.reset();
+    meta.load(null);
+    meta.butter = 0;
+    meta.lifetimeButter = 0;
+    meta.batches = 0;
+    meta.bestBatch = 0;
+    for (var m = 0; m < NS.META.UPGRADES.length; m++) meta.levels[NS.META.UPGRADES[m].id] = 0;
     fx.clear();
     ui.hideChain();
     NS.Save.clear();
@@ -2237,10 +3267,10 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
   });
 
   document.addEventListener('visibilitychange', function () {
-    if (document.hidden) NS.Save.write(sim);
+    if (document.hidden) NS.Save.write(sim, meta);
     else lastFrame = 0;   // avoid a huge catch-up step on return
   });
-  window.addEventListener('pagehide', function () { NS.Save.write(sim); });
+  window.addEventListener('pagehide', function () { NS.Save.write(sim, meta); });
 
   /** Haptic tick or pattern, where the platform supports it (Android Chrome). */
   function buzz(pattern) {
@@ -2249,6 +3279,66 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
 
   function updateMuteLabel() {
     document.getElementById('mute').textContent = audio.enabled ? 'SOUND ON' : 'SOUND OFF';
+  }
+
+  /* ---------------- batches, cards, away time ---------------- */
+
+  function pickCard(id) {
+    sim.draftsTaken++;
+    sim.addCard(id);
+    audio.golden();
+    fx.golden(0, 0);
+    ui.callout('MUTATED');
+  }
+
+  /** Offer a draft the moment one is due, unless a panel is already up. */
+  function checkDraft() {
+    if (!sim.draftDue() || ui.anyPanelOpen()) return;
+    var cards = NS.drawCards(meta.cardsPerDraft(), meta.lifetimeButter, meta.luck(), sim.cards);
+    if (!cards.length) { sim.draftsTaken++; return; }
+    audio.tier(3);
+    buzz([0, 30, 30, 30]);
+    ui.openDraft(cards);
+  }
+
+  function cashOut() {
+    var gain = meta.cashOut(sim.earned);
+    if (!gain) return;
+
+    sim.startBatch();
+    fx.clear();
+    fx.mega();
+    ui.hideChain();
+    ui.callout('+' + gain + ' BUTTER');
+    audio.mega();
+    buzz([0, 60, 40, 60, 40, 140]);
+    NS.Save.write(sim, meta);
+
+    // The shop is the whole point of cashing out, so open it straight away.
+    ui.openShop();
+  }
+
+  /**
+   * Pay out a share of the rate the player left at. Capped, and only when they
+   * were away long enough for it to feel like a return rather than a refresh.
+   */
+  function offerOfflineEarnings(saved) {
+    if (!saved || !saved.at || !saved.rate) return;
+
+    var seconds = (Date.now() - saved.at) / 1000;
+    if (seconds < C.OFFLINE_MIN_SECONDS) return;
+
+    var capped = Math.min(seconds, C.OFFLINE_MAX_HOURS * 3600);
+    var amount = saved.rate * capped * C.OFFLINE_RATE;
+    if (amount < 1) return;
+
+    ui.openWelcome(seconds, amount, function () {
+      sim.money += amount;
+      sim.earned += amount;
+      ui.bumpMoney(0.35);
+      fx.golden(0, 0);
+      audio.golden();
+    });
   }
 
   /* ---------------- purchases ---------------- */
@@ -2316,9 +3406,15 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
 
     audio.frame();
 
+    // A panel (draft, shop, cash-out) pauses the pan: the choice is the moment,
+    // and nothing should pop away behind it.
+    var paused = ui.anyPanelOpen();
+
     // Hit-stop: the simulation freezes for a beat on a big impact while the
     // effects keep animating. It is what makes a hit feel like it landed.
-    if (fx.hitstop > 0) {
+    if (paused) {
+      acc = 0;
+    } else if (fx.hitstop > 0) {
       fx.hitstop -= dt;
       acc = 0;
     } else {
@@ -2333,6 +3429,7 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
     }
 
     drainEvents();
+    if (!paused) checkDraft();
     fx.update(dt, sim.chain);
 
     if (sim.chain >= 2) ui.showChain(sim.chain);
@@ -2344,7 +3441,7 @@ POPCORE.rand = function (a, b) { return a + Math.random() * (b - a); };
     saveTimer += dt;
     if (saveTimer >= C.SAVE_INTERVAL) {
       saveTimer = 0;
-      NS.Save.write(sim);
+      NS.Save.write(sim, meta);
     }
   }
 

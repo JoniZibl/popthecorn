@@ -18,6 +18,7 @@
       <div id="rate" class="rate">$0.0 / s</div>
     </div>
     <div class="hud-right">
+      <div id="butter" class="butter">🧈 0</div>
       <div id="best" class="best">BEST CHAIN —</div>
       <button id="mute" class="icon-btn" type="button" aria-label="Toggle sound">SOUND ON</button>
     </div>
@@ -37,14 +38,76 @@
 
   <section id="upgrades" class="upgrades"></section>
 
+  <section id="bottom" class="bottom">
+    <button id="deckBtn" class="bar-btn" type="button">
+      <span class="bar-title">DECK</span>
+      <span id="deckSub" class="bar-sub">next card in 30 pops</span>
+    </button>
+    <button id="cashBtn" class="bar-btn cash" type="button">
+      <span class="bar-title">CASH OUT</span>
+      <span id="cashSub" class="bar-sub">🧈 0</span>
+    </button>
+  </section>
+
   <footer id="footer">
     <span id="pops">0 pops</span>
     <button id="reset" class="text-btn" type="button">reset save</button>
   </footer>
 
+  <!-- Card draft: the run-defining choice, so it takes over the screen. -->
+  <div id="draft" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">MUTATION</div>
+      <h2 class="overlay-title">PICK ONE</h2>
+      <div id="draftCards" class="cards"></div>
+    </div>
+  </div>
+
+  <div id="deck" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">THIS BATCH</div>
+      <h2 class="overlay-title">YOUR DECK</h2>
+      <div id="deckList" class="deck-list"></div>
+      <button class="close-btn" type="button" data-close="deck">CLOSE</button>
+    </div>
+  </div>
+
+  <div id="shop" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">PERMANENT</div>
+      <h2 class="overlay-title">BUTTER SHOP</h2>
+      <div id="shopButter" class="shop-butter">🧈 0</div>
+      <div id="shopList" class="shop-list"></div>
+      <button class="close-btn" type="button" data-close="shop">CLOSE</button>
+    </div>
+  </div>
+
+  <div id="cashout" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">BATCH COMPLETE</div>
+      <h2 class="overlay-title">CASH OUT</h2>
+      <div id="cashSummary" class="cash-summary"></div>
+      <div class="overlay-actions">
+        <button id="cashConfirm" class="primary-btn" type="button">POP THE BATCH</button>
+        <button class="close-btn" type="button" data-close="cashout">KEEP POPPING</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="welcome" class="overlay" hidden>
+    <div class="overlay-inner">
+      <div class="overlay-eyebrow">WHILE YOU WERE GONE</div>
+      <h2 class="overlay-title">THE PAN KEPT POPPING</h2>
+      <div id="welcomeSummary" class="cash-summary"></div>
+      <button id="welcomeClaim" class="primary-btn" type="button">COLLECT</button>
+    </div>
+  </div>
+
 </div>
 
 <script src="js/config.js"></script>
+<script src="js/cards.js"></script>
+<script src="js/meta.js"></script>
 <script src="js/sim.js"></script>
 <script src="js/fx.js"></script>
 <script src="js/audio.js"></script>

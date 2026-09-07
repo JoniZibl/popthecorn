@@ -11,6 +11,25 @@ serve the folder:
 npx http-server -p 8080 .   # then open http://localhost:8080
 ```
 
+## The three layers
+
+POPCORE is built as three nested loops, each one giving the layer below it a
+reason to exist:
+
+| Layer | Lasts | What it gives you |
+| --- | --- | --- |
+| **Pop** | seconds | Chains, shockwaves, jackpots — the moment-to-moment feedback |
+| **Batch** | 5–20 min | A drafted deck of random mutation cards; every batch plays differently |
+| **Butter** | forever | Permanent upgrades and a card pool that keeps opening up |
+
+A batch ends when you cash out: everything it earned converts to butter, the pan
+resets, and you start again stronger with a fresh random build. Butter is
+**logarithmic** in what a batch earned — a batch a thousand times stronger pays
+three steps more, not a thousand times more. That is what keeps the meta layer
+meaningful no matter how absurd the in-batch numbers get, and why the deepest
+cards (unlocking at 6,000 lifetime butter) are a long-haul goal rather than a
+first-evening one.
+
 ## How it plays
 
 - Kernels spawn in the pan and slowly gain heat from 0–100%. At 100% they pop
@@ -31,8 +50,14 @@ npx http-server -p 8080 .   # then open http://localhost:8080
 - Four upgrades, all exponentially priced: **Spawn Rate**, **Heat Speed**,
   **Shockwave**, **Pop Value**. Cost growth is deliberately faster than value
   growth, so progression keeps going without the economy running away.
-- Progress (money, levels, totals) is saved to `localStorage` every few seconds
-  and on tab hide.
+- **Mutation cards** are drafted at rising pop counts: three (or more) random
+  cards, pick one, it applies for the rest of the batch. Cards are pure data —
+  every effect goes through the modifier fields in `js/cards.js`, so a new card
+  needs no simulation code.
+- **Coming back** pays: time away earns 30% of the rate you left at, capped at
+  8 hours.
+- Progress (batch, deck, butter, permanent upgrades) is saved to `localStorage`
+  every few seconds and on tab hide.
 
 ## Layout
 
@@ -41,6 +66,8 @@ npx http-server -p 8080 .   # then open http://localhost:8080
 | `index.html` | Single page: HUD, canvas stage, upgrade grid |
 | `css/style.css` | Layout and DOM-side effects (chain banner, upgrade buttons) |
 | `js/config.js` | All balance numbers and shared helpers |
+| `js/cards.js` | Mutation card definitions (pure data) and the weighted draw |
+| `js/meta.js` | Butter, permanent upgrades, cash-out maths |
 | `js/sim.js` | Simulation only: kernels, heat, shockwaves, chains, money |
 | `js/fx.js` | Visual-only state: popcorn, particles, floating money, shake, flash |
 | `js/render.js` | Canvas renderer for the simulation + effects |
