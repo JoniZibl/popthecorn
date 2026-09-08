@@ -41,7 +41,8 @@ die über eine lückenlose Kette mit ihm verbunden sind.
 * **Ausbilden** → Einheit in der Seitenleiste wählen, dann ein rosa markiertes Feld anklicken.
 * **Richtungsfiguren** (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet
   werden; eine Drehung ohne Bewegung kostet den ganzen Zug.
-* Brett verschieben durch Ziehen, Zoom per Mausrad oder über die Schaltflächen rechts oben.
+* Brett verschieben durch Ziehen, Zoom per Mausrad, Zwei-Finger-Geste oder über die
+  Schaltflächen rechts oben. Am Handy liegen die Aktionen direkt unter dem Brett.
 
 ## Auslegung der Regeln
 
@@ -72,8 +73,19 @@ js/moves.js         Regelwerk: legale Züge, Schüsse, Ausbildungsfelder
 js/game.js          Spielzustand, Aufbauphasen, Zugabwicklung, Ausscheiden
 js/render.js        SVG-Darstellung von Brett, Bäumen und Figuren
 js/ui.js            Steuerung, Seitenleiste, Regelwerk
+build.js            baut alles zu einer einzigen HTML-Datei zusammen
+dist/hexodus.html   erzeugte Einzeldatei (CSS und JS eingebettet)
 test/simulate.js    Regelwerks-Simulation (Node, ohne Browser)
 ```
+
+## Einzeldatei erzeugen
+
+```
+node build.js
+```
+
+Schreibt `dist/hexodus.html` mit eingebettetem CSS und JavaScript – praktisch zum
+Verschicken, Hochladen oder Öffnen ohne lokalen Server.
 
 ## Tests
 
