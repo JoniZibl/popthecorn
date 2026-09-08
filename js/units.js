@@ -1,0 +1,108 @@
+/* Hexodus – Einheiten-Definitionen (Kosten, Texte, Fähigkeiten) */
+var Units = (function () {
+  'use strict';
+
+  var DEFS = {
+    king: {
+      id: 'king', name: 'Königs-Turm', cost: null, trainable: false, directional: false,
+      short: 'Zentrale Figur. Fällt er, scheidet der Spieler aus.',
+      text: 'Der Königs-Turm ist die zentrale und wichtigste Figur im Spiel. Wird der Königs-Turm ' +
+            'geschlagen, scheidet der Spieler aus dem Spiel aus, und alle seine Figuren werden vom ' +
+            'Spielfeld entfernt. Der Angreifer erhält zudem all sein Holz.',
+      bullets: [
+        'Der König darf für ein Holz ein Feld weit springen.',
+        'Ist um den König kein Platz vorhanden, kann er kein Feld springen.',
+        'Einheiten dürfen am Königs-Turm und an allen direkt verbundenen Einheiten ausgebildet werden.'
+      ]
+    },
+    worker: {
+      id: 'worker', name: 'Arbeiter', cost: 1, trainable: true, directional: false,
+      short: 'Fällt Bäume und sammelt Holz. Zieht 1 Feld.',
+      text: 'Der Arbeiter ist essenziell für das Spiel, da nur er Bäume fällen kann. Um einen Baum zu ' +
+            'fällen, muss der Arbeiter das Feld betreten, auf dem der Baum steht, und erhält dann das ' +
+            'Holz des Baumes. Der Arbeiter kann auch innerhalb seines Bewegungsradius angreifen.',
+      bullets: [
+        'Zieht ein Feld in jede Richtung.',
+        'Betritt er ein Baumfeld, wird der Baum gefällt: +1 Holz.',
+        'Halte dir immer ein Holz parat, um einen Arbeiter ausbilden zu können.'
+      ]
+    },
+    samurai: {
+      id: 'samurai', name: 'Samurai', cost: 1, trainable: true, directional: false,
+      short: 'Springt exakt 2 Felder geradeaus – über alles hinweg.',
+      text: 'Der Samurai ist eine taktische Figur, die niemals alle Felder auf dem Spielfeld berühren ' +
+            'kann. Wähle seinen Startpunkt und seine Bewegungen sorgfältig, um seine Effektivität zu ' +
+            'maximieren.',
+      bullets: [
+        'Springt genau 2 Felder in einer der 6 Richtungen.',
+        'Der Samurai kann über Wasser und über Bäume springen.',
+        'Durch den Doppelschritt erreicht er nur ein Viertel aller Felder.'
+      ]
+    },
+    springer: {
+      id: 'springer', name: 'Springer', cost: 2, trainable: true, directional: true,
+      short: 'Springt 2 Felder – nur in seine gewählte Richtung.',
+      text: 'Wenn der Springer ausgebildet wird, kannst du eine Richtung wählen. Der Springer kann ' +
+            'ausschließlich in die gewählte Richtung springen. Er hat die Möglichkeit, sich zu Beginn ' +
+            'seines Zuges zu springen und/oder zu drehen, um eine neue Richtung einzunehmen.',
+      bullets: [
+        'Springt 2 Felder in seine Blickrichtung.',
+        'Der Springer kann über Bäume und über Wasser springen.',
+        'Nachdem er sich bewegt hat, kann er in der darauffolgenden Runde in die neue, zuvor gewählte Richtung weiterlaufen.'
+      ]
+    },
+    legionaer: {
+      id: 'legionaer', name: 'Legionär', cost: 2, trainable: true, directional: true,
+      short: 'Läuft beliebig weit auf seiner Achse – vor oder zurück.',
+      text: 'Wenn der Legionär ausgebildet wird, kannst du eine Richtung wählen. Der Legionär kann sich ' +
+            'ausschließlich in die gewählte Richtung geradeaus oder rückwärts bewegen. Er hat die ' +
+            'Möglichkeit, sich zu Beginn seines Zuges zu laufen und/oder zu drehen, um eine neue ' +
+            'Richtung einzunehmen. Diese Rotation zählt als ein Zug.',
+      bullets: [
+        'Läuft so weit es geht vor oder zurück auf seiner Achse.',
+        'Der Legionär kann nicht über Bäume springen.',
+        'Nachdem er sich bewegt hat, kann er in der darauffolgenden Runde in die neue Richtung weiterlaufen.'
+      ]
+    },
+    archer: {
+      id: 'archer', name: 'Bogenschütze', cost: 2, trainable: true, directional: false,
+      short: 'Schießt auf Distanz 2 – oder läuft 1 Feld.',
+      text: 'Der Bogenschütze ist die einzige Figur, die schießen oder laufen kann. Ein Schuss kostet ' +
+            'einen Zug und ermöglicht es ihm, eine Figur aus der Ferne zu eliminieren, ohne sich zu bewegen.',
+      bullets: [
+        'Der Bogenschütze kann sich auch normal bewegen, schlägt dabei aber keine Einheiten.',
+        'Der Bogenschütze kann über Bäume und über Wasser schießen.',
+        'Getroffen wird auf Distanz 2 in einer der 6 geraden Richtungen.'
+      ]
+    },
+    tangolin: {
+      id: 'tangolin', name: 'Tangolin', cost: 2, trainable: true, directional: false,
+      short: 'Kettensprünge über Bäume und eigene Einheiten.',
+      text: 'Der Tangolin kann unbegrenzt über Bäume und eigene Einheiten springen. Seine ' +
+            'Bewegungsreichweite wird erst dann eingeschränkt, wenn keine Bäume oder eigene Einheiten ' +
+            'mehr zum Überspringen vorhanden sind.',
+      bullets: [
+        'Der Tangolin kann auch 1 Feld normal ziehen und in jede Richtung schlagen.',
+        'Er kann jedoch nicht über Wasser springen.',
+        'Beim Kettensprung schlägt er keine Einheiten.'
+      ]
+    },
+    zenturio: {
+      id: 'zenturio', name: 'Zenturio', cost: 3, trainable: true, directional: false, unique: true,
+      short: 'Läuft beliebig weit in jede Richtung. Nur einmal pro Spiel.',
+      text: 'Der Zenturio ist die stärkste Figur im Spiel. Er kostet drei Holz und kann in jede Richtung ' +
+            'so weit es geht laufen.',
+      bullets: [
+        'Der Zenturio kann nicht über Bäume springen, er darf allerdings in jede Richtung laufen.',
+        'Beachte, dass jeder Spieler den Zenturio nur einmal pro Spiel ausbilden darf.'
+      ]
+    }
+  };
+
+  // Reihenfolge im Ausbildungs-Menü
+  var TRAIN_ORDER = ['worker', 'samurai', 'springer', 'legionaer', 'archer', 'tangolin', 'zenturio'];
+
+  return { DEFS: DEFS, TRAIN_ORDER: TRAIN_ORDER };
+})();
+
+if (typeof module !== 'undefined') { module.exports = Units; }

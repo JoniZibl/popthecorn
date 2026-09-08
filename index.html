@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hexodus – das Hexagon-Strategiespiel</title>
+<meta name="description" content="Hexodus: Strategiespiel für 2–4 Spieler auf einem Hexagon-Spielfeld. Bäume fällen, Holz sammeln, Einheiten ausbilden und den gegnerischen Königs-Turm schlagen.">
+<link rel="stylesheet" href="css/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 2h10l5 10-5 10H7L2 12z' fill='%237bc96f'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10l5 10-5 10H7L2 12z"/></svg>
+    <span class="brand-name">Hex<span class="brand-o">o</span>dus</span>
+  </div>
+  <nav class="topbar-actions">
+    <button id="open-rules" class="ghost-btn">Regeln</button>
+    <button id="new-game" class="ghost-btn">Neues Spiel</button>
+  </nav>
+</header>
+
+<!-- ---------- Startbildschirm ---------- -->
+<main id="screen-menu" class="screen menu">
+  <section class="hero">
+    <p class="kicker">2–4 Spieler · ab 12 Jahren · Brettspiel im Browser</p>
+    <h1>Hexodus</h1>
+    <p class="lede">
+      Ein Spielfeld aus zufällig gelegten Hexagon-Plättchen. Bäume sind dein Rohstoff, Holz deine
+      Währung, der Königs-Turm dein Leben. Fälle, baue aus, schlage zu – und stürze die Türme
+      deiner Gegner.
+    </p>
+  </section>
+
+  <section class="setup-card">
+    <h2>Neue Partie</h2>
+    <label class="field">
+      <span>Spieleranzahl</span>
+      <select id="player-count">
+        <option value="2">2 Spieler</option>
+        <option value="3">3 Spieler</option>
+        <option value="4">4 Spieler</option>
+      </select>
+    </label>
+    <div id="player-fields"></div>
+    <p id="setup-info" class="hint"></p>
+    <button id="start-game" class="primary-btn">Spiel starten</button>
+    <p class="hint small">Gespielt wird abwechselnd an einem Gerät (Hotseat).</p>
+  </section>
+
+  <section class="units">
+    <h2>Die Figuren</h2>
+    <div id="unit-strip" class="unit-strip"></div>
+  </section>
+
+  <section class="flow">
+    <h2>Spielaufbau</h2>
+    <ol class="flow-list">
+      <li><strong>Hexagon-Plättchen</strong> werden zufällig aneinandergelegt und formen das Spielfeld.</li>
+      <li><strong>Bäume platzieren:</strong> Jeder Spieler erhält gleich viele Bäume und setzt reihum einen davon.</li>
+      <li><strong>Turm &amp; Arbeiter:</strong> Danach setzen alle ihren Königs-Turm samt Arbeiter daneben. Der letzte Spieler, der seinen Turm setzt, beginnt.</li>
+      <li><strong>Ziel:</strong> Schlage die Königs-Türme der Gegner. Wer als Letzter steht, gewinnt – und erbeutet unterwegs das Holz der Besiegten.</li>
+    </ol>
+  </section>
+</main>
+
+<!-- ---------- Spielbildschirm ---------- -->
+<main id="screen-game" class="screen game hidden">
+  <div class="board-wrap">
+    <div id="board" class="board"></div>
+    <div id="phase-banner" class="phase-banner"></div>
+    <div class="board-hud">
+      <button id="zoom-in" class="hud-btn" title="Vergrößern">+</button>
+      <button id="zoom-out" class="hud-btn" title="Verkleinern">−</button>
+      <button id="zoom-fit" class="hud-btn" title="Einpassen">⤢</button>
+    </div>
+    <div class="legend">
+      <span><i class="lg lg-move"></i>Zug</span>
+      <span><i class="lg lg-capture"></i>Schlagen</span>
+      <span><i class="lg lg-harvest"></i>Baum fällen</span>
+      <span><i class="lg lg-shoot"></i>Schuss</span>
+      <span><i class="lg lg-train"></i>Ausbilden</span>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <div id="players" class="players"></div>
+    <div id="action-panel" class="panel"></div>
+    <div class="log">
+      <h3>Verlauf</h3>
+      <ul id="log-list"></ul>
+    </div>
+  </aside>
+</main>
+
+<!-- ---------- Regelwerk ---------- -->
+<div id="rules" class="overlay hidden">
+  <div class="overlay-inner">
+    <button id="close-rules" class="close-btn" aria-label="Schließen">×</button>
+    <h2>Regelwerk</h2>
+
+    <section class="rule-block">
+      <h3>Grundzug</h3>
+      <p>Pro Zug führst du <strong>genau eine</strong> Aktion aus: eine Figur bewegen, mit dem
+        Bogenschützen schießen, eine Richtungsfigur drehen oder eine neue Einheit ausbilden.
+        Beim Bewegen wird eine gegnerische Figur auf dem Zielfeld geschlagen.</p>
+      <ul>
+        <li><strong>Wasser</strong> kann nicht betreten werden – Samurai, Springer und Schüsse überqueren es.</li>
+        <li><strong>Bäume</strong> blockieren; nur der Arbeiter darf ihr Feld betreten und fällt sie dabei.</li>
+        <li><strong>Holz</strong> stammt aus gefällten Bäumen und bezahlt jede neue Einheit.</li>
+        <li>Richtungsfiguren (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet werden;
+          eine Drehung ohne Bewegung kostet den ganzen Zug.</li>
+      </ul>
+    </section>
+
+    <div id="rule-cards" class="rule-cards"></div>
+  </div>
+</div>
+
+<script src="js/hex.js"></script>
+<script src="js/units.js"></script>
+<script src="js/board.js"></script>
+<script src="js/moves.js"></script>
+<script src="js/game.js"></script>
+<script src="js/render.js"></script>
+<script src="js/ui.js"></script>
+</body>
+</html>
