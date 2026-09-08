@@ -260,9 +260,37 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 
 /* ---------- Schmale Bildschirme ---------- */
 @media (max-width: 900px) {
-  .menu { grid-template-columns: 1fr; }
+  .menu { grid-template-columns: 1fr; padding: 22px 16px 44px; gap: 20px; }
   .setup-card { grid-column: 1; grid-row: auto; }
-  .game { grid-template-columns: 1fr; grid-template-rows: minmax(320px, 55vh) 1fr; }
-  .sidebar { border-left: 0; border-top: 1px solid var(--line); }
+  .hero h1 { font-size: clamp(38px, 13vw, 64px); }
+  .lede { font-size: 15px; }
+  .game { grid-template-columns: 1fr; grid-template-rows: minmax(280px, 50vh) 1fr; }
+  .sidebar { border-left: 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
+
+  /* Aktionen direkt unter das Brett, Spielerleiste als Streifen */
+  .panel { order: 1; border-top: 0; padding-top: 10px; }
+  .players { order: 2; flex-direction: row; overflow-x: auto; gap: 8px; padding: 10px 12px; }
+  .players::-webkit-scrollbar { display: none; }
+  .player-card { flex: 0 0 auto; min-width: 150px; }
+  .log { order: 3; }
+  #log-list { max-height: 140px; }
   .legend { display: none; }
+
+  /* Fingerfreundliche Ziele */
+  .wide-btn, .train-btn, .dir-btn { min-height: 46px; }
+  .hud-btn { width: 42px; height: 42px; font-size: 18px; }
+  .ghost-btn { padding: 9px 12px; }
+  .topbar { padding: 8px 12px; }
+  .brand-name { font-size: 18px; letter-spacing: .12em; }
+  .phase-banner { font-size: 13px; padding: 7px 12px; }
+  .overlay { padding: 14px 10px; }
+  .overlay-inner { padding: 20px 16px; }
+  .rule-cards { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .train-btn { padding: 7px 8px; }
+  .train-btn .tn { font-size: 12px; }
+  .unit-strip { grid-template-columns: 1fr 1fr; }
+  .player-card { min-width: 138px; }
 }

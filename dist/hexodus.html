@@ -1,0 +1,2021 @@
+<title>Hexodus</title>
+<meta name="description" content="Hexodus: Strategiespiel für 2–4 Spieler auf einem Hexagon-Spielfeld. Bäume fällen, Holz sammeln, Einheiten ausbilden und den gegnerischen Königs-Turm schlagen.">
+<style>
+/* Hexodus – Layout und Optik */
+:root {
+  --bg: #14171c;
+  --bg-2: #1b1f26;
+  --panel: #21262e;
+  --panel-2: #272d36;
+  --line: #333b46;
+  --text: #e7ecf2;
+  --muted: #97a2b1;
+  --accent: #7bc96f;
+  --accent-dark: #4e9d51;
+  --warn: #f0a04b;
+  --danger: #e35d5d;
+  --grass: #8ed07a;
+  --grass-dark: #6fb45f;
+  --water: #2b6a78;
+  --radius: 12px;
+  --sidebar: 330px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+body { display: flex; flex-direction: column; }
+.hidden { display: none !important; }
+h1, h2, h3 { margin: 0 0 .5em; line-height: 1.15; letter-spacing: .01em; }
+
+/* ---------- Kopfzeile ---------- */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 18px;
+  background: linear-gradient(180deg, #22272f, #191d23);
+  border-bottom: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark { width: 26px; height: 26px; fill: var(--accent); }
+.brand-name { font-size: 22px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+.brand-o { color: var(--accent); }
+.topbar-actions { display: flex; gap: 8px; }
+
+button { font: inherit; cursor: pointer; }
+.ghost-btn {
+  background: transparent; color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 7px 14px;
+}
+.ghost-btn:hover { border-color: var(--accent); color: var(--accent); }
+.primary-btn {
+  width: 100%; padding: 12px 16px; margin-top: 8px;
+  background: var(--accent); color: #10230f; font-weight: 700;
+  border: 0; border-radius: 10px; letter-spacing: .04em;
+}
+.primary-btn:hover { background: #8ed77f; }
+
+/* ---------- Startbildschirm ---------- */
+.screen { flex: 1 1 auto; min-height: 0; }
+.menu {
+  display: grid; gap: 26px; align-content: start;
+  grid-template-columns: 1fr 360px;
+  padding: 34px clamp(18px, 5vw, 70px) 60px;
+  overflow: auto;
+  background:
+    radial-gradient(1100px 480px at 20% -10%, #253040 0%, transparent 60%),
+    var(--bg);
+}
+.hero { grid-column: 1; }
+.kicker { color: var(--accent); text-transform: uppercase; letter-spacing: .18em; font-size: 12px; margin: 0 0 10px; }
+.hero h1 { font-size: clamp(44px, 8vw, 82px); letter-spacing: .12em; text-transform: uppercase; }
+.lede { max-width: 52ch; color: var(--muted); font-size: 17px; line-height: 1.6; }
+
+.setup-card {
+  grid-column: 2; grid-row: 1 / span 2;
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 22px; height: fit-content;
+}
+.field { display: block; margin-bottom: 14px; }
+.field span { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+select, input[type=text] {
+  width: 100%; padding: 9px 11px; font: inherit; color: var(--text);
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px;
+}
+select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
+.player-field { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
+.player-field .swatch { width: 16px; height: 16px; border-radius: 4px; flex: 0 0 auto; }
+.color-name { font-size: 12px; color: var(--muted); width: 52px; flex: 0 0 auto; }
+.hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 8px 0; }
+.hint.small { font-size: 12px; }
+.hint.warn { color: var(--warn); }
+.hint.accent { color: var(--accent); }
+
+.units { grid-column: 1; }
+.unit-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-width: 720px; }
+.unit-chip {
+  margin: 0; display: flex; align-items: center; gap: 9px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px;
+}
+.unit-chip figcaption { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.unit-chip strong { font-size: 13px; }
+.unit-chip span { font-size: 11px; color: var(--muted); }
+.piece-icon { width: 38px; height: 38px; flex: 0 0 auto; }
+.icon-hex { fill: var(--grass); stroke: var(--grass-dark); stroke-width: 2; }
+
+.flow { grid-column: 1; }
+.flow-list { margin: 0; padding-left: 20px; color: var(--muted); line-height: 1.7; max-width: 62ch; }
+.flow-list strong { color: var(--text); }
+
+/* ---------- Spielbildschirm ---------- */
+.game { display: grid; grid-template-columns: 1fr var(--sidebar); min-height: 0; }
+.board-wrap { position: relative; min-width: 0; background: var(--bg-2); overflow: hidden; }
+.board { position: absolute; inset: 0; }
+.board-svg { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.board-svg:active { cursor: grabbing; }
+
+.phase-banner {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  background: rgba(24, 28, 34, .92); border: 1px solid var(--line);
+  padding: 8px 16px; border-radius: 999px; font-size: 14px; white-space: nowrap;
+  pointer-events: none; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis;
+}
+.board-hud { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.hud-btn {
+  width: 34px; height: 34px; border-radius: 8px; font-size: 16px;
+  background: rgba(24, 28, 34, .92); color: var(--text); border: 1px solid var(--line);
+}
+.hud-btn:hover { border-color: var(--accent); color: var(--accent); }
+.legend {
+  position: absolute; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px;
+  background: rgba(24, 28, 34, .9); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 11px; font-size: 12px; color: var(--muted); pointer-events: none;
+}
+.legend span { display: flex; align-items: center; gap: 5px; }
+.lg { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.lg-move { background: #eafbe6; }
+.lg-capture { background: transparent; border: 2px solid var(--danger); }
+.lg-harvest { background: var(--warn); }
+.lg-shoot { background: transparent; border: 2px solid #ff8080; border-radius: 2px; }
+.lg-train { background: #ef94b8; }
+
+/* ---------- Seitenleiste ---------- */
+.sidebar {
+  border-left: 1px solid var(--line); background: var(--bg);
+  display: flex; flex-direction: column; min-height: 0; overflow: auto;
+}
+.players { padding: 12px; display: flex; flex-direction: column; gap: 7px; }
+.player-card {
+  display: grid; grid-template-columns: 14px 1fr auto; gap: 4px 9px; align-items: center;
+  background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--pc);
+  border-radius: 9px; padding: 9px 11px;
+}
+.player-card.is-current { background: var(--panel-2); border-color: var(--pc); box-shadow: 0 0 0 1px var(--pc) inset; }
+.player-card.is-out { opacity: .42; }
+.player-card .swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--pc); }
+.player-card .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player-card .wood { font-variant-numeric: tabular-nums; font-weight: 700; }
+.player-card .meta { grid-column: 2 / span 2; font-size: 12px; color: var(--muted); }
+
+.panel { padding: 4px 12px 12px; border-top: 1px solid var(--line); }
+.panel h3 { font-size: 14px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-top: 14px; }
+.wide-btn {
+  width: 100%; margin: 8px 0 4px; padding: 10px;
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--line); border-radius: 9px;
+}
+.wide-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.train-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.train-btn {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  padding: 8px 10px; background: var(--panel); color: var(--text);
+  border: 1px solid var(--line); border-radius: 9px;
+}
+.train-btn .tn { font-weight: 600; font-size: 13px; }
+.train-btn .tc { font-size: 11px; color: var(--muted); }
+.train-btn:hover:not(:disabled) { border-color: var(--accent); }
+.train-btn.is-active { border-color: var(--accent); background: #26331f; }
+.train-btn:disabled { opacity: .38; cursor: not-allowed; }
+
+.dir-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
+.dir-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 7px 0; font-size: 16px; line-height: 1;
+  background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+}
+.dir-btn span { font-size: 10px; color: var(--muted); }
+.dir-btn:hover { border-color: var(--accent); }
+.dir-btn.is-active { border-color: var(--accent); background: #26331f; }
+
+.log { padding: 10px 12px 22px; border-top: 1px solid var(--line); margin-top: auto; }
+.log h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+#log-list { list-style: none; margin: 0; padding: 0; max-height: 210px; overflow: auto; font-size: 13px; }
+#log-list li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; color: var(--muted); border-bottom: 1px solid #262c35; }
+#log-list .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+
+/* ---------- Brett ---------- */
+.hex-shape { stroke: #00000022; stroke-width: 1; }
+.hex-grass .hex-shape { fill: var(--grass); }
+.hex-water .hex-shape { fill: var(--water); }
+.hex.is-placeable .hex-shape { fill: #b6e9a4; cursor: pointer; }
+.hex.is-placeable:hover .hex-shape { fill: #d9f7cd; }
+.hex-selected { fill: none; stroke: #fff; stroke-width: 3; pointer-events: none; }
+
+.tree-bg { fill: var(--grass-dark); }
+.tree-top { fill: #2f9e50; }
+.tree-top2 { fill: #268342; }
+.tree { pointer-events: none; }
+
+.piece { pointer-events: none; }
+.piece-shadow { fill: rgba(0, 0, 0, .3); }
+.piece-base { fill: #23282f; }
+.piece-head { fill: #1b2026; stroke-width: 1.4; }
+.piece.is-selected .piece-head { stroke-width: 2.4; }
+.facing { opacity: .9; }
+
+.marker { cursor: pointer; }
+.marker-hex { fill: transparent; }
+.marker-dot { fill: #f2fff0; opacity: .85; stroke: #2c3a26; stroke-width: 1; }
+.marker-ring { fill: rgba(227, 93, 93, .28); stroke: var(--danger); stroke-width: 3; }
+.marker-icon { stroke: #ff6b6b; stroke-width: 4; stroke-linecap: round; fill: none; }
+.mk-harvest .marker-icon { stroke: none; fill: var(--warn); }
+.mk-jump .marker-dot { fill: #9fd6ff; }
+.mk-train .marker-hex { fill: rgba(239, 148, 184, .55); stroke: #ef94b8; stroke-width: 2; }
+.marker:hover .marker-hex { fill: rgba(255, 255, 255, .3); }
+
+/* ---------- Regel-Overlay ---------- */
+.overlay {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(8, 10, 13, .8); overflow: auto; padding: 32px 16px;
+}
+.overlay-inner {
+  position: relative; max-width: 980px; margin: 0 auto;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 16px; padding: 30px;
+}
+.overlay-inner > h2 { font-size: 30px; letter-spacing: .1em; text-transform: uppercase; }
+.close-btn {
+  position: absolute; top: 14px; right: 16px; width: 34px; height: 34px; font-size: 22px;
+  background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 8px;
+}
+.close-btn:hover { color: var(--text); border-color: var(--accent); }
+.rule-block { border-top: 1px solid var(--line); padding-top: 16px; margin-bottom: 22px; color: var(--muted); line-height: 1.6; }
+.rule-block strong { color: var(--text); }
+.rule-block ul { padding-left: 20px; }
+.rule-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.rule-card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.rule-card header { display: flex; align-items: center; gap: 11px; margin-bottom: 10px; }
+.rule-card .rule-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rule-card .piece-icon { width: 44px; height: 44px; }
+.rule-card h3 { margin: 0; font-size: 18px; }
+.rule-card .cost { font-size: 12px; color: var(--accent); white-space: nowrap; }
+.rule-card p { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0 0 8px; }
+.rule-card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+
+/* ---------- Schmale Bildschirme ---------- */
+@media (max-width: 900px) {
+  .menu { grid-template-columns: 1fr; padding: 22px 16px 44px; gap: 20px; }
+  .setup-card { grid-column: 1; grid-row: auto; }
+  .hero h1 { font-size: clamp(38px, 13vw, 64px); }
+  .lede { font-size: 15px; }
+  .game { grid-template-columns: 1fr; grid-template-rows: minmax(280px, 50vh) 1fr; }
+  .sidebar { border-left: 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
+
+  /* Aktionen direkt unter das Brett, Spielerleiste als Streifen */
+  .panel { order: 1; border-top: 0; padding-top: 10px; }
+  .players { order: 2; flex-direction: row; overflow-x: auto; gap: 8px; padding: 10px 12px; }
+  .players::-webkit-scrollbar { display: none; }
+  .player-card { flex: 0 0 auto; min-width: 150px; }
+  .log { order: 3; }
+  #log-list { max-height: 140px; }
+  .legend { display: none; }
+
+  /* Fingerfreundliche Ziele */
+  .wide-btn, .train-btn, .dir-btn { min-height: 46px; }
+  .hud-btn { width: 42px; height: 42px; font-size: 18px; }
+  .ghost-btn { padding: 9px 12px; }
+  .topbar { padding: 8px 12px; }
+  .brand-name { font-size: 18px; letter-spacing: .12em; }
+  .phase-banner { font-size: 13px; padding: 7px 12px; }
+  .overlay { padding: 14px 10px; }
+  .overlay-inner { padding: 20px 16px; }
+  .rule-cards { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 420px) {
+  .train-btn { padding: 7px 8px; }
+  .train-btn .tn { font-size: 12px; }
+  .unit-strip { grid-template-columns: 1fr 1fr; }
+  .player-card { min-width: 138px; }
+}
+
+</style>
+
+<header class="topbar">
+  <div class="brand">
+    <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10l5 10-5 10H7L2 12z"/></svg>
+    <span class="brand-name">Hex<span class="brand-o">o</span>dus</span>
+  </div>
+  <nav class="topbar-actions">
+    <button id="open-rules" class="ghost-btn">Regeln</button>
+    <button id="new-game" class="ghost-btn">Neues Spiel</button>
+  </nav>
+</header>
+
+<!-- ---------- Startbildschirm ---------- -->
+<main id="screen-menu" class="screen menu">
+  <section class="hero">
+    <p class="kicker">2–4 Spieler · ab 12 Jahren · Brettspiel im Browser</p>
+    <h1>Hexodus</h1>
+    <p class="lede">
+      Ein Spielfeld aus zufällig gelegten Hexagon-Plättchen. Bäume sind dein Rohstoff, Holz deine
+      Währung, der Königs-Turm dein Leben. Fälle, baue aus, schlage zu – und stürze die Türme
+      deiner Gegner.
+    </p>
+  </section>
+
+  <section class="setup-card">
+    <h2>Neue Partie</h2>
+    <label class="field">
+      <span>Spieleranzahl</span>
+      <select id="player-count">
+        <option value="2">2 Spieler</option>
+        <option value="3">3 Spieler</option>
+        <option value="4">4 Spieler</option>
+      </select>
+    </label>
+    <div id="player-fields"></div>
+    <p id="setup-info" class="hint"></p>
+    <button id="start-game" class="primary-btn">Spiel starten</button>
+    <p class="hint small">Gespielt wird abwechselnd an einem Gerät (Hotseat).</p>
+  </section>
+
+  <section class="units">
+    <h2>Die Figuren</h2>
+    <div id="unit-strip" class="unit-strip"></div>
+  </section>
+
+  <section class="flow">
+    <h2>Spielaufbau</h2>
+    <ol class="flow-list">
+      <li><strong>Hexagon-Plättchen</strong> werden zufällig aneinandergelegt und formen das Spielfeld.</li>
+      <li><strong>Bäume platzieren:</strong> Jeder Spieler erhält gleich viele Bäume und setzt reihum einen davon.</li>
+      <li><strong>Turm &amp; Arbeiter:</strong> Danach setzen alle ihren Königs-Turm samt Arbeiter daneben. Der letzte Spieler, der seinen Turm setzt, beginnt.</li>
+      <li><strong>Ziel:</strong> Schlage die Königs-Türme der Gegner. Wer als Letzter steht, gewinnt – und erbeutet unterwegs das Holz der Besiegten.</li>
+    </ol>
+  </section>
+</main>
+
+<!-- ---------- Spielbildschirm ---------- -->
+<main id="screen-game" class="screen game hidden">
+  <div class="board-wrap">
+    <div id="board" class="board"></div>
+    <div id="phase-banner" class="phase-banner"></div>
+    <div class="board-hud">
+      <button id="zoom-in" class="hud-btn" title="Vergrößern">+</button>
+      <button id="zoom-out" class="hud-btn" title="Verkleinern">−</button>
+      <button id="zoom-fit" class="hud-btn" title="Einpassen">⤢</button>
+    </div>
+    <div class="legend">
+      <span><i class="lg lg-move"></i>Zug</span>
+      <span><i class="lg lg-capture"></i>Schlagen</span>
+      <span><i class="lg lg-harvest"></i>Baum fällen</span>
+      <span><i class="lg lg-shoot"></i>Schuss</span>
+      <span><i class="lg lg-train"></i>Ausbilden</span>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <div id="players" class="players"></div>
+    <div id="action-panel" class="panel"></div>
+    <div class="log">
+      <h3>Verlauf</h3>
+      <ul id="log-list"></ul>
+    </div>
+  </aside>
+</main>
+
+<!-- ---------- Regelwerk ---------- -->
+<div id="rules" class="overlay hidden">
+  <div class="overlay-inner">
+    <button id="close-rules" class="close-btn" aria-label="Schließen">×</button>
+    <h2>Regelwerk</h2>
+
+    <section class="rule-block">
+      <h3>Grundzug</h3>
+      <p>Pro Zug führst du <strong>genau eine</strong> Aktion aus: eine Figur bewegen, mit dem
+        Bogenschützen schießen, eine Richtungsfigur drehen oder eine neue Einheit ausbilden.
+        Beim Bewegen wird eine gegnerische Figur auf dem Zielfeld geschlagen.</p>
+      <ul>
+        <li><strong>Wasser</strong> kann nicht betreten werden – Samurai, Springer und Schüsse überqueren es.</li>
+        <li><strong>Bäume</strong> blockieren; nur der Arbeiter darf ihr Feld betreten und fällt sie dabei.</li>
+        <li><strong>Holz</strong> stammt aus gefällten Bäumen und bezahlt jede neue Einheit.</li>
+        <li>Richtungsfiguren (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet werden;
+          eine Drehung ohne Bewegung kostet den ganzen Zug.</li>
+      </ul>
+    </section>
+
+    <div id="rule-cards" class="rule-cards"></div>
+  </div>
+</div>
+
+<script>
+/* js/hex.js */
+/* Hexodus – Hex-Geometrie (axiale Koordinaten q,r – flat-top Layout) */
+var Hex = (function () {
+  'use strict';
+
+  // Reihenfolge der 6 Richtungen (flat-top): 0=SO 1=NO 2=N 3=NW 4=SW 5=S
+  var DIRS = [[1, 0], [1, -1], [0, -1], [-1, 0], [-1, 1], [0, 1]];
+  var DIR_NAMES = ['Südost', 'Nordost', 'Nord', 'Nordwest', 'Südwest', 'Süd'];
+  var DIR_SHORT = ['SO', 'NO', 'N', 'NW', 'SW', 'S'];
+
+  // Gitter der 7er-Plättchen ("Blumen"): Mittelpunkte im Abstand 3
+  var TILE_DIRS = [[1, 2], [3, -1], [2, -3], [-1, -2], [-3, 1], [-2, 3]];
+
+  function key(q, r) { return q + ',' + r; }
+  function parseKey(k) { var p = k.split(','); return { q: +p[0], r: +p[1] }; }
+  function add(a, d) { return { q: a.q + d[0], r: a.r + d[1] }; }
+  function scale(d, n) { return [d[0] * n, d[1] * n]; }
+  function equals(a, b) { return a.q === b.q && a.r === b.r; }
+
+  function distance(a, b) {
+    var dq = a.q - b.q, dr = a.r - b.r;
+    return (Math.abs(dq) + Math.abs(dr) + Math.abs(dq + dr)) / 2;
+  }
+
+  function neighbors(a) {
+    return DIRS.map(function (d) { return add(a, d); });
+  }
+
+  // Pixelposition des Hex-Mittelpunkts (flat-top)
+  var SQRT3 = Math.sqrt(3);
+  function toPixel(a, size) {
+    return {
+      x: size * 1.5 * a.q,
+      y: size * SQRT3 * (a.r + a.q / 2)
+    };
+  }
+
+  // Eckpunkte eines flat-top Hexagons
+  function corners(size) {
+    var pts = [];
+    for (var i = 0; i < 6; i++) {
+      var ang = Math.PI / 180 * (60 * i);
+      pts.push([size * Math.cos(ang), size * Math.sin(ang)]);
+    }
+    return pts;
+  }
+
+  function cornerPoints(size, shrink) {
+    return corners(size * (shrink || 1)).map(function (p) {
+      return p[0].toFixed(2) + ',' + p[1].toFixed(2);
+    }).join(' ');
+  }
+
+  // Einheitsvektor einer Richtung im Pixelraum (für Blickrichtungs-Pfeile)
+  function dirVector(d) {
+    var p = toPixel({ q: DIRS[d][0], r: DIRS[d][1] }, 1);
+    var len = Math.sqrt(p.x * p.x + p.y * p.y);
+    return { x: p.x / len, y: p.y / len };
+  }
+
+  function dirAngle(d) {
+    var v = dirVector(d);
+    return Math.atan2(v.y, v.x) * 180 / Math.PI;
+  }
+
+  // Zellen eines 7er-Plättchens um ein Zentrum
+  function tileCells(center) {
+    var cells = [{ q: center[0], r: center[1] }];
+    for (var i = 0; i < 6; i++) {
+      cells.push({ q: center[0] + DIRS[i][0], r: center[1] + DIRS[i][1] });
+    }
+    return cells;
+  }
+
+  return {
+    DIRS: DIRS, DIR_NAMES: DIR_NAMES, DIR_SHORT: DIR_SHORT, TILE_DIRS: TILE_DIRS,
+    key: key, parseKey: parseKey, add: add, scale: scale, equals: equals,
+    distance: distance, neighbors: neighbors, toPixel: toPixel,
+    corners: corners, cornerPoints: cornerPoints, dirVector: dirVector,
+    dirAngle: dirAngle, tileCells: tileCells
+  };
+})();
+
+if (typeof module !== 'undefined') { module.exports = Hex; }
+
+</script>
+<script>
+/* js/units.js */
+/* Hexodus – Einheiten-Definitionen (Kosten, Texte, Fähigkeiten) */
+var Units = (function () {
+  'use strict';
+
+  var DEFS = {
+    king: {
+      id: 'king', name: 'Königs-Turm', cost: null, trainable: false, directional: false,
+      short: 'Zentrale Figur. Fällt er, scheidet der Spieler aus.',
+      text: 'Der Königs-Turm ist die zentrale und wichtigste Figur im Spiel. Wird der Königs-Turm ' +
+            'geschlagen, scheidet der Spieler aus dem Spiel aus, und alle seine Figuren werden vom ' +
+            'Spielfeld entfernt. Der Angreifer erhält zudem all sein Holz.',
+      bullets: [
+        'Der König darf für ein Holz ein Feld weit springen.',
+        'Ist um den König kein Platz vorhanden, kann er kein Feld springen.',
+        'Einheiten dürfen am Königs-Turm und an allen direkt verbundenen Einheiten ausgebildet werden.'
+      ]
+    },
+    worker: {
+      id: 'worker', name: 'Arbeiter', cost: 1, trainable: true, directional: false,
+      short: 'Fällt Bäume und sammelt Holz. Zieht 1 Feld.',
+      text: 'Der Arbeiter ist essenziell für das Spiel, da nur er Bäume fällen kann. Um einen Baum zu ' +
+            'fällen, muss der Arbeiter das Feld betreten, auf dem der Baum steht, und erhält dann das ' +
+            'Holz des Baumes. Der Arbeiter kann auch innerhalb seines Bewegungsradius angreifen.',
+      bullets: [
+        'Zieht ein Feld in jede Richtung.',
+        'Betritt er ein Baumfeld, wird der Baum gefällt: +1 Holz.',
+        'Halte dir immer ein Holz parat, um einen Arbeiter ausbilden zu können.'
+      ]
+    },
+    samurai: {
+      id: 'samurai', name: 'Samurai', cost: 1, trainable: true, directional: false,
+      short: 'Springt exakt 2 Felder geradeaus – über alles hinweg.',
+      text: 'Der Samurai ist eine taktische Figur, die niemals alle Felder auf dem Spielfeld berühren ' +
+            'kann. Wähle seinen Startpunkt und seine Bewegungen sorgfältig, um seine Effektivität zu ' +
+            'maximieren.',
+      bullets: [
+        'Springt genau 2 Felder in einer der 6 Richtungen.',
+        'Der Samurai kann über Wasser und über Bäume springen.',
+        'Durch den Doppelschritt erreicht er nur ein Viertel aller Felder.'
+      ]
+    },
+    springer: {
+      id: 'springer', name: 'Springer', cost: 2, trainable: true, directional: true,
+      short: 'Springt 2 Felder – nur in seine gewählte Richtung.',
+      text: 'Wenn der Springer ausgebildet wird, kannst du eine Richtung wählen. Der Springer kann ' +
+            'ausschließlich in die gewählte Richtung springen. Er hat die Möglichkeit, sich zu Beginn ' +
+            'seines Zuges zu springen und/oder zu drehen, um eine neue Richtung einzunehmen.',
+      bullets: [
+        'Springt 2 Felder in seine Blickrichtung.',
+        'Der Springer kann über Bäume und über Wasser springen.',
+        'Nachdem er sich bewegt hat, kann er in der darauffolgenden Runde in die neue, zuvor gewählte Richtung weiterlaufen.'
+      ]
+    },
+    legionaer: {
+      id: 'legionaer', name: 'Legionär', cost: 2, trainable: true, directional: true,
+      short: 'Läuft beliebig weit auf seiner Achse – vor oder zurück.',
+      text: 'Wenn der Legionär ausgebildet wird, kannst du eine Richtung wählen. Der Legionär kann sich ' +
+            'ausschließlich in die gewählte Richtung geradeaus oder rückwärts bewegen. Er hat die ' +
+            'Möglichkeit, sich zu Beginn seines Zuges zu laufen und/oder zu drehen, um eine neue ' +
+            'Richtung einzunehmen. Diese Rotation zählt als ein Zug.',
+      bullets: [
+        'Läuft so weit es geht vor oder zurück auf seiner Achse.',
+        'Der Legionär kann nicht über Bäume springen.',
+        'Nachdem er sich bewegt hat, kann er in der darauffolgenden Runde in die neue Richtung weiterlaufen.'
+      ]
+    },
+    archer: {
+      id: 'archer', name: 'Bogenschütze', cost: 2, trainable: true, directional: false,
+      short: 'Schießt auf Distanz 2 – oder läuft 1 Feld.',
+      text: 'Der Bogenschütze ist die einzige Figur, die schießen oder laufen kann. Ein Schuss kostet ' +
+            'einen Zug und ermöglicht es ihm, eine Figur aus der Ferne zu eliminieren, ohne sich zu bewegen.',
+      bullets: [
+        'Der Bogenschütze kann sich auch normal bewegen, schlägt dabei aber keine Einheiten.',
+        'Der Bogenschütze kann über Bäume und über Wasser schießen.',
+        'Getroffen wird auf Distanz 2 in einer der 6 geraden Richtungen.'
+      ]
+    },
+    tangolin: {
+      id: 'tangolin', name: 'Tangolin', cost: 2, trainable: true, directional: false,
+      short: 'Kettensprünge über Bäume und eigene Einheiten.',
+      text: 'Der Tangolin kann unbegrenzt über Bäume und eigene Einheiten springen. Seine ' +
+            'Bewegungsreichweite wird erst dann eingeschränkt, wenn keine Bäume oder eigene Einheiten ' +
+            'mehr zum Überspringen vorhanden sind.',
+      bullets: [
+        'Der Tangolin kann auch 1 Feld normal ziehen und in jede Richtung schlagen.',
+        'Er kann jedoch nicht über Wasser springen.',
+        'Beim Kettensprung schlägt er keine Einheiten.'
+      ]
+    },
+    zenturio: {
+      id: 'zenturio', name: 'Zenturio', cost: 3, trainable: true, directional: false, unique: true,
+      short: 'Läuft beliebig weit in jede Richtung. Nur einmal pro Spiel.',
+      text: 'Der Zenturio ist die stärkste Figur im Spiel. Er kostet drei Holz und kann in jede Richtung ' +
+            'so weit es geht laufen.',
+      bullets: [
+        'Der Zenturio kann nicht über Bäume springen, er darf allerdings in jede Richtung laufen.',
+        'Beachte, dass jeder Spieler den Zenturio nur einmal pro Spiel ausbilden darf.'
+      ]
+    }
+  };
+
+  // Reihenfolge im Ausbildungs-Menü
+  var TRAIN_ORDER = ['worker', 'samurai', 'springer', 'legionaer', 'archer', 'tangolin', 'zenturio'];
+
+  return { DEFS: DEFS, TRAIN_ORDER: TRAIN_ORDER };
+})();
+
+if (typeof module !== 'undefined') { module.exports = Units; }
+
+</script>
+<script>
+/* js/board.js */
+/* Hexodus – Spielfeld-Erzeugung aus zufällig angelegten 7er-Hexagon-Plättchen */
+var Board = (function () {
+  'use strict';
+
+  var H = (typeof Hex !== 'undefined') ? Hex : require('./hex.js');
+
+  function rnd(n) { return Math.floor(Math.random() * n); }
+  function pick(arr) { return arr[rnd(arr.length)]; }
+
+  /* Legt `tileCount` Plättchen kompakt aneinander. Jedes Plättchen ist eine
+     "Blume" aus 7 Hexfeldern; die Mittelpunkte liegen auf einem eigenen
+     Dreiecksgitter (Hex.TILE_DIRS). */
+  function layoutTiles(tileCount) {
+    var centers = [[0, 0]];
+    var used = {}; used['0,0'] = true;
+
+    while (centers.length < tileCount) {
+      var cands = {};
+      for (var i = 0; i < centers.length; i++) {
+        for (var d = 0; d < H.TILE_DIRS.length; d++) {
+          var nq = centers[i][0] + H.TILE_DIRS[d][0];
+          var nr = centers[i][1] + H.TILE_DIRS[d][1];
+          var k = nq + ',' + nr;
+          if (used[k]) continue;
+          cands[k] = (cands[k] || 0) + 1; // Nachbarzahl = Kompaktheit
+        }
+      }
+      var keys = Object.keys(cands);
+      if (!keys.length) break;
+      var best = 0;
+      keys.forEach(function (k) { if (cands[k] > best) best = cands[k]; });
+      var bestKeys = keys.filter(function (k) { return cands[k] === best; });
+      var chosen = pick(bestKeys).split(',');
+      used[chosen.join(',')] = true;
+      centers.push([+chosen[0], +chosen[1]]);
+    }
+    return centers;
+  }
+
+  /* Verteilt zusammenhängende Wasserfelder innerhalb eines Plättchens. */
+  function waterForTile(cells) {
+    var amount = pick([0, 0, 1, 1, 2, 2, 2, 3]);
+    if (!amount) return [];
+    var chosen = [cells[rnd(cells.length)]];
+    while (chosen.length < amount) {
+      var options = [];
+      cells.forEach(function (c) {
+        if (chosen.some(function (x) { return H.equals(x, c); })) return;
+        var touches = chosen.some(function (x) { return H.distance(x, c) === 1; });
+        if (touches) options.push(c);
+      });
+      if (!options.length) break;
+      chosen.push(pick(options));
+    }
+    return chosen;
+  }
+
+  function createCell(q, r, terrain) {
+    return { q: q, r: r, terrain: terrain, tree: false, piece: null };
+  }
+
+  function generate(tileCount) {
+    var centers = layoutTiles(tileCount);
+    var cells = {};
+    centers.forEach(function (c) {
+      var tile = H.tileCells(c);
+      var water = waterForTile(tile);
+      tile.forEach(function (cell) {
+        var isWater = water.some(function (w) { return H.equals(w, cell); });
+        cells[H.key(cell.q, cell.r)] = createCell(cell.q, cell.r, isWater ? 'water' : 'grass');
+      });
+    });
+    return {
+      cells: cells,
+      tiles: centers,
+      keys: Object.keys(cells)
+    };
+  }
+
+  function get(board, q, r) { return board.cells[H.key(q, r)] || null; }
+  function at(board, c) { return c ? (board.cells[H.key(c.q, c.r)] || null) : null; }
+
+  function forEach(board, fn) {
+    board.keys.forEach(function (k) { fn(board.cells[k], k); });
+  }
+
+  function landCells(board) {
+    return board.keys.map(function (k) { return board.cells[k]; })
+      .filter(function (c) { return c.terrain === 'grass'; });
+  }
+
+  /* Freies Grasfeld: kein Baum, keine Figur. */
+  function isFree(cell) {
+    return !!cell && cell.terrain === 'grass' && !cell.tree && !cell.piece;
+  }
+
+  function bounds(board, size) {
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    board.keys.forEach(function (k) {
+      var c = board.cells[k];
+      var p = H.toPixel(c, size);
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    });
+    return { minX: minX - size, minY: minY - size, maxX: maxX + size, maxY: maxY + size };
+  }
+
+  return {
+    generate: generate, get: get, at: at, forEach: forEach,
+    landCells: landCells, isFree: isFree, bounds: bounds
+  };
+})();
+
+if (typeof module !== 'undefined') { module.exports = Board; }
+
+</script>
+<script>
+/* js/moves.js */
+/* Hexodus – Regelwerk: legale Aktionen jeder Figur */
+var Moves = (function () {
+  'use strict';
+
+  var H = (typeof Hex !== 'undefined') ? Hex : require('./hex.js');
+  var B = (typeof Board !== 'undefined') ? Board : require('./board.js');
+
+  function enterable(cell) {
+    // Feld, auf dem eine Figur überhaupt stehen kann
+    return !!cell && cell.terrain === 'grass' && !cell.tree;
+  }
+
+  function act(kind, cell, extra) {
+    var a = { kind: kind, q: cell.q, r: cell.r };
+    if (extra) for (var k in extra) a[k] = extra[k];
+    return a;
+  }
+
+  /* Gleitende Bewegung (Legionär, Zenturio): läuft, bis etwas im Weg ist. */
+  function slide(board, from, dirs, owner, out) {
+    dirs.forEach(function (d) {
+      var cur = { q: from.q, r: from.r };
+      for (;;) {
+        cur = H.add(cur, H.DIRS[d]);
+        var cell = B.at(board, cur);
+        if (!cell || cell.terrain === 'water' || cell.tree) break;
+        if (cell.piece) {
+          if (cell.piece.owner !== owner) out.push(act('capture', cell));
+          break;
+        }
+        out.push(act('move', cell));
+      }
+    });
+  }
+
+  /* Kettensprünge des Tangolins: über Bäume und eigene Einheiten, nie über Wasser. */
+  function chainJumps(board, from, owner, out) {
+    var seen = {};
+    seen[H.key(from.q, from.r)] = true;
+    var queue = [{ q: from.q, r: from.r }];
+    while (queue.length) {
+      var pos = queue.shift();
+      for (var d = 0; d < 6; d++) {
+        var over = B.at(board, H.add(pos, H.DIRS[d]));
+        if (!over) continue;
+        // Übersprungen werden dürfen nur Bäume und eigene Einheiten
+        var jumpable = (over.terrain === 'grass') &&
+          (over.tree || (over.piece && over.piece.owner === owner));
+        if (!jumpable) continue;
+        var land = B.at(board, H.add(pos, H.scale(H.DIRS[d], 2)));
+        if (!enterable(land) || land.piece) continue;
+        var k = H.key(land.q, land.r);
+        if (seen[k]) continue;
+        seen[k] = true;
+        queue.push({ q: land.q, r: land.r });
+        out.push(act('jump', land));
+      }
+    }
+  }
+
+  /* Doppelsprung über alles hinweg (Samurai, Springer). */
+  function leap(board, from, dirs, owner, out) {
+    dirs.forEach(function (d) {
+      var target = B.at(board, H.add(from, H.scale(H.DIRS[d], 2)));
+      if (!enterable(target)) return;
+      if (!target.piece) out.push(act('move', target));
+      else if (target.piece.owner !== owner) out.push(act('capture', target));
+    });
+  }
+
+  /* Alle legalen Aktionen der Figur auf `cell`. `wood` = Holzvorrat des Besitzers. */
+  function forPiece(board, cell, wood) {
+    var piece = cell.piece;
+    var out = [];
+    if (!piece) return out;
+    var owner = piece.owner;
+    var d, target, n;
+
+    switch (piece.type) {
+      case 'worker':
+        for (d = 0; d < 6; d++) {
+          target = B.at(board, H.add(cell, H.DIRS[d]));
+          if (!target || target.terrain === 'water') continue;
+          if (target.tree) { out.push(act('harvest', target)); continue; }
+          if (!target.piece) out.push(act('move', target));
+          else if (target.piece.owner !== owner) out.push(act('capture', target));
+        }
+        break;
+
+      case 'samurai':
+        leap(board, cell, [0, 1, 2, 3, 4, 5], owner, out);
+        break;
+
+      case 'springer':
+        leap(board, cell, [piece.facing], owner, out);
+        break;
+
+      case 'legionaer':
+        slide(board, cell, [piece.facing, (piece.facing + 3) % 6], owner, out);
+        break;
+
+      case 'zenturio':
+        slide(board, cell, [0, 1, 2, 3, 4, 5], owner, out);
+        break;
+
+      case 'archer':
+        // Laufen: 1 Feld, ohne zu schlagen
+        for (d = 0; d < 6; d++) {
+          target = B.at(board, H.add(cell, H.DIRS[d]));
+          if (enterable(target) && !target.piece) out.push(act('move', target));
+        }
+        // Schießen: Distanz 2 auf einer der 6 Geraden, über Bäume und Wasser hinweg
+        for (d = 0; d < 6; d++) {
+          target = B.at(board, H.add(cell, H.scale(H.DIRS[d], 2)));
+          if (target && target.piece && target.piece.owner !== owner) {
+            out.push(act('shoot', target));
+          }
+        }
+        break;
+
+      case 'tangolin':
+        for (d = 0; d < 6; d++) {
+          target = B.at(board, H.add(cell, H.DIRS[d]));
+          if (!enterable(target)) continue;
+          if (!target.piece) out.push(act('move', target));
+          else if (target.piece.owner !== owner) out.push(act('capture', target));
+        }
+        chainJumps(board, cell, owner, out);
+        break;
+
+      case 'king':
+        if (wood >= 1) {
+          for (d = 0; d < 6; d++) {
+            target = B.at(board, H.add(cell, H.DIRS[d]));
+            if (!enterable(target)) continue;
+            if (!target.piece) out.push(act('move', target, { cost: 1 }));
+            else if (target.piece.owner !== owner) out.push(act('capture', target, { cost: 1 }));
+          }
+        }
+        break;
+    }
+
+    // Doppelte Ziele entfernen (Tangolin kann ein Feld mehrfach erreichen)
+    var seen = {}, uniq = [];
+    out.forEach(function (a) {
+      var k = a.kind + ':' + a.q + ',' + a.r;
+      if (seen[k]) return;
+      seen[k] = true;
+      uniq.push(a);
+    });
+    return uniq;
+  }
+
+  /* Felder, auf denen ein Spieler ausbilden darf:
+     freie Felder neben dem König oder neben jeder mit ihm verbundenen eigenen Einheit. */
+  function trainingSpots(board, owner) {
+    var kingKey = null;
+    for (var i = 0; i < board.keys.length; i++) {
+      var c = board.cells[board.keys[i]];
+      if (c.piece && c.piece.owner === owner && c.piece.type === 'king') { kingKey = board.keys[i]; break; }
+    }
+    if (!kingKey) return [];
+
+    // Zusammenhängende Traube eigener Einheiten ab dem König
+    var cluster = {}, queue = [board.cells[kingKey]];
+    cluster[kingKey] = true;
+    while (queue.length) {
+      var cur = queue.shift();
+      H.neighbors(cur).forEach(function (nb) {
+        var cell = B.at(board, nb);
+        if (!cell || !cell.piece || cell.piece.owner !== owner) return;
+        var k = H.key(cell.q, cell.r);
+        if (cluster[k]) return;
+        cluster[k] = true;
+        queue.push(cell);
+      });
+    }
+
+    var spots = {}, list = [];
+    Object.keys(cluster).forEach(function (k) {
+      H.neighbors(board.cells[k]).forEach(function (nb) {
+        var cell = B.at(board, nb);
+        if (!B.isFree(cell)) return;
+        var sk = H.key(cell.q, cell.r);
+        if (spots[sk]) return;
+        spots[sk] = true;
+        list.push(cell);
+      });
+    });
+    return list;
+  }
+
+  /* Kann der Spieler überhaupt noch etwas tun? */
+  function hasAnyAction(state, owner) {
+    var board = state.board;
+    var player = state.players[owner];
+    if (player.eliminated) return false;
+    for (var i = 0; i < board.keys.length; i++) {
+      var cell = board.cells[board.keys[i]];
+      if (!cell.piece || cell.piece.owner !== owner) continue;
+      if (forPiece(board, cell, player.wood).length) return true;
+      if (cell.piece.type !== 'king' && Units.DEFS[cell.piece.type].directional) return true; // drehen
+    }
+    return affordableUnits(state, owner).length > 0 && trainingSpots(board, owner).length > 0;
+  }
+
+  /* Einheiten, die sich der Spieler gerade leisten darf. */
+  function affordableUnits(state, owner) {
+    var player = state.players[owner];
+    return Units.TRAIN_ORDER.filter(function (id) {
+      var def = Units.DEFS[id];
+      if (def.cost > player.wood) return false;
+      if (def.unique && player.trained[id]) return false;
+      return true;
+    });
+  }
+
+  return {
+    forPiece: forPiece, trainingSpots: trainingSpots,
+    hasAnyAction: hasAnyAction, affordableUnits: affordableUnits, enterable: enterable
+  };
+})();
+
+if (typeof module !== 'undefined') { module.exports = Moves; }
+
+</script>
+<script>
+/* js/game.js */
+/* Hexodus – Spielzustand, Aufbauphasen und Zugabwicklung */
+var Game = (function () {
+  'use strict';
+
+  var H = (typeof Hex !== 'undefined') ? Hex : require('./hex.js');
+  var B = (typeof Board !== 'undefined') ? Board : require('./board.js');
+  var M = (typeof Moves !== 'undefined') ? Moves : require('./moves.js');
+  var U = (typeof Units !== 'undefined') ? Units : require('./units.js');
+
+  // Spielmaterial nach Spielerzahl (siehe Spielaufbau)
+  var SETUP = {
+    2: { tiles: 10, trees: 30 },
+    3: { tiles: 20, trees: 45 },
+    4: { tiles: 25, trees: 60 }
+  };
+
+  var COLORS = [
+    { id: 'blue',   name: 'Blau',   hex: '#3b82f6' },
+    { id: 'pink',   name: 'Pink',   hex: '#ec4899' },
+    { id: 'yellow', name: 'Gelb',   hex: '#eab308' },
+    { id: 'orange', name: 'Orange', hex: '#f97316' }
+  ];
+
+  function create(playerNames) {
+    var count = playerNames.length;
+    var cfg = SETUP[count];
+    var board = B.generate(cfg.tiles);
+
+    // Bäume gleichmäßig verteilen; pro Spieler bleiben mindestens 6 Felder frei,
+    // damit Türme und Arbeiter noch Platz finden.
+    var land = B.landCells(board).length;
+    var maxTrees = land - count * 6;
+    var total = Math.min(cfg.trees, Math.max(count * 4, maxTrees));
+    var perPlayer = Math.floor(total / count);
+
+    var players = playerNames.map(function (name, i) {
+      return {
+        index: i,
+        name: name || ('Spieler ' + (i + 1)),
+        color: COLORS[i].hex,
+        colorName: COLORS[i].name,
+        wood: 0,
+        treesLeft: perPlayer,
+        eliminated: false,
+        trained: {}
+      };
+    });
+
+    return {
+      board: board,
+      players: players,
+      phase: 'trees',          // trees → kings → play → over
+      current: 0,
+      pending: null,           // {kind:'rotate'|'trainFacing', key}
+      awaitWorker: false,      // König gesetzt, Arbeiter fehlt noch
+      selected: null,
+      turn: 1,
+      passes: 0,
+      winner: null,
+      log: []
+    };
+  }
+
+  function log(state, text, playerIndex) {
+    state.log.unshift({ text: text, player: (playerIndex === undefined ? null : playerIndex) });
+    if (state.log.length > 80) state.log.pop();
+  }
+
+  function alivePlayers(state) {
+    return state.players.filter(function (p) { return !p.eliminated; });
+  }
+
+  function nextPlayer(state) {
+    var n = state.players.length;
+    for (var i = 1; i <= n; i++) {
+      var idx = (state.current + i) % n;
+      if (!state.players[idx].eliminated) return idx;
+    }
+    return state.current;
+  }
+
+  /* ---------------- Aufbauphase ---------------- */
+
+  function placeTree(state, q, r) {
+    if (state.phase !== 'trees') return false;
+    var cell = B.get(state.board, q, r);
+    if (!B.isFree(cell)) return false;
+    cell.tree = true;
+    state.players[state.current].treesLeft--;
+    log(state, state.players[state.current].name + ' pflanzt einen Baum.', state.current);
+    advanceTreeTurn(state);
+    return true;
+  }
+
+  function advanceTreeTurn(state) {
+    var remaining = state.players.some(function (p) { return p.treesLeft > 0; });
+    if (!remaining) {
+      state.phase = 'kings';
+      state.current = 0;
+      state.awaitWorker = false;
+      log(state, 'Alle Bäume stehen. Jetzt werden die Königs-Türme gesetzt.');
+      return;
+    }
+    var n = state.players.length;
+    for (var i = 1; i <= n; i++) {
+      var idx = (state.current + i) % n;
+      if (state.players[idx].treesLeft > 0) { state.current = idx; return; }
+    }
+  }
+
+  function autoPlaceTrees(state) {
+    var guard = 0;
+    while (state.phase === 'trees' && guard++ < 5000) {
+      var free = B.landCells(state.board).filter(B.isFree);
+      if (!free.length) { state.phase = 'kings'; state.current = 0; break; }
+      var cell = free[Math.floor(Math.random() * free.length)];
+      placeTree(state, cell.q, cell.r);
+    }
+  }
+
+  /* Königs-Turm braucht ein freies Nachbarfeld für den Arbeiter und
+     hält Abstand zu bereits gesetzten Türmen. */
+  function canPlaceKing(state, cell) {
+    if (!B.isFree(cell)) return false;
+    var hasSpot = H.neighbors(cell).some(function (nb) { return B.isFree(B.at(state.board, nb)); });
+    if (!hasSpot) return false;
+    return !kingTooClose(state, cell);
+  }
+
+  function kingTooClose(state, cell) {
+    var minDist = state.players.length > 2 ? 3 : 4;
+    var board = state.board;
+    for (var i = 0; i < board.keys.length; i++) {
+      var c = board.cells[board.keys[i]];
+      if (c.piece && c.piece.type === 'king' && H.distance(c, cell) < minDist) return true;
+    }
+    return false;
+  }
+
+  function placeKing(state, q, r) {
+    if (state.phase !== 'kings' || state.awaitWorker) return false;
+    var cell = B.get(state.board, q, r);
+    if (!canPlaceKing(state, cell)) return false;
+    cell.piece = { type: 'king', owner: state.current, facing: 0 };
+    state.awaitWorker = true;
+    log(state, state.players[state.current].name + ' setzt den Königs-Turm.', state.current);
+    return true;
+  }
+
+  function placeWorker(state, q, r) {
+    if (state.phase !== 'kings' || !state.awaitWorker) return false;
+    var cell = B.get(state.board, q, r);
+    if (!B.isFree(cell)) return false;
+    var touchesKing = H.neighbors(cell).some(function (nb) {
+      var c = B.at(state.board, nb);
+      return c && c.piece && c.piece.type === 'king' && c.piece.owner === state.current;
+    });
+    if (!touchesKing) return false;
+    cell.piece = { type: 'worker', owner: state.current, facing: 0 };
+    state.awaitWorker = false;
+    log(state, state.players[state.current].name + ' stellt den Arbeiter auf.', state.current);
+
+    if (state.current === state.players.length - 1) {
+      // Der letzte Spieler, der seinen Turm gesetzt hat, beginnt
+      state.phase = 'play';
+      state.current = state.players.length - 1;
+      state.turn = 1;
+      log(state, 'Das Spiel beginnt – ' + state.players[state.current].name + ' ist am Zug.', state.current);
+    } else {
+      state.current++;
+    }
+    return true;
+  }
+
+  /* ---------------- Spielzüge ---------------- */
+
+  function actionsFor(state, cell) {
+    if (state.phase !== 'play') return [];
+    if (!cell || !cell.piece || cell.piece.owner !== state.current) return [];
+    if (state.pending) return [];
+    return M.forPiece(state.board, cell, state.players[state.current].wood);
+  }
+
+  function capture(state, cell, attacker) {
+    var victim = cell.piece;
+    cell.piece = null;
+    var vName = U.DEFS[victim.type].name;
+    log(state, U.DEFS[victim.type].name + ' von ' + state.players[victim.owner].name + ' geschlagen.', attacker);
+    if (victim.type === 'king') eliminate(state, victim.owner, attacker);
+    return vName;
+  }
+
+  function eliminate(state, victimIndex, attackerIndex) {
+    var victim = state.players[victimIndex];
+    victim.eliminated = true;
+    var board = state.board;
+    board.keys.forEach(function (k) {
+      var c = board.cells[k];
+      if (c.piece && c.piece.owner === victimIndex) c.piece = null;
+    });
+    if (attackerIndex !== null && attackerIndex !== undefined && victim.wood > 0) {
+      state.players[attackerIndex].wood += victim.wood;
+      log(state, state.players[attackerIndex].name + ' erbeutet ' + victim.wood + ' Holz.', attackerIndex);
+    }
+    victim.wood = 0;
+    log(state, victim.name + ' scheidet aus dem Spiel aus!', victimIndex);
+    checkVictory(state);
+  }
+
+  function checkVictory(state) {
+    var alive = alivePlayers(state);
+    if (alive.length <= 1) {
+      state.phase = 'over';
+      state.winner = alive.length ? alive[0].index : null;
+      state.pending = null;
+      state.selected = null;
+      if (state.winner !== null) log(state, alive[0].name + ' gewinnt Hexodus!', state.winner);
+      else log(state, 'Unentschieden – niemand bleibt übrig.');
+      return true;
+    }
+    return false;
+  }
+
+  /* Führt eine der von actionsFor gelieferten Aktionen aus. */
+  function perform(state, fromCell, action) {
+    if (state.phase !== 'play' || state.pending) return false;
+    var piece = fromCell.piece;
+    if (!piece || piece.owner !== state.current) return false;
+    var player = state.players[state.current];
+    var target = B.get(state.board, action.q, action.r);
+    if (!target) return false;
+    var def = U.DEFS[piece.type];
+
+    if (action.kind === 'shoot') {
+      if (!target.piece) return false;
+      log(state, player.name + ': Bogenschütze schießt.', state.current);
+      capture(state, target, state.current);
+      state.passes = 0;
+      finishTurn(state, null);
+      return true;
+    }
+
+    if (action.cost) {
+      if (player.wood < action.cost) return false;
+      player.wood -= action.cost;
+      log(state, player.name + ' zahlt ' + action.cost + ' Holz für den Königs-Sprung.', state.current);
+    }
+
+    if (action.kind === 'capture') capture(state, target, state.current);
+
+    if (action.kind === 'harvest') {
+      target.tree = false;
+      player.wood += 1;
+      log(state, player.name + ': Arbeiter fällt einen Baum (+1 Holz).', state.current);
+    }
+
+    // Figur versetzen (falls sie das Spiel noch nicht beendet hat)
+    if (state.phase === 'play') {
+      fromCell.piece = null;
+      target.piece = piece;
+    } else {
+      fromCell.piece = null;
+      if (!target.piece) target.piece = piece;
+      return true;
+    }
+
+    if (action.kind === 'move' && piece.type !== 'worker') {
+      log(state, player.name + ': ' + def.name + ' zieht.', state.current);
+    }
+
+    state.passes = 0;
+    // Richtungsfiguren dürfen nach dem Zug noch neu ausrichten
+    if (def.directional) {
+      state.pending = { kind: 'rotate', key: H.key(target.q, target.r) };
+      state.selected = H.key(target.q, target.r);
+      return true;
+    }
+    finishTurn(state, null);
+    return true;
+  }
+
+  /* Drehen: entweder als Anschluss an einen Zug (gratis) oder als ganzer Zug. */
+  function rotate(state, cellKey, dir) {
+    if (state.phase !== 'play') return false;
+    var cell = state.board.cells[cellKey];
+    if (!cell || !cell.piece || cell.piece.owner !== state.current) return false;
+    if (!U.DEFS[cell.piece.type].directional) return false;
+    if (state.pending) {
+      var pk = state.pending.kind;
+      if ((pk !== 'rotate' && pk !== 'trainFacing') || state.pending.key !== cellKey) return false;
+    }
+    cell.piece.facing = dir;
+    log(state, state.players[state.current].name + ': ' + U.DEFS[cell.piece.type].name +
+      ' richtet sich nach ' + H.DIR_NAMES[dir] + ' aus.', state.current);
+    state.passes = 0;
+    finishTurn(state, null);
+    return true;
+  }
+
+  function train(state, type, q, r) {
+    if (state.phase !== 'play' || state.pending) return false;
+    var def = U.DEFS[type];
+    if (!def || !def.trainable) return false;
+    var player = state.players[state.current];
+    if (player.wood < def.cost) return false;
+    if (def.unique && player.trained[type]) return false;
+    var cell = B.get(state.board, q, r);
+    if (!B.isFree(cell)) return false;
+    var ok = M.trainingSpots(state.board, state.current).some(function (c) {
+      return c.q === q && c.r === r;
+    });
+    if (!ok) return false;
+
+    player.wood -= def.cost;
+    player.trained[type] = (player.trained[type] || 0) + 1;
+    cell.piece = { type: type, owner: state.current, facing: 0 };
+    log(state, player.name + ' bildet einen ' + def.name + ' aus (-' + def.cost + ' Holz).', state.current);
+    state.passes = 0;
+
+    if (def.directional) {
+      state.pending = { kind: 'trainFacing', key: H.key(q, r) };
+      state.selected = H.key(q, r);
+      return true;
+    }
+    finishTurn(state, null);
+    return true;
+  }
+
+  function pass(state) {
+    if (state.phase !== 'play') return false;
+    log(state, state.players[state.current].name + ' setzt aus.', state.current);
+    state.passes++;
+    if (state.passes >= alivePlayers(state).length) {
+      state.phase = 'over';
+      state.winner = null;
+      log(state, 'Niemand kann mehr ziehen – das Spiel endet unentschieden.');
+      return true;
+    }
+    finishTurn(state, null);
+    return true;
+  }
+
+  /* Zug beenden: offene Drehung verwerfen und weitergeben. */
+  function finishTurn(state) {
+    state.pending = null;
+    state.selected = null;
+    if (state.phase !== 'play') return;
+    if (checkVictory(state)) return;
+    var next = nextPlayer(state);
+    if (next <= state.current) state.turn++;
+    state.current = next;
+  }
+
+  function endPending(state) {
+    if (!state.pending) return false;
+    state.pending = null;
+    finishTurn(state, null);
+    return true;
+  }
+
+  function pieceCount(state, owner) {
+    var n = 0;
+    state.board.keys.forEach(function (k) {
+      var c = state.board.cells[k];
+      if (c.piece && c.piece.owner === owner) n++;
+    });
+    return n;
+  }
+
+  return {
+    SETUP: SETUP, COLORS: COLORS,
+    create: create, log: log,
+    placeTree: placeTree, autoPlaceTrees: autoPlaceTrees,
+    canPlaceKing: canPlaceKing, placeKing: placeKing, placeWorker: placeWorker,
+    actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
+    pass: pass, endPending: endPending, finishTurn: finishTurn,
+    alivePlayers: alivePlayers, pieceCount: pieceCount
+  };
+})();
+
+if (typeof module !== 'undefined') { module.exports = Game; }
+
+</script>
+<script>
+/* js/render.js */
+/* Hexodus – SVG-Darstellung des Spielfelds */
+var Render = (function () {
+  'use strict';
+
+  var H = Hex, B = Board;
+  var SIZE = 34;
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+
+  // Silhouetten der Figuren (dunkler Kopf, farbiger Schaft)
+  var HEADS = {
+    king:      'M-9,-4 L-9,-15 L-4.5,-10 L0,-18 L4.5,-10 L9,-15 L9,-4 Z',
+    worker:    'M0,-18 L8,-4 L-8,-4 Z',
+    samurai:   'M-8,-4 L-8,-10 L-2,-15 L3,-11 L9,-18 L6,-9 L8,-4 Z',
+    springer:  'M-7,-4 L-6,-11 L-1,-16 L8,-13 L3,-9 L6,-4 Z',
+    legionaer: 'M-5,-4 L-6,-13 L0,-17 L6,-13 L5,-4 Z',
+    archer:    'M-8,-4 L-6,-9 L-7,-13 L0,-18 L7,-13 L6,-9 L8,-4 Z',
+    tangolin:  'M0,-18 L7,-11 L0,-4 L-7,-11 Z',
+    zenturio:  'M-4,-18 L4,-18 L9,-13 L9,-8 L4,-3.5 L-4,-3.5 L-9,-8 L-9,-13 Z'
+  };
+
+  function el(name, attrs) {
+    var node = document.createElementNS(SVG_NS, name);
+    if (attrs) for (var k in attrs) node.setAttribute(k, attrs[k]);
+    return node;
+  }
+
+  function create(container) {
+    var svg = el('svg', { class: 'board-svg' });
+    var root = el('g', { class: 'board-root' });
+    var layers = {};
+    ['terrain', 'overlay', 'trees', 'pieces', 'markers'].forEach(function (n) {
+      layers[n] = el('g', { class: 'layer-' + n });
+      root.appendChild(layers[n]);
+    });
+    svg.appendChild(root);
+    container.appendChild(svg);
+    return {
+      svg: svg, root: root, layers: layers, container: container,
+      view: { x: 0, y: 0, scale: 1 }
+    };
+  }
+
+  function clear(view) {
+    for (var k in view.layers) {
+      while (view.layers[k].firstChild) view.layers[k].removeChild(view.layers[k].firstChild);
+    }
+  }
+
+  function applyView(view) {
+    view.root.setAttribute('transform',
+      'translate(' + view.view.x + ',' + view.view.y + ') scale(' + view.view.scale + ')');
+  }
+
+  /* Spielfeld mittig und vollständig einpassen */
+  function fit(view, board) {
+    var rect = view.container.getBoundingClientRect();
+    var w = rect.width || 800, h = rect.height || 600;
+    var b = B.bounds(board, SIZE);
+    var bw = b.maxX - b.minX, bh = b.maxY - b.minY;
+    var scale = Math.min(w / bw, h / bh) * 0.94;
+    scale = Math.max(0.25, Math.min(scale, 1.6));
+    view.view.scale = scale;
+    view.view.x = w / 2 - (b.minX + bw / 2) * scale;
+    view.view.y = h / 2 - (b.minY + bh / 2) * scale;
+    applyView(view);
+  }
+
+  function zoomBy(view, factor, cx, cy) {
+    var v = view.view;
+    var next = Math.max(0.3, Math.min(2.4, v.scale * factor));
+    var k = next / v.scale;
+    v.x = cx - (cx - v.x) * k;
+    v.y = cy - (cy - v.y) * k;
+    v.scale = next;
+    applyView(view);
+  }
+
+  function treeGlyph(g) {
+    g.appendChild(el('circle', { class: 'tree-bg', cx: 0, cy: 0, r: SIZE * 0.5 }));
+    g.appendChild(el('path', { class: 'tree-top', d: 'M0,-15 L9,7 L-9,7 Z' }));
+    g.appendChild(el('path', { class: 'tree-top2', d: 'M0,-15 L9,7 L0,7 Z' }));
+  }
+
+  function pieceGlyph(g, piece, color) {
+    g.appendChild(el('ellipse', { class: 'piece-shadow', cx: 0, cy: 12, rx: 12, ry: 4.5 }));
+    g.appendChild(el('path', { class: 'piece-base', d: 'M-10,11 L-7,4 L7,4 L10,11 Z' }));
+    g.appendChild(el('rect', { class: 'piece-stem', x: -3.6, y: -6, width: 7.2, height: 11, rx: 1.6, fill: color }));
+    g.appendChild(el('path', { class: 'piece-head', d: HEADS[piece.type], stroke: color }));
+  }
+
+  function facingArrow(g, piece, color) {
+    var v = H.dirVector(piece.facing);
+    var arrow = el('path', {
+      class: 'facing',
+      d: 'M0,-5 L9,0 L0,5 Z',
+      fill: color,
+      transform: 'translate(' + (v.x * SIZE * 0.72).toFixed(2) + ',' + (v.y * SIZE * 0.72).toFixed(2) +
+                 ') rotate(' + H.dirAngle(piece.facing).toFixed(1) + ')'
+    });
+    g.appendChild(arrow);
+  }
+
+  var MARKER_CLASS = {
+    move: 'mk-move', capture: 'mk-capture', harvest: 'mk-harvest',
+    jump: 'mk-jump', shoot: 'mk-shoot', train: 'mk-train', place: 'mk-place'
+  };
+
+  function draw(view, state, ctx) {
+    clear(view);
+    var board = state.board;
+    var hexPts = H.cornerPoints(SIZE, 0.97);
+
+    board.keys.forEach(function (k) {
+      var cell = board.cells[k];
+      var p = H.toPixel(cell, SIZE);
+      var placeable = ctx.placeable && ctx.placeable[k] ? ' is-placeable' : '';
+      var g = el('g', {
+        class: 'hex hex-' + cell.terrain + placeable,
+        transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')',
+        'data-key': k
+      });
+      g.appendChild(el('polygon', { class: 'hex-shape', points: hexPts }));
+      view.layers.terrain.appendChild(g);
+
+      if (cell.tree) {
+        var tg = el('g', { class: 'tree', transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')' });
+        treeGlyph(tg);
+        view.layers.trees.appendChild(tg);
+      }
+
+      if (cell.piece) {
+        var owner = state.players[cell.piece.owner];
+        var pg = el('g', {
+          class: 'piece piece-' + cell.piece.type + (state.selected === k ? ' is-selected' : ''),
+          transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')'
+        });
+        if (Units.DEFS[cell.piece.type].directional) facingArrow(pg, cell.piece, owner.color);
+        pieceGlyph(pg, cell.piece, owner.color);
+        var title = el('title');
+        title.textContent = Units.DEFS[cell.piece.type].name + ' – ' + owner.name;
+        pg.appendChild(title);
+        view.layers.pieces.appendChild(pg);
+      }
+    });
+
+    // Ausgewähltes Feld hervorheben
+    if (state.selected && board.cells[state.selected]) {
+      var sp = H.toPixel(board.cells[state.selected], SIZE);
+      view.layers.overlay.appendChild(el('polygon', {
+        class: 'hex-selected', points: hexPts,
+        transform: 'translate(' + sp.x.toFixed(2) + ',' + sp.y.toFixed(2) + ')'
+      }));
+    }
+
+    // Markierungen für mögliche Aktionen
+    (ctx.markers || []).forEach(function (m) {
+      var cell = board.cells[H.key(m.q, m.r)];
+      if (!cell) return;
+      var p = H.toPixel(cell, SIZE);
+      var g = el('g', {
+        class: 'marker ' + (MARKER_CLASS[m.kind] || 'mk-move'),
+        transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')',
+        'data-key': H.key(m.q, m.r)
+      });
+      g.appendChild(el('polygon', { class: 'marker-hex', points: hexPts }));
+      if (m.kind === 'shoot') {
+        g.appendChild(el('path', { class: 'marker-icon', d: 'M-9,-9 L9,9 M9,-9 L-9,9' }));
+      } else if (m.kind === 'capture') {
+        g.appendChild(el('circle', { class: 'marker-ring', cx: 0, cy: 0, r: SIZE * 0.62 }));
+      } else if (m.kind === 'harvest') {
+        g.appendChild(el('path', { class: 'marker-icon', d: 'M-8,6 L0,-8 L8,6 Z' }));
+      } else {
+        g.appendChild(el('circle', { class: 'marker-dot', cx: 0, cy: 0, r: m.kind === 'jump' ? 9 : 7 }));
+      }
+      view.layers.markers.appendChild(g);
+    });
+
+    applyView(view);
+  }
+
+  /* Figuren-Symbol als HTML-String – für Regelkarten und Startbildschirm */
+  function pieceIcon(type, color) {
+    var pts = H.cornerPoints(22, 1);
+    return '<svg class="piece-icon" viewBox="-26 -26 52 52" aria-hidden="true">' +
+      '<polygon class="icon-hex" points="' + pts + '"/>' +
+      '<ellipse class="piece-shadow" cx="0" cy="12" rx="10" ry="3.5"/>' +
+      '<path class="piece-base" d="M-10,11 L-7,4 L7,4 L10,11 Z"/>' +
+      '<rect class="piece-stem" x="-3.6" y="-6" width="7.2" height="11" rx="1.6" fill="' + color + '"/>' +
+      '<path class="piece-head" d="' + HEADS[type] + '" stroke="' + color + '"/>' +
+      '</svg>';
+  }
+
+  return { create: create, draw: draw, fit: fit, zoomBy: zoomBy, applyView: applyView,
+           pieceIcon: pieceIcon, SIZE: SIZE };
+})();
+
+</script>
+<script>
+/* js/ui.js */
+/* Hexodus – Oberfläche und Steuerung */
+(function () {
+  'use strict';
+
+  var H = Hex, B = Board, U = Units, M = Moves, G = Game;
+  var DIR_GLYPH = ['↘', '↗', '↑', '↖', '↙', '↓'];
+
+  var state = null;
+  var view = null;
+  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null };
+
+  function $(sel) { return document.querySelector(sel); }
+  function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  /* ---------------- Startmenü ---------------- */
+
+  function buildMenu() {
+    var wrap = $('#player-fields');
+    function render() {
+      var count = +$('#player-count').value;
+      var cfg = G.SETUP[count];
+      wrap.innerHTML = '';
+      for (var i = 0; i < count; i++) {
+        var c = G.COLORS[i];
+        var row = document.createElement('label');
+        row.className = 'player-field';
+        row.innerHTML = '<span class="swatch" style="background:' + c.hex + '"></span>' +
+          '<input type="text" id="pname' + i + '" value="Spieler ' + (i + 1) + '" maxlength="16">' +
+          '<span class="color-name">' + c.name + '</span>';
+        wrap.appendChild(row);
+      }
+      $('#setup-info').textContent =
+        cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' + cfg.trees + ' Bäume gesamt';
+    }
+    $('#player-count').addEventListener('change', render);
+    render();
+
+    $('#start-game').addEventListener('click', function () {
+      var count = +$('#player-count').value;
+      var names = [];
+      for (var i = 0; i < count; i++) names.push($('#pname' + i).value.trim() || ('Spieler ' + (i + 1)));
+      startGame(names);
+    });
+  }
+
+  function startGame(names) {
+    state = G.create(names);
+    ui = { mode: 'idle', trainType: null, markers: [], placeable: null };
+    $('#screen-menu').classList.add('hidden');
+    $('#screen-game').classList.remove('hidden');
+    if (!view) {
+      view = Render.create($('#board'));
+      attachBoardEvents();
+    }
+    Render.fit(view, state.board);
+    refresh();
+  }
+
+  /* ---------------- Interaktion mit dem Brett ---------------- */
+
+  function attachBoardEvents() {
+    var svg = view.svg;
+    var pointers = {};      // aktive Finger/Zeiger
+    var drag = null;        // Verschieben mit einem Zeiger
+    var pinch = null;       // Zoomen mit zwei Fingern
+    var moved = false;
+
+    function count() { return Object.keys(pointers).length; }
+
+    function centerOf() {
+      var ids = Object.keys(pointers);
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
+               dist: Math.hypot(a.x - b.x, a.y - b.y) };
+    }
+
+    svg.addEventListener('pointerdown', function (e) {
+      // Zielfeld schon hier merken: durch das Pointer-Capture landet das
+      // pointerup-Event sonst auf dem SVG statt auf dem Hexfeld.
+      var node = e.target.closest ? e.target.closest('[data-key]') : null;
+      pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+      svg.setPointerCapture(e.pointerId);
+
+      if (count() === 1) {
+        drag = {
+          id: e.pointerId, x: e.clientX, y: e.clientY,
+          vx: view.view.x, vy: view.view.y,
+          key: node ? node.getAttribute('data-key') : null
+        };
+        moved = false;
+      } else if (count() === 2) {
+        // zweiter Finger: Verschieben abbrechen, Zoom beginnen
+        drag = null;
+        moved = true;
+        var c = centerOf();
+        pinch = { dist: c.dist || 1 };
+      }
+    });
+
+    svg.addEventListener('pointermove', function (e) {
+      if (!pointers[e.pointerId]) return;
+      pointers[e.pointerId].x = e.clientX;
+      pointers[e.pointerId].y = e.clientY;
+
+      if (pinch && count() === 2) {
+        var c = centerOf();
+        if (!c.dist) return;
+        var rect = svg.getBoundingClientRect();
+        Render.zoomBy(view, c.dist / pinch.dist, c.x - rect.left, c.y - rect.top);
+        pinch.dist = c.dist;
+        return;
+      }
+      if (!drag || e.pointerId !== drag.id) return;
+      var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+      view.view.x = drag.vx + dx;
+      view.view.y = drag.vy + dy;
+      Render.applyView(view);
+    });
+
+    function release(e) {
+      if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
+      delete pointers[e.pointerId];
+      if (count() < 2) pinch = null;
+
+      var wasDrag = drag && drag.id === e.pointerId;
+      var hit = wasDrag ? drag.key : null;
+      if (wasDrag) drag = null;
+      if (count() > 0 || !wasDrag || moved) return;
+      if (hit) handleCellClick(hit);
+      else deselect();
+    }
+    svg.addEventListener('pointerup', release);
+    svg.addEventListener('pointercancel', function (e) {
+      if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
+      delete pointers[e.pointerId];
+      if (count() < 2) pinch = null;
+      if (drag && drag.id === e.pointerId) drag = null;
+    });
+
+    svg.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      var rect = svg.getBoundingClientRect();
+      Render.zoomBy(view, e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - rect.left, e.clientY - rect.top);
+    }, { passive: false });
+
+    $('#zoom-in').addEventListener('click', function () { centreZoom(1.2); });
+    $('#zoom-out').addEventListener('click', function () { centreZoom(1 / 1.2); });
+    $('#zoom-fit').addEventListener('click', function () { Render.fit(view, state.board); });
+  }
+
+  function centreZoom(f) {
+    var rect = view.svg.getBoundingClientRect();
+    Render.zoomBy(view, f, rect.width / 2, rect.height / 2);
+  }
+
+  function handleCellClick(key) {
+    var cell = state.board.cells[key];
+    if (!cell) return;
+
+    if (state.phase === 'trees') {
+      G.placeTree(state, cell.q, cell.r);
+      return refresh();
+    }
+    if (state.phase === 'kings') {
+      if (state.awaitWorker) G.placeWorker(state, cell.q, cell.r);
+      else G.placeKing(state, cell.q, cell.r);
+      return refresh();
+    }
+    if (state.phase !== 'play') return;
+    if (state.pending) return; // erst Richtung bestätigen
+
+    if (ui.mode === 'train') {
+      if (G.train(state, ui.trainType, cell.q, cell.r)) {
+        ui.mode = 'idle'; ui.trainType = null;
+      }
+      return refresh();
+    }
+
+    // Aktion auf einem markierten Feld ausführen
+    if (state.selected) {
+      var hit = ui.markers.filter(function (m) { return H.key(m.q, m.r) === key; });
+      if (hit.length) {
+        var action = hit[0];
+        var from = state.board.cells[state.selected];
+        G.perform(state, from, action);
+        return refresh();
+      }
+    }
+
+    if (cell.piece && cell.piece.owner === state.current) {
+      state.selected = key;
+      ui.mode = 'idle';
+      return refresh();
+    }
+    deselect();
+  }
+
+  function deselect() {
+    if (state && !state.pending) {
+      state.selected = null;
+      ui.mode = 'idle';
+      ui.trainType = null;
+      refresh();
+    }
+  }
+
+  /* ---------------- Markierungen ---------------- */
+
+  function computeMarkers() {
+    ui.markers = [];
+    ui.placeable = null;
+
+    if (state.phase === 'trees') {
+      ui.placeable = {};
+      state.board.keys.forEach(function (k) {
+        if (B.isFree(state.board.cells[k])) ui.placeable[k] = true;
+      });
+      return;
+    }
+    if (state.phase === 'kings') {
+      ui.placeable = {};
+      state.board.keys.forEach(function (k) {
+        var cell = state.board.cells[k];
+        if (state.awaitWorker) {
+          if (!B.isFree(cell)) return;
+          var next = H.neighbors(cell).some(function (nb) {
+            var c = B.at(state.board, nb);
+            return c && c.piece && c.piece.type === 'king' && c.piece.owner === state.current;
+          });
+          if (next) ui.placeable[k] = true;
+        } else if (G.canPlaceKing(state, cell)) {
+          ui.placeable[k] = true;
+        }
+      });
+      return;
+    }
+    if (state.phase !== 'play') return;
+
+    if (ui.mode === 'train' && ui.trainType) {
+      M.trainingSpots(state.board, state.current).forEach(function (c) {
+        ui.markers.push({ kind: 'train', q: c.q, r: c.r });
+      });
+      return;
+    }
+    if (state.selected && !state.pending) {
+      var cell = state.board.cells[state.selected];
+      ui.markers = G.actionsFor(state, cell);
+    }
+  }
+
+  /* ---------------- Seitenleiste ---------------- */
+
+  function renderPlayers() {
+    var html = state.players.map(function (p) {
+      var cls = 'player-card' + (p.index === state.current && state.phase !== 'over' ? ' is-current' : '') +
+        (p.eliminated ? ' is-out' : '');
+      var extra;
+      if (state.phase === 'trees') extra = p.treesLeft + ' Bäume übrig';
+      else if (p.eliminated) extra = 'ausgeschieden';
+      else extra = G.pieceCount(state, p.index) + ' Figuren';
+      return '<div class="' + cls + '" style="--pc:' + p.color + '">' +
+        '<span class="swatch"></span>' +
+        '<span class="pname">' + esc(p.name) + '</span>' +
+        '<span class="wood" title="Holz">\u{1F332} ' + p.wood + '</span>' +
+        '<span class="meta">' + extra + '</span>' +
+        '</div>';
+    }).join('');
+    $('#players').innerHTML = html;
+  }
+
+  function trainMenuHtml() {
+    var player = state.players[state.current];
+    var spots = M.trainingSpots(state.board, state.current).length;
+    var rows = U.TRAIN_ORDER.map(function (id) {
+      var def = U.DEFS[id];
+      var locked = def.unique && player.trained[id];
+      var disabled = player.wood < def.cost || locked || !spots;
+      return '<button class="train-btn' + (ui.trainType === id ? ' is-active' : '') + '"' +
+        (disabled ? ' disabled' : '') + ' data-train="' + id + '" title="' + esc(def.short) + '">' +
+        '<span class="tn">' + def.name + '</span>' +
+        '<span class="tc">' + (locked ? 'bereits ausgebildet' : def.cost + '× \u{1F332}') + '</span>' +
+        '</button>';
+    }).join('');
+    var note = !spots ? '<p class="hint warn">Kein freies Feld an deiner Einheiten-Kette.</p>' : '';
+    return '<h3>Ausbilden</h3>' + note + '<div class="train-grid">' + rows + '</div>';
+  }
+
+  function selectedHtml() {
+    if (!state.selected) return '';
+    var cell = state.board.cells[state.selected];
+    if (!cell || !cell.piece) return '';
+    var def = U.DEFS[cell.piece.type];
+    var html = '<h3>' + def.name + '</h3><p class="hint">' + esc(def.short) + '</p>';
+    if (def.directional) {
+      html += '<p class="hint">Blickrichtung: <strong>' + H.DIR_NAMES[cell.piece.facing] + '</strong></p>';
+    }
+    if (state.pending) {
+      html += '<p class="hint accent">' + (state.pending.kind === 'trainFacing'
+        ? 'Wähle die Richtung der neuen Einheit.'
+        : 'Optional: neue Richtung wählen – oder Zug beenden.') + '</p>';
+    } else if (def.directional) {
+      html += '<p class="hint">Drehen kostet einen ganzen Zug.</p>';
+    }
+    if (def.directional) {
+      html += '<div class="dir-grid">' + [0, 1, 2, 3, 4, 5].map(function (d) {
+        return '<button class="dir-btn' + (cell.piece.facing === d ? ' is-active' : '') +
+          '" data-dir="' + d + '" title="' + H.DIR_NAMES[d] + '">' + DIR_GLYPH[d] +
+          '<span>' + H.DIR_SHORT[d] + '</span></button>';
+      }).join('') + '</div>';
+    }
+    if (state.pending) {
+      html += '<button class="wide-btn" id="end-pending">Zug beenden</button>';
+    }
+    return html;
+  }
+
+  function renderPanel() {
+    var panel = $('#action-panel');
+    var banner = $('#phase-banner');
+    var p = state.players[state.current];
+
+    if (state.phase === 'trees') {
+      banner.innerHTML = '<strong style="color:' + p.color + '">' + esc(p.name) + '</strong>' +
+        ' setzt einen Baum · noch ' + p.treesLeft + ' übrig';
+      panel.innerHTML = '<h3>Bäume platzieren</h3>' +
+        '<p class="hint">Jeder Spieler setzt reihum einen Baum auf ein freies Grasfeld. ' +
+        'Bäume liefern später das Holz für neue Einheiten.</p>' +
+        '<button class="wide-btn" id="auto-trees">Restliche Bäume zufällig setzen</button>';
+      return;
+    }
+
+    if (state.phase === 'kings') {
+      banner.innerHTML = '<strong style="color:' + p.color + '">' + esc(p.name) + '</strong> ' +
+        (state.awaitWorker ? 'stellt den Arbeiter neben den Turm' : 'setzt den Königs-Turm');
+      panel.innerHTML = '<h3>Türme &amp; Arbeiter</h3>' +
+        '<p class="hint">' + (state.awaitWorker
+          ? 'Der Arbeiter muss direkt neben dem eigenen Turm stehen.'
+          : 'Wähle ein freies Feld mit Abstand zu den anderen Türmen. Der letzte Spieler, der seinen Turm setzt, beginnt.') +
+        '</p>';
+      return;
+    }
+
+    if (state.phase === 'over') {
+      banner.innerHTML = state.winner !== null
+        ? '<strong style="color:' + state.players[state.winner].color + '">' +
+          esc(state.players[state.winner].name) + '</strong> gewinnt Hexodus!'
+        : 'Das Spiel endet unentschieden.';
+      panel.innerHTML = '<h3>Spielende</h3><button class="wide-btn" id="back-menu">Neues Spiel</button>';
+      return;
+    }
+
+    // Spielphase
+    banner.innerHTML = 'Runde ' + state.turn + ' · <strong style="color:' + p.color + '">' +
+      esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood;
+
+    var html = '';
+    var stuck = !state.pending && !M.hasAnyAction(state, state.current);
+    if (stuck) {
+      html += '<p class="hint warn">Keine Aktion möglich.</p>' +
+        '<button class="wide-btn" id="pass-turn">Zug aussetzen</button>';
+    }
+    html += selectedHtml();
+    if (!state.pending) html += trainMenuHtml();
+    if (!state.selected && !state.pending) {
+      html += '<p class="hint">Wähle eine eigene Figur, um ihre Züge zu sehen.</p>';
+    }
+    panel.innerHTML = html;
+  }
+
+  function renderLog() {
+    $('#log-list').innerHTML = state.log.map(function (e) {
+      var color = e.player !== null && e.player !== undefined ? state.players[e.player].color : '#8b98a8';
+      return '<li><span class="dot" style="background:' + color + '"></span>' + esc(e.text) + '</li>';
+    }).join('');
+  }
+
+  function bindPanel() {
+    var panel = $('#action-panel');
+    panel.addEventListener('click', function (e) {
+      var btn = e.target.closest('button');
+      if (!btn) return;
+      if (btn.id === 'auto-trees') { G.autoPlaceTrees(state); return refresh(); }
+      if (btn.id === 'back-menu') { return backToMenu(); }
+      if (btn.id === 'pass-turn') { G.pass(state); return refresh(); }
+      if (btn.id === 'end-pending') { G.endPending(state); return refresh(); }
+      if (btn.dataset.train) {
+        ui.trainType = (ui.trainType === btn.dataset.train) ? null : btn.dataset.train;
+        ui.mode = ui.trainType ? 'train' : 'idle';
+        state.selected = null;
+        return refresh();
+      }
+      if (btn.dataset.dir && state.selected) {
+        G.rotate(state, state.selected, +btn.dataset.dir);
+        return refresh();
+      }
+    });
+  }
+
+  function backToMenu() {
+    $('#screen-game').classList.add('hidden');
+    $('#screen-menu').classList.remove('hidden');
+  }
+
+  function refresh() {
+    computeMarkers();
+    Render.draw(view, state, { markers: ui.markers, placeable: ui.placeable });
+    renderPlayers();
+    renderPanel();
+    renderLog();
+  }
+
+  /* ---------------- Regelwerk-Overlay ---------------- */
+
+  function buildRules() {
+    var cards = ['king'].concat(U.TRAIN_ORDER).map(function (id) {
+      var def = U.DEFS[id];
+      var cost = def.cost === null ? 'Startfigur'
+        : Array(def.cost + 1).join('\u{1F332} ') + '(' + def.cost + '× Holz)';
+      return '<article class="rule-card">' +
+        '<header>' + Render.pieceIcon(id, '#3b82f6') +
+        '<div class="rule-title"><h3>' + def.name + '</h3>' +
+        '<span class="cost">' + cost + '</span></div></header>' +
+        '<p>' + esc(def.text) + '</p>' +
+        '<ul>' + def.bullets.map(function (b) { return '<li>' + esc(b) + '</li>'; }).join('') + '</ul>' +
+        '</article>';
+    }).join('');
+
+    // Figuren-Übersicht auf dem Startbildschirm
+    var strip = document.getElementById('unit-strip');
+    if (strip) {
+      strip.innerHTML = ['king'].concat(U.TRAIN_ORDER).map(function (id, i) {
+        var def = U.DEFS[id];
+        return '<figure class="unit-chip">' +
+          Render.pieceIcon(id, G.COLORS[i % G.COLORS.length].hex) +
+          '<figcaption><strong>' + def.name + '</strong>' +
+          '<span>' + (def.cost === null ? 'Startfigur' : def.cost + '× Holz') + '</span>' +
+          '</figcaption></figure>';
+      }).join('');
+    }
+    $('#rule-cards').innerHTML = cards;
+
+    $('#open-rules').addEventListener('click', function () { $('#rules').classList.remove('hidden'); });
+    $('#close-rules').addEventListener('click', function () { $('#rules').classList.add('hidden'); });
+    $('#rules').addEventListener('click', function (e) {
+      if (e.target.id === 'rules') $('#rules').classList.add('hidden');
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        if (!$('#rules').classList.contains('hidden')) $('#rules').classList.add('hidden');
+        else deselect();
+      }
+    });
+  }
+
+  // Kleiner Debug-Zugang (Konsole, automatisierte Tests)
+  window.Hexodus = {
+    get state() { return state; },
+    refresh: function () { refresh(); },
+    click: handleCellClick
+  };
+
+  window.addEventListener('DOMContentLoaded', function () {
+    buildMenu();
+    buildRules();
+    bindPanel();
+    $('#new-game').addEventListener('click', backToMenu);
+    window.addEventListener('resize', function () {
+      if (state && view && !$('#screen-game').classList.contains('hidden')) Render.applyView(view);
+    });
+  });
+})();
+
+</script>

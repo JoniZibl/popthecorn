@@ -64,37 +64,84 @@
 
   function attachBoardEvents() {
     var svg = view.svg;
-    var drag = null, moved = false;
+    var pointers = {};      // aktive Finger/Zeiger
+    var drag = null;        // Verschieben mit einem Zeiger
+    var pinch = null;       // Zoomen mit zwei Fingern
+    var moved = false;
+
+    function count() { return Object.keys(pointers).length; }
+
+    function centerOf() {
+      var ids = Object.keys(pointers);
+      var a = pointers[ids[0]], b = pointers[ids[1]];
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
+               dist: Math.hypot(a.x - b.x, a.y - b.y) };
+    }
 
     svg.addEventListener('pointerdown', function (e) {
       // Zielfeld schon hier merken: durch das Pointer-Capture landet das
       // pointerup-Event sonst auf dem SVG statt auf dem Hexfeld.
       var node = e.target.closest ? e.target.closest('[data-key]') : null;
-      drag = {
-        x: e.clientX, y: e.clientY,
-        vx: view.view.x, vy: view.view.y,
-        key: node ? node.getAttribute('data-key') : null
-      };
-      moved = false;
+      pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
       svg.setPointerCapture(e.pointerId);
+
+      if (count() === 1) {
+        drag = {
+          id: e.pointerId, x: e.clientX, y: e.clientY,
+          vx: view.view.x, vy: view.view.y,
+          key: node ? node.getAttribute('data-key') : null
+        };
+        moved = false;
+      } else if (count() === 2) {
+        // zweiter Finger: Verschieben abbrechen, Zoom beginnen
+        drag = null;
+        moved = true;
+        var c = centerOf();
+        pinch = { dist: c.dist || 1 };
+      }
     });
+
     svg.addEventListener('pointermove', function (e) {
-      if (!drag) return;
+      if (!pointers[e.pointerId]) return;
+      pointers[e.pointerId].x = e.clientX;
+      pointers[e.pointerId].y = e.clientY;
+
+      if (pinch && count() === 2) {
+        var c = centerOf();
+        if (!c.dist) return;
+        var rect = svg.getBoundingClientRect();
+        Render.zoomBy(view, c.dist / pinch.dist, c.x - rect.left, c.y - rect.top);
+        pinch.dist = c.dist;
+        return;
+      }
+      if (!drag || e.pointerId !== drag.id) return;
       var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-      if (Math.abs(dx) + Math.abs(dy) > 4) moved = true;
+      if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
       view.view.x = drag.vx + dx;
       view.view.y = drag.vy + dy;
       Render.applyView(view);
     });
-    svg.addEventListener('pointerup', function (e) {
+
+    function release(e) {
       if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
-      var hit = drag ? drag.key : null;
-      drag = null;
-      if (moved) return;
+      delete pointers[e.pointerId];
+      if (count() < 2) pinch = null;
+
+      var wasDrag = drag && drag.id === e.pointerId;
+      var hit = wasDrag ? drag.key : null;
+      if (wasDrag) drag = null;
+      if (count() > 0 || !wasDrag || moved) return;
       if (hit) handleCellClick(hit);
       else deselect();
+    }
+    svg.addEventListener('pointerup', release);
+    svg.addEventListener('pointercancel', function (e) {
+      if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
+      delete pointers[e.pointerId];
+      if (count() < 2) pinch = null;
+      if (drag && drag.id === e.pointerId) drag = null;
     });
-    svg.addEventListener('pointercancel', function () { drag = null; });
+
     svg.addEventListener('wheel', function (e) {
       e.preventDefault();
       var rect = svg.getBoundingClientRect();
