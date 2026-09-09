@@ -499,13 +499,17 @@
     try { node.animate(frames, options); } catch (e) { /* ältere Browser: ohne Animation */ }
   }
 
-  function fade(node, frames, ms) {
-    if (!node) return;
-    if (node.animate) {
-      var anim = node.animate(frames, { duration: ms, easing: 'ease-out', fill: 'forwards' });
-      anim.onfinish = function () { if (node.parentNode) node.parentNode.removeChild(node); };
+  /* fx = { outer, inner } aus render.js: animiert wird die innere Gruppe,
+     entfernt die äußere, die die Position trägt. */
+  function fade(fx, frames, ms) {
+    if (!fx) return;
+    var outer = fx.outer, inner = fx.inner;
+    function weg() { if (outer.parentNode) outer.parentNode.removeChild(outer); }
+    if (inner.animate) {
+      var anim = inner.animate(frames, { duration: ms, easing: 'ease-out', fill: 'forwards' });
+      anim.onfinish = weg;
     }
-    setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, ms + 60);
+    setTimeout(weg, ms + 60);
   }
 
   function playEffects() {

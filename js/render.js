@@ -24,11 +24,32 @@ var Render = (function () {
     return node;
   }
 
+  /* Ein einziger Satz Farbverläufe für das ganze Brett: gibt Feldern und Figuren
+     Tiefe, ohne ein einziges zusätzliches Element je Feld zu kosten. */
+  function defs() {
+    var d = el('defs');
+    function grad(id, from, to) {
+      var g = el('linearGradient', { id: id, x1: '0', y1: '0', x2: '0', y2: '1' });
+      var a = el('stop', { offset: '0', 'stop-color': from });
+      var b = el('stop', { offset: '1', 'stop-color': to });
+      g.appendChild(a); g.appendChild(b);
+      d.appendChild(g);
+      return g;
+    }
+    grad('grassGrad', '#9bd98a', '#74b563');
+    grad('waterGrad', '#357f92', '#215663');
+    grad('headGrad', '#2b333b', '#111519');
+    grad('treeGrad', '#3fb463', '#238044');
+    grad('canopyGrad', '#7ec26b', '#5da24e');
+    return d;
+  }
+
   function create(container) {
     var svg = el('svg', { class: 'board-svg' });
+    svg.appendChild(defs());
     var root = el('g', { class: 'board-root' });
     var layers = {};
-    ['terrain', 'overlay', 'trees', 'pieces', 'markers', 'effects'].forEach(function (n) {
+    ['terrain', 'overlay', 'trees', 'fxUnder', 'pieces', 'markers', 'effects'].forEach(function (n) {
       layers[n] = el('g', { class: 'layer-' + n });
       root.appendChild(layers[n]);
     });
@@ -43,7 +64,7 @@ var Render = (function () {
   function clear(view) {
     for (var k in view.layers) {
       // Effekte laufen aus und räumen sich selbst ab – sie überleben ein Neuzeichnen
-      if (k === 'effects') continue;
+      if (k === 'effects' || k === 'fxUnder') continue;
       while (view.layers[k].firstChild) view.layers[k].removeChild(view.layers[k].firstChild);
     }
   }
@@ -270,44 +291,51 @@ var Render = (function () {
     return c ? H.toPixel(c, SIZE) : null;
   }
 
-  /* Geschlagene Figur ein letztes Mal zeigen und vergehen lassen. */
-  function ghost(view, board, key, type, color) {
-    var p = cellPixel(view, board, key);
-    if (!p || !HEADS[type]) return null;
-    var g = el('g', {
-      class: 'ghost',
-      transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')'
-    });
-    pieceGlyph(g, { type: type }, color);
-    view.layers.effects.appendChild(g);
-    return g;
-  }
-
-  /* Kurz aufsteigender Text, etwa "+1" beim Holzfällen. */
-  function floatText(view, board, key, text, color) {
+  /* Alle Effekte sitzen in einer äußeren Gruppe, die nur die Position trägt.
+     Animiert wird ausschließlich die innere Gruppe – eine CSS-Transformation
+     würde sonst das transform-Attribut überschreiben und den Effekt auf den
+     Brett-Ursprung werfen, statt ihn dort zu zeigen, wo er hingehört. */
+  function effectAt(view, board, key, cls, unten) {
     var p = cellPixel(view, board, key);
     if (!p) return null;
-    var g = el('g', {
-      class: 'float-text',
+    var outer = el('g', {
+      class: cls,
       transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')'
     });
-    var t = el('text', { x: 0, y: -6, 'text-anchor': 'middle', fill: color });
+    var inner = el('g', { class: 'fx-anim' });
+    outer.appendChild(inner);
+    // Die sterbende Figur gehört unter die lebenden, alles andere darüber
+    (unten ? view.layers.fxUnder : view.layers.effects).appendChild(outer);
+    return { outer: outer, inner: inner };
+  }
+
+  /* Geschlagene Figur ein letztes Mal am Ort ihres Todes zeigen. */
+  function ghost(view, board, key, type, color) {
+    if (!HEADS[type]) return null;
+    var fx = effectAt(view, board, key, 'ghost', true);
+    if (!fx) return null;
+    pieceGlyph(fx.inner, { type: type }, color);
+    return fx;
+  }
+
+  /* Kurz aufsteigender Text, etwa "+1" genau am gefällten Baum. */
+  function floatText(view, board, key, text, color) {
+    var fx = effectAt(view, board, key, 'float-text');
+    if (!fx) return null;
+    var t = el('text', { x: 0, y: -22, 'text-anchor': 'middle', fill: color });
     t.textContent = text;
-    g.appendChild(t);
-    view.layers.effects.appendChild(g);
-    return g;
+    fx.inner.appendChild(t);
+    return fx;
   }
 
   /* Ring, der einmal aufblitzt – für Schüsse und geschlagene Figuren. */
   function pulse(view, board, key, cls) {
-    var p = cellPixel(view, board, key);
-    if (!p) return null;
-    var c = el('circle', {
-      class: 'pulse ' + (cls || ''), cx: 0, cy: 0, r: SIZE * 0.5,
-      transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')'
-    });
-    view.layers.effects.appendChild(c);
-    return c;
+    var fx = effectAt(view, board, key, 'pulse-wrap');
+    if (!fx) return null;
+    fx.inner.appendChild(el('circle', {
+      class: 'pulse ' + (cls || ''), cx: 0, cy: 0, r: SIZE * 0.5
+    }));
+    return fx;
   }
 
   function pieceAt(view, key) {

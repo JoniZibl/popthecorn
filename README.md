@@ -154,10 +154,20 @@ Damit nachvollziehbar bleibt, was gerade passiert ist – gerade gegen die KI:
 
 * **Figuren gleiten** von ihrem alten Feld heran, statt zu springen.
 * Der **letzte Zug bleibt markiert**: gestrichelt das Startfeld, weiß das Zielfeld.
-* Eine **geschlagene Figur** wird ein letztes Mal gezeigt und vergeht in einem roten Ring.
-* Beim **Baumfällen** steigt ein „+1 🌲" auf, der Holzstand in der Leiste hebt sich kurz hervor.
+* Eine **geschlagene Figur** vergeht mit einem roten Ring **an ihrem Todesfeld** – unter der
+  Figur, die sie geschlagen hat.
+* Beim **Baumfällen** steigt ein „+1 🌲" **genau über dem gefällten Baum** auf, der Holzstand
+  in der Leiste hebt sich kurz hervor.
 * Eine **neu ausgebildete Einheit** wächst aus dem Boden.
 * Mögliche Züge **atmen** leicht, damit sie ins Auge fallen.
+
+Alle Effekte sitzen in einer äußeren Gruppe, die nur die Position trägt; animiert wird eine
+innere Gruppe. Ohne diese Trennung überschreibt die CSS-Transformation der Animation das
+`transform`-Attribut und der Effekt springt auf den Brett-Ursprung, statt dort zu erscheinen,
+wo er hingehört.
+
+Felder, Bäume und Figurenköpfe nutzen gemeinsame Farbverläufe aus einem einzigen
+`<defs>`-Block – das gibt dem Brett Tiefe, ohne ein zusätzliches Element je Feld zu kosten.
 
 Wer im Betriebssystem „Bewegung reduzieren" eingestellt hat, bekommt ein ruhiges Brett:
 Alle Animationen entfallen, die Markierung des letzten Zuges bleibt.
