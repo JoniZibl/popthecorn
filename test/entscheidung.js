@@ -56,7 +56,7 @@ var A = process.argv[3] || 'normal';
 var Bx = process.argv[4] || 'normal';
 var kinds = [A === 'zufall' ? null : A, Bx === 'zufall' ? null : Bx];
 
-var offen = 0, sieger = 0, ohneSieger = 0, gruende = {}, laengen = [];
+var offen = 0, sieger = 0, ohneSieger = 0, falscheSiege = 0, gruende = {}, laengen = [];
 var HARTE_GRENZE = 3000;   // weit jenseits jeder regulaeren Partie
 
 for (var g = 0; g < games; g++) {
@@ -78,6 +78,21 @@ for (var g = 0; g < games; g++) {
     sieger++;
     var grund = state.endReason || 'Königs-Turm geschlagen';
     gruende[grund] = (gruende[grund] || 0) + 1;
+
+    /* Ohne Wertungsgrund darf nur gewonnen haben, wer wirklich alle
+       gegnerischen Türme geschlagen hat. Sonst meldet das Spiel einen Sieg,
+       obwohl noch ein Turm steht. */
+    var tuerme = {};
+    state.board.keys.forEach(function (k) {
+      var c = state.board.cells[k];
+      if (c.piece && c.piece.type === 'king') tuerme[c.piece.owner] = true;
+    });
+    var fremde = Object.keys(tuerme).filter(function (o) { return +o !== state.winner; });
+    if (!state.endReason && fremde.length) {
+      falscheSiege++;
+      console.log('  Partie ' + (g + 1) + ': Sieg gemeldet, aber ' + fremde.length +
+                  ' gegnerischer Turm steht noch!');
+    }
   }
 }
 
@@ -89,8 +104,9 @@ console.log('  Zuglänge: kürzeste ' + laengen[0] + ', mittlere ' +
             laengen[Math.floor(laengen.length / 2)] + ', längste ' + laengen[laengen.length - 1]);
 Object.keys(gruende).forEach(function (k) { console.log('  Ende durch: ' + k + ' (' + gruende[k] + '×)'); });
 
-if (offen || ohneSieger) {
-  console.log('\nFEHLER: Es muss immer genau einen Sieger geben.');
+if (offen || ohneSieger || falscheSiege) {
+  if (falscheSiege) console.log('\nFEHLER: Sieg gemeldet, obwohl noch ein gegnerischer Turm stand.');
+  else console.log('\nFEHLER: Es muss immer genau einen Sieger geben.');
   process.exit(1);
 }
 console.log('Jede Partie hatte genau einen Sieger.');

@@ -785,7 +785,9 @@ var AI = (function () {
   function positionKeyOf(s, current) {
     var parts = [], keys = s.geo.keys;
     for (var i = 0; i < s.n; i++) {
-      if (s.pt[i] >= 0) parts.push(keys[i] + '=' + TYPES[s.pt[i]] + s.po[i] + s.pf[i]);
+      if (s.pt[i] >= 0) {
+        parts.push(keys[i] + '=' + TYPES[s.pt[i]] + s.po[i] + s.pf[i] + (s.boat[i] ? 'B' : ''));
+      } else if (s.boat[i]) parts.push(keys[i] + '=B');
       else if (s.tree[i]) parts.push(keys[i] + '=T');
     }
     var wood = [];

@@ -385,9 +385,12 @@
     }
 
     if (state.phase === 'over') {
+      // Bei einer Wertung steht der Grund direkt in der Kopfzeile – sonst wirkt
+      // ein Sieg mit noch stehendem Gegner-Turm wie ein Fehler.
       banner.innerHTML = state.winner !== null
         ? '<strong style="color:' + state.players[state.winner].color + '">' +
-          esc(state.players[state.winner].name) + '</strong> gewinnt Hexodus!'
+          esc(state.players[state.winner].name) + '</strong> gewinnt' +
+          (state.endReason ? ' nach Wertung · ' + esc(state.endReason) : ' – Königs-Turm geschlagen!')
         : 'Das Spiel ist beendet.';
       var grund = state.endReason
         ? '<p class="hint">' + esc(state.endReason) + ' – gewertet wurde nach Vermögen: ' +

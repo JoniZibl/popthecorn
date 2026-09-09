@@ -75,7 +75,10 @@ var Game = (function () {
     var parts = [];
     for (var i = 0; i < state.board.keys.length; i++) {
       var k = state.board.keys[i], c = state.board.cells[k];
-      if (c.piece) parts.push(k + '=' + c.piece.type + c.piece.owner + c.piece.facing);
+      // Boote gehören zur Stellung: sonst gelten zwei Lagen als gleich,
+      // die sich nur durch ein verschobenes Boot unterscheiden
+      if (c.piece) parts.push(k + '=' + c.piece.type + c.piece.owner + c.piece.facing + (c.boat ? 'B' : ''));
+      else if (c.boat) parts.push(k + '=B');
       else if (c.tree) parts.push(k + '=T');
     }
     parts.push('h' + state.players.map(function (p) { return p.wood; }).join('.'));
