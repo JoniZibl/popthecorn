@@ -239,6 +239,13 @@ var Render = (function () {
     orbit(view, 0, pitch - view.cam.pitch);
   }
 
+  /* Blickwinkel geradeheraus setzen – für die gespeicherte Ansicht beim
+     Spielstart, wenn noch nichts gezeichnet ist, das man festhalten könnte. */
+  function setCamera(view, pitch, yaw) {
+    S.set(view.cam, pitch, yaw);
+    if (view.last) redraw(view);
+  }
+
   function isFlat(view) { return view.cam.pitch >= FLAT - 0.5; }
 
   /* ---------------- Bäume, Boote, Figuren ---------------- */
@@ -626,7 +633,8 @@ var Render = (function () {
   }
 
   return { create: create, draw: draw, redraw: redraw, fit: fit, zoomBy: zoomBy,
-           applyView: applyView, orbit: orbit, setPitch: setPitch, isFlat: isFlat,
+           applyView: applyView, orbit: orbit, setPitch: setPitch, setCamera: setCamera,
+           isFlat: isFlat,
            pieceIcon: pieceIcon, ghost: ghost, floatText: floatText, pulse: pulse,
            pieceAt: pieceAt, cellPixel: cellPixel,
            SIZE: SIZE, FLAT: FLAT, TILT: TILT };

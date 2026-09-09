@@ -142,7 +142,12 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   padding: 8px 16px; border-radius: 999px; font-size: 14px; white-space: nowrap;
   pointer-events: none; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis;
 }
-.board-hud { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 6px; }
+/* Steuerung der Ansicht: oben die Vergrößerung, darunter die Kamera.
+   Am Rechner eine Spalte rechts, am Handy zwei Reihen unter dem Brett. */
+.board-hud {
+  position: absolute; right: 12px; top: 12px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+}
 .hud-btn {
   width: 34px; height: 34px; border-radius: 8px; font-size: 16px;
   background: rgba(24, 28, 34, .92); color: var(--text); border: 1px solid var(--line);
@@ -150,6 +155,30 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .hud-btn:hover { border-color: var(--accent); color: var(--accent); }
 /* der Knopf für die Ansicht trägt Text statt eines Zeichens */
 .hud-btn.is-wide { font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+.hud-btn .hud-icon {
+  width: 17px; height: 17px; display: block; margin: 0 auto;
+  fill: none; stroke: currentColor; stroke-width: 2.4;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* Zeigt kurz an, wie die Kamera gerade steht – Rückmeldung beim Einstellen,
+   danach verschwindet sie wieder, damit sie das Brett nicht zustellt. */
+.cam-readout {
+  margin: 0; padding: 4px 9px; border-radius: 999px;
+  background: rgba(24, 28, 34, .92); border: 1px solid var(--line);
+  font-size: 11px; color: var(--muted); white-space: nowrap;
+  font-variant-numeric: tabular-nums; pointer-events: none;
+  opacity: 0; transition: opacity .35s ease;
+}
+.cam-readout.is-visible { opacity: 1; }
+
+/* Auf Geräten ohne Mauszeiger bleibt der Hover-Zustand nach dem Antippen
+   hängen – ein gedrückter Kamera-Knopf sähe dann dauerhaft wie ausgewählt aus.
+   Dort gibt es die Hervorhebung nur, solange der Finger liegt. */
+@media (hover: none) {
+  .hud-btn:hover { border-color: var(--line); color: var(--text); }
+  .hud-btn:active { border-color: var(--accent); color: var(--accent); }
+}
 .legend {
   position: absolute; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px;
   background: rgba(24, 28, 34, .9); border: 1px solid var(--line);
@@ -369,6 +398,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 /* Wer Bewegung reduziert haben möchte, bekommt ein ruhiges Brett */
 @media (prefers-reduced-motion: reduce) {
   .marker-dot, .mk-capture .marker-ring, .player-card .wood.just-changed { animation: none; }
+  .cam-readout { transition: none; }
   .hex-grass .hex-shape, .hex-water .hex-shape, .phase-banner { transition: none; }
 }
 
@@ -398,8 +428,14 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .wide-btn, .train-btn, .dir-btn { min-height: 46px; }
   /* sechs Knöpfe übereinander passen nicht neben ein halbhohes Brett –
      auf dem Handy liegen sie als Zeile unten rechts, wo die Legende entfällt */
-  .board-hud { flex-direction: row; top: auto; bottom: 10px; right: 10px; }
+  /* acht Knöpfe übereinander passen nicht neben ein halbhohes Brett – auf dem
+     Handy liegen sie als zwei Reihen unten rechts, wo die Legende entfällt */
+  .board-hud {
+    flex-direction: row; flex-wrap: wrap; justify-content: flex-end;
+    top: auto; bottom: 10px; right: 10px; width: 198px;
+  }
   .hud-btn { width: 42px; height: 42px; font-size: 18px; }
+  .cam-readout { order: -1; }
   .ghost-btn { padding: 9px 12px; }
   .topbar { padding: 8px 12px; }
   .brand-name { font-size: 18px; letter-spacing: .12em; }
@@ -482,9 +518,16 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
       <button id="zoom-in" class="hud-btn" title="Vergrößern">+</button>
       <button id="zoom-out" class="hud-btn" title="Verkleinern">−</button>
       <button id="zoom-fit" class="hud-btn" title="Einpassen">⤢</button>
+      <button id="view-tilt" class="hud-btn is-wide" title="Zwischen deiner Schrägsicht und der Draufsicht wechseln">2D</button>
       <button id="rot-left" class="hud-btn" title="Brett nach links drehen">⟲</button>
       <button id="rot-right" class="hud-btn" title="Brett nach rechts drehen">⟳</button>
-      <button id="view-tilt" class="hud-btn is-wide" title="Zwischen Schrägsicht und Draufsicht wechseln">2D</button>
+      <button id="tilt-up" class="hud-btn" title="Steiler – mehr von oben">
+        <svg class="hud-icon" viewBox="-10 -10 20 20" aria-hidden="true"><path d="M-6,3 L0,-4 L6,3"/></svg>
+      </button>
+      <button id="tilt-down" class="hud-btn" title="Flacher – mehr Perspektive">
+        <svg class="hud-icon" viewBox="-10 -10 20 20" aria-hidden="true"><path d="M-6,-4 L0,3 L6,-4"/></svg>
+      </button>
+      <p id="cam-readout" class="cam-readout" aria-hidden="true"></p>
     </div>
     <div class="legend">
       <span><i class="lg lg-move"></i>Zug</span>
@@ -523,10 +566,13 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
           Der Springer trägt einen breiten Pfeil zwischen seinen beiden Sprungrichtungen,
           der Legionär zwei Pfeile für seine Achse nach vorn und zurück.</li>
         <li><strong>Bäume</strong> blockieren; nur der Arbeiter darf ihr Feld betreten und fällt sie dabei.</li>
-        <li><strong>Ansicht:</strong> Das Brett steht als Platte im Raum. Mit <strong>⟲ ⟳</strong>
-          drehst du es, mit <strong>2D/3D</strong> wechselst du zwischen Schrägsicht und
-          Draufsicht. Am Rechner geht beides auch mit gedrückter Umschalt- oder rechter
-          Maustaste, am Handy mit zwei Fingern.</li>
+        <li><strong>Ansicht:</strong> Das Brett steht als Platte im Raum, und du stellst die
+          Kamera selbst ein: <strong>⟲ ⟳</strong> drehen, die beiden <strong>Pfeilknöpfe</strong>
+          kippen. Am Handy drehst du mit zwei verdrehten Fingern und kippst, indem du beide
+          Finger gemeinsam nach oben oder unten ziehst; am Rechner geht beides mit gedrückter
+          Umschalt- oder rechter Maustaste sowie mit den Pfeiltasten. <strong>2D/3D</strong>
+          springt zwischen der Draufsicht und genau dem Winkel, den du dir eingestellt hast –
+          er bleibt auch für die nächste Partie erhalten.</li>
         <li><strong>Holz</strong> stammt aus gefällten Bäumen und bezahlt jede neue Einheit.</li>
         <li>Von <strong>jeder Figur</strong> darf höchstens eine je Spieler auf dem Feld stehen.
           Erst wenn sie geschlagen wird, darf sie neu ausgebildet werden – der Zenturio bleibt
@@ -3489,6 +3535,13 @@ var Render = (function () {
     orbit(view, 0, pitch - view.cam.pitch);
   }
 
+  /* Blickwinkel geradeheraus setzen – für die gespeicherte Ansicht beim
+     Spielstart, wenn noch nichts gezeichnet ist, das man festhalten könnte. */
+  function setCamera(view, pitch, yaw) {
+    S.set(view.cam, pitch, yaw);
+    if (view.last) redraw(view);
+  }
+
   function isFlat(view) { return view.cam.pitch >= FLAT - 0.5; }
 
   /* ---------------- Bäume, Boote, Figuren ---------------- */
@@ -3876,7 +3929,8 @@ var Render = (function () {
   }
 
   return { create: create, draw: draw, redraw: redraw, fit: fit, zoomBy: zoomBy,
-           applyView: applyView, orbit: orbit, setPitch: setPitch, isFlat: isFlat,
+           applyView: applyView, orbit: orbit, setPitch: setPitch, setCamera: setCamera,
+           isFlat: isFlat,
            pieceIcon: pieceIcon, ghost: ghost, floatText: floatText, pulse: pulse,
            pieceAt: pieceAt, cellPixel: cellPixel,
            SIZE: SIZE, FLAT: FLAT, TILT: TILT };
@@ -3961,8 +4015,12 @@ var Render = (function () {
     $('#screen-game').classList.remove('hidden');
     if (!view) {
       view = Render.create($('#board'));
+      ladeAnsicht();
       attachBoardEvents();
     }
+    // Der Blickwinkel gehört dem Spieler: Jede Partie beginnt so, wie er das
+    // Brett zuletzt hingestellt hat.
+    Render.setCamera(view, ansicht.pitch, ansicht.yaw);
     Render.fit(view, state.board);
     updateTiltButton();
     refresh();
@@ -3974,6 +4032,56 @@ var Render = (function () {
      die Zellen müssen für den Maler-Algorithmus neu sortiert werden. */
 
   var camAnim = null;
+
+  /* Der eingestellte Blickwinkel gehört dem Spieler, nicht der Partie: Er
+     überlebt das Umschalten in die Draufsicht, ein neues Spiel und das
+     Neuladen der Seite. `schraeg` ist die Neigung, zu der der 2D/3D-Knopf
+     zurückkehrt – also die zuletzt selbst eingestellte. */
+  var ANSICHT_KEY = 'hexodus.ansicht';
+  var ansicht = { yaw: 0, pitch: Render.TILT, schraeg: Render.TILT };
+  var sicherungTimer = null;
+
+  function ladeAnsicht() {
+    try {
+      var roh = window.localStorage.getItem(ANSICHT_KEY);
+      if (!roh) return;
+      var a = JSON.parse(roh);
+      ['yaw', 'pitch', 'schraeg'].forEach(function (feld) {
+        if (typeof a[feld] === 'number' && isFinite(a[feld])) ansicht[feld] = a[feld];
+      });
+    } catch (e) { /* privater Modus oder kaputter Eintrag: dann eben die Voreinstellung */ }
+  }
+
+  /* Nicht bei jedem Bild schreiben: Beim Ziehen fielen sonst Dutzende
+     Speichervorgänge je Sekunde an. */
+  function sichereAnsicht() {
+    if (sicherungTimer) clearTimeout(sicherungTimer);
+    sicherungTimer = setTimeout(function () {
+      sicherungTimer = null;
+      try {
+        window.localStorage.setItem(ANSICHT_KEY, JSON.stringify({
+          yaw: Math.round(ansicht.yaw * 10) / 10,
+          pitch: Math.round(ansicht.pitch * 10) / 10,
+          schraeg: Math.round(ansicht.schraeg * 10) / 10
+        }));
+      } catch (e) { /* nicht schlimm – dann merkt sich die Ansicht eben nichts */ }
+    }, 500);
+  }
+
+  var readoutTimer = null;
+
+  /* Kurze Rückmeldung beim Einstellen: Wer die Kamera selbst dreht, soll
+     sehen, wo er gelandet ist – und die Anzeige danach wieder loswerden. */
+  function showReadout() {
+    var el = $('#cam-readout');
+    if (!el || !view) return;
+    // 359,6° auf 360 gerundet sähe aus wie eine siebte Umdrehung – 0 ist gemeint
+    el.textContent = 'Neigung ' + Math.round(view.cam.pitch) + '° · ' +
+                     'Drehung ' + (Math.round(view.cam.yaw) % 360) + '°';
+    el.classList.add('is-visible');
+    if (readoutTimer) clearTimeout(readoutTimer);
+    readoutTimer = setTimeout(function () { el.classList.remove('is-visible'); }, 1400);
+  }
 
   function updateTiltButton() {
     var btn = $('#view-tilt');
@@ -3987,7 +4095,19 @@ var Render = (function () {
   function orbitNow(dYaw, dPitch) {
     if (!view) return;
     Render.orbit(view, dYaw, dPitch);
+    merkeAnsicht();
     updateTiltButton();
+    showReadout();
+  }
+
+  /* Nach jeder selbst ausgelösten Änderung: Winkel merken. Die Draufsicht
+     zählt dabei nicht als Schrägsicht – sonst hätte der 2D/3D-Knopf nach dem
+     Umschalten kein Ziel mehr, zu dem er zurückkehren könnte. */
+  function merkeAnsicht() {
+    ansicht.yaw = view.cam.yaw;
+    ansicht.pitch = view.cam.pitch;
+    if (!Render.isFlat(view)) ansicht.schraeg = view.cam.pitch;
+    sichereAnsicht();
   }
 
   /* Weich zu einem Blickwinkel fahren. Der Zwischenschritt wird immer aus dem
@@ -4008,7 +4128,7 @@ var Render = (function () {
       Render.orbit(view, yNow - yPrev, pNow - pPrev);
       yPrev = yNow; pPrev = pNow;
       camAnim = t < 1 ? requestAnimationFrame(step) : null;
-      if (!camAnim) updateTiltButton();
+      if (!camAnim) { merkeAnsicht(); updateTiltButton(); showReadout(); }
     });
   }
 
@@ -4020,9 +4140,9 @@ var Render = (function () {
   /* Die Zwei-Finger-Drehung liefert Schritte, keine Zielwerte. Sie müssen sich
      auf einen schon wartenden Schritt aufaddieren – sonst geht jede Bewegung
      verloren, die im selben Bild noch vor dem Neuzeichnen eintrifft. */
-  function queueOrbitBy(dYaw) {
+  function queueOrbitBy(dYaw, dPitch) {
     var basis = orbitTarget || { yaw: view.cam.yaw, pitch: view.cam.pitch };
-    queueOrbit(basis.yaw + dYaw, basis.pitch);
+    queueOrbit(basis.yaw + (dYaw || 0), basis.pitch + (dPitch || 0));
   }
 
   function queueOrbit(yaw, pitch) {
@@ -4077,7 +4197,8 @@ var Render = (function () {
         drag = null;
         moved = true;
         var c = centerOf();
-        pinch = { dist: c.dist || 1, angle: c.angle };
+        pinch = { dist: c.dist || 1, angle: c.angle, y: c.y, kippt: false, start: {} };
+        Object.keys(pointers).forEach(function (id) { pinch.start[id] = pointers[id].y; });
       }
     });
 
@@ -4095,9 +4216,30 @@ var Render = (function () {
         var da = c.angle - pinch.angle;
         while (da > Math.PI) da -= 2 * Math.PI;
         while (da < -Math.PI) da += 2 * Math.PI;
-        if (Math.abs(da) > 0.005) queueOrbitBy(da * 180 / Math.PI);
+
+        /* Ziehen beide Finger gemeinsam nach oben oder unten, kippt das Brett.
+           Erkannt wird das daran, wie weit jeder Finger seit Beginn der Geste
+           gewandert ist – nicht daran, wie er sich seit dem letzten Ereignis
+           bewegt hat: Jeder Finger meldet sich einzeln, in einem einzelnen
+           Ereignis bewegt sich also immer nur einer.
+
+           Beide müssen mindestens 12 Pixel in dieselbe Richtung gelaufen sein.
+           Beim Aufziehen und beim Verdrehen laufen sie gegeneinander, und wer
+           einen Finger liegen lässt und nur den anderen wegzieht, verschiebt
+           zwar die Mitte, meint aber den Zoom und keine Neigung. Ist die Geste
+           einmal als Kippen erkannt, bleibt sie es bis zum Loslassen. */
+        var ids = Object.keys(pointers);
+        var wegA = pointers[ids[0]].y - pinch.start[ids[0]];
+        var wegB = pointers[ids[1]].y - pinch.start[ids[1]];
+        if (!pinch.kippt && Math.min(Math.abs(wegA), Math.abs(wegB)) > 12 && wegA * wegB > 0) {
+          pinch.kippt = true;
+        }
+        var dPitch = pinch.kippt ? -(c.y - pinch.y) * 0.3 : 0;
+
+        if (Math.abs(da) > 0.005 || dPitch) queueOrbitBy(da * 180 / Math.PI, dPitch);
         pinch.dist = c.dist;
         pinch.angle = c.angle;
+        pinch.y = c.y;
         return;
       }
       if (!drag || e.pointerId !== drag.id) return;
@@ -4147,9 +4289,12 @@ var Render = (function () {
     $('#zoom-fit').addEventListener('click', function () { Render.fit(view, state.board); });
     $('#rot-left').addEventListener('click', function () { camTo(view.cam.yaw - 30, view.cam.pitch, 320); });
     $('#rot-right').addEventListener('click', function () { camTo(view.cam.yaw + 30, view.cam.pitch, 320); });
+    // Kippen in Schritten – ohne Animation, damit mehrfaches Tippen sofort wirkt
+    $('#tilt-up').addEventListener('click', function () { orbitNow(0, 6); });
+    $('#tilt-down').addEventListener('click', function () { orbitNow(0, -6); });
     $('#view-tilt').addEventListener('click', function () {
-      // Beim Wechsel in die Schrägsicht wandert der Ausschnitt – neu einpassen
-      camTo(view.cam.yaw, Render.isFlat(view) ? Render.TILT : Render.FLAT, 500);
+      // zurück geht es zu dem Winkel, den der Spieler sich selbst eingestellt hat
+      camTo(view.cam.yaw, Render.isFlat(view) ? ansicht.schraeg : Render.FLAT, 500);
     });
 
     document.addEventListener('keydown', cameraKeys);

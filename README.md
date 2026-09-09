@@ -213,6 +213,20 @@ Die **Draufsicht ist exakt das alte, flache Brett**: Bei 90° Neigung ist die Pr
 Identität, Feld für Feld auf dem Pixel, auf dem es vorher lag (`test/kamera.js` prüft das).
 Wer die Schrägsicht nicht mag, verliert also nichts.
 
+Wie das Brett steht, entscheidet der Spieler und nicht die Partie: Der eingestellte Winkel
+wird gespeichert und gilt auch für das nächste Spiel und den nächsten Besuch. Der
+`2D`/`3D`-Knopf kehrt deshalb nicht zu einer festen Voreinstellung zurück, sondern zu der
+Neigung, die zuletzt selbst eingestellt wurde.
+
+Am Handy müssen sich drei Gesten zwei Finger teilen. Auseinandergezogen wird gezoomt,
+gegeneinander verdreht wird gedreht – bei beidem bleibt die Mitte zwischen den Fingern
+stehen. Wandern dagegen **beide Finger gemeinsam** nach oben oder unten, kippt das Brett.
+Gemessen wird das daran, wie weit jeder Finger seit Beginn der Geste gelaufen ist, nicht
+seit dem letzten Ereignis: Jeder Finger meldet sich einzeln, in einem einzelnen Ereignis
+bewegt sich also immer nur einer. Beide müssen mindestens zwölf Pixel in dieselbe Richtung
+gelaufen sein – sonst kippte das Brett schon, wenn beim Aufziehen die Mitte ein wenig
+mitwandert, oder wenn ein Finger liegen bleibt und nur der andere wegzieht.
+
 ## Bedienung
 
 * **Figur anklicken** → mögliche Züge werden markiert (weiß = Zug, roter Ring = schlagen,
@@ -225,11 +239,17 @@ Wer die Schrägsicht nicht mag, verliert also nichts.
   zwei Pfeile für seine Achse nach vorn und zurück.
 * Brett verschieben durch Ziehen, Zoom per Mausrad, Zwei-Finger-Geste oder über die
   Schaltflächen rechts oben. Am Handy liegen die Aktionen direkt unter dem Brett.
-* **Blickwinkel:** `⟲` und `⟳` drehen das Brett, `2D`/`3D` wechselt zwischen Schrägsicht
-  und Draufsicht. Feiner geht es mit gedrückter **Umschalt-** oder **rechter Maustaste**
-  (seitwärts dreht, nach unten kippt), mit zwei Fingern, die man gegeneinander verdreht,
-  oder mit den **Pfeiltasten**. War vorher das ganze Brett zu sehen, passt es sich nach dem
-  Drehen selbst wieder ein; wer hineingezoomt hat, behält seinen Ausschnitt.
+* **Blickwinkel** stellst du selbst ein: `⟲` `⟳` drehen, die beiden Pfeilknöpfe kippen –
+  jeder Druck um sechs Grad, von der Draufsicht bis fast auf Augenhöhe mit dem Brett.
+  `2D`/`3D` springt zwischen der Draufsicht und **genau dem Winkel, den du eingestellt
+  hast**. Stufenlos geht es mit gedrückter **Umschalt-** oder **rechter Maustaste**
+  (seitwärts dreht, nach unten kippt), mit den **Pfeiltasten** – und am Handy, indem du
+  zwei Finger gegeneinander **verdrehst** (dreht) oder **gemeinsam nach oben und unten
+  ziehst** (kippt). Eine kleine Anzeige nennt dabei kurz Neigung und Drehung.
+* Der eingestellte Blickwinkel **bleibt**: über den Wechsel in die Draufsicht, über die
+  nächste Partie und über das Neuladen der Seite hinweg. War vorher das ganze Brett zu
+  sehen, passt es sich nach dem Drehen selbst wieder ein; wer hineingezoomt hat, behält
+  seinen Ausschnitt.
 
 ## Auslegung der Regeln
 

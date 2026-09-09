@@ -74,8 +74,12 @@
     $('#screen-game').classList.remove('hidden');
     if (!view) {
       view = Render.create($('#board'));
+      ladeAnsicht();
       attachBoardEvents();
     }
+    // Der Blickwinkel gehört dem Spieler: Jede Partie beginnt so, wie er das
+    // Brett zuletzt hingestellt hat.
+    Render.setCamera(view, ansicht.pitch, ansicht.yaw);
     Render.fit(view, state.board);
     updateTiltButton();
     refresh();
@@ -87,6 +91,56 @@
      die Zellen müssen für den Maler-Algorithmus neu sortiert werden. */
 
   var camAnim = null;
+
+  /* Der eingestellte Blickwinkel gehört dem Spieler, nicht der Partie: Er
+     überlebt das Umschalten in die Draufsicht, ein neues Spiel und das
+     Neuladen der Seite. `schraeg` ist die Neigung, zu der der 2D/3D-Knopf
+     zurückkehrt – also die zuletzt selbst eingestellte. */
+  var ANSICHT_KEY = 'hexodus.ansicht';
+  var ansicht = { yaw: 0, pitch: Render.TILT, schraeg: Render.TILT };
+  var sicherungTimer = null;
+
+  function ladeAnsicht() {
+    try {
+      var roh = window.localStorage.getItem(ANSICHT_KEY);
+      if (!roh) return;
+      var a = JSON.parse(roh);
+      ['yaw', 'pitch', 'schraeg'].forEach(function (feld) {
+        if (typeof a[feld] === 'number' && isFinite(a[feld])) ansicht[feld] = a[feld];
+      });
+    } catch (e) { /* privater Modus oder kaputter Eintrag: dann eben die Voreinstellung */ }
+  }
+
+  /* Nicht bei jedem Bild schreiben: Beim Ziehen fielen sonst Dutzende
+     Speichervorgänge je Sekunde an. */
+  function sichereAnsicht() {
+    if (sicherungTimer) clearTimeout(sicherungTimer);
+    sicherungTimer = setTimeout(function () {
+      sicherungTimer = null;
+      try {
+        window.localStorage.setItem(ANSICHT_KEY, JSON.stringify({
+          yaw: Math.round(ansicht.yaw * 10) / 10,
+          pitch: Math.round(ansicht.pitch * 10) / 10,
+          schraeg: Math.round(ansicht.schraeg * 10) / 10
+        }));
+      } catch (e) { /* nicht schlimm – dann merkt sich die Ansicht eben nichts */ }
+    }, 500);
+  }
+
+  var readoutTimer = null;
+
+  /* Kurze Rückmeldung beim Einstellen: Wer die Kamera selbst dreht, soll
+     sehen, wo er gelandet ist – und die Anzeige danach wieder loswerden. */
+  function showReadout() {
+    var el = $('#cam-readout');
+    if (!el || !view) return;
+    // 359,6° auf 360 gerundet sähe aus wie eine siebte Umdrehung – 0 ist gemeint
+    el.textContent = 'Neigung ' + Math.round(view.cam.pitch) + '° · ' +
+                     'Drehung ' + (Math.round(view.cam.yaw) % 360) + '°';
+    el.classList.add('is-visible');
+    if (readoutTimer) clearTimeout(readoutTimer);
+    readoutTimer = setTimeout(function () { el.classList.remove('is-visible'); }, 1400);
+  }
 
   function updateTiltButton() {
     var btn = $('#view-tilt');
@@ -100,7 +154,19 @@
   function orbitNow(dYaw, dPitch) {
     if (!view) return;
     Render.orbit(view, dYaw, dPitch);
+    merkeAnsicht();
     updateTiltButton();
+    showReadout();
+  }
+
+  /* Nach jeder selbst ausgelösten Änderung: Winkel merken. Die Draufsicht
+     zählt dabei nicht als Schrägsicht – sonst hätte der 2D/3D-Knopf nach dem
+     Umschalten kein Ziel mehr, zu dem er zurückkehren könnte. */
+  function merkeAnsicht() {
+    ansicht.yaw = view.cam.yaw;
+    ansicht.pitch = view.cam.pitch;
+    if (!Render.isFlat(view)) ansicht.schraeg = view.cam.pitch;
+    sichereAnsicht();
   }
 
   /* Weich zu einem Blickwinkel fahren. Der Zwischenschritt wird immer aus dem
@@ -121,7 +187,7 @@
       Render.orbit(view, yNow - yPrev, pNow - pPrev);
       yPrev = yNow; pPrev = pNow;
       camAnim = t < 1 ? requestAnimationFrame(step) : null;
-      if (!camAnim) updateTiltButton();
+      if (!camAnim) { merkeAnsicht(); updateTiltButton(); showReadout(); }
     });
   }
 
@@ -133,9 +199,9 @@
   /* Die Zwei-Finger-Drehung liefert Schritte, keine Zielwerte. Sie müssen sich
      auf einen schon wartenden Schritt aufaddieren – sonst geht jede Bewegung
      verloren, die im selben Bild noch vor dem Neuzeichnen eintrifft. */
-  function queueOrbitBy(dYaw) {
+  function queueOrbitBy(dYaw, dPitch) {
     var basis = orbitTarget || { yaw: view.cam.yaw, pitch: view.cam.pitch };
-    queueOrbit(basis.yaw + dYaw, basis.pitch);
+    queueOrbit(basis.yaw + (dYaw || 0), basis.pitch + (dPitch || 0));
   }
 
   function queueOrbit(yaw, pitch) {
@@ -190,7 +256,8 @@
         drag = null;
         moved = true;
         var c = centerOf();
-        pinch = { dist: c.dist || 1, angle: c.angle };
+        pinch = { dist: c.dist || 1, angle: c.angle, y: c.y, kippt: false, start: {} };
+        Object.keys(pointers).forEach(function (id) { pinch.start[id] = pointers[id].y; });
       }
     });
 
@@ -208,9 +275,30 @@
         var da = c.angle - pinch.angle;
         while (da > Math.PI) da -= 2 * Math.PI;
         while (da < -Math.PI) da += 2 * Math.PI;
-        if (Math.abs(da) > 0.005) queueOrbitBy(da * 180 / Math.PI);
+
+        /* Ziehen beide Finger gemeinsam nach oben oder unten, kippt das Brett.
+           Erkannt wird das daran, wie weit jeder Finger seit Beginn der Geste
+           gewandert ist – nicht daran, wie er sich seit dem letzten Ereignis
+           bewegt hat: Jeder Finger meldet sich einzeln, in einem einzelnen
+           Ereignis bewegt sich also immer nur einer.
+
+           Beide müssen mindestens 12 Pixel in dieselbe Richtung gelaufen sein.
+           Beim Aufziehen und beim Verdrehen laufen sie gegeneinander, und wer
+           einen Finger liegen lässt und nur den anderen wegzieht, verschiebt
+           zwar die Mitte, meint aber den Zoom und keine Neigung. Ist die Geste
+           einmal als Kippen erkannt, bleibt sie es bis zum Loslassen. */
+        var ids = Object.keys(pointers);
+        var wegA = pointers[ids[0]].y - pinch.start[ids[0]];
+        var wegB = pointers[ids[1]].y - pinch.start[ids[1]];
+        if (!pinch.kippt && Math.min(Math.abs(wegA), Math.abs(wegB)) > 12 && wegA * wegB > 0) {
+          pinch.kippt = true;
+        }
+        var dPitch = pinch.kippt ? -(c.y - pinch.y) * 0.3 : 0;
+
+        if (Math.abs(da) > 0.005 || dPitch) queueOrbitBy(da * 180 / Math.PI, dPitch);
         pinch.dist = c.dist;
         pinch.angle = c.angle;
+        pinch.y = c.y;
         return;
       }
       if (!drag || e.pointerId !== drag.id) return;
@@ -260,9 +348,12 @@
     $('#zoom-fit').addEventListener('click', function () { Render.fit(view, state.board); });
     $('#rot-left').addEventListener('click', function () { camTo(view.cam.yaw - 30, view.cam.pitch, 320); });
     $('#rot-right').addEventListener('click', function () { camTo(view.cam.yaw + 30, view.cam.pitch, 320); });
+    // Kippen in Schritten – ohne Animation, damit mehrfaches Tippen sofort wirkt
+    $('#tilt-up').addEventListener('click', function () { orbitNow(0, 6); });
+    $('#tilt-down').addEventListener('click', function () { orbitNow(0, -6); });
     $('#view-tilt').addEventListener('click', function () {
-      // Beim Wechsel in die Schrägsicht wandert der Ausschnitt – neu einpassen
-      camTo(view.cam.yaw, Render.isFlat(view) ? Render.TILT : Render.FLAT, 500);
+      // zurück geht es zu dem Winkel, den der Spieler sich selbst eingestellt hat
+      camTo(view.cam.yaw, Render.isFlat(view) ? ansicht.schraeg : Render.FLAT, 500);
     });
 
     document.addEventListener('keydown', cameraKeys);

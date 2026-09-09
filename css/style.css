@@ -139,7 +139,12 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   padding: 8px 16px; border-radius: 999px; font-size: 14px; white-space: nowrap;
   pointer-events: none; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis;
 }
-.board-hud { position: absolute; right: 12px; top: 12px; display: flex; flex-direction: column; gap: 6px; }
+/* Steuerung der Ansicht: oben die Vergrößerung, darunter die Kamera.
+   Am Rechner eine Spalte rechts, am Handy zwei Reihen unter dem Brett. */
+.board-hud {
+  position: absolute; right: 12px; top: 12px;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 6px;
+}
 .hud-btn {
   width: 34px; height: 34px; border-radius: 8px; font-size: 16px;
   background: rgba(24, 28, 34, .92); color: var(--text); border: 1px solid var(--line);
@@ -147,6 +152,30 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .hud-btn:hover { border-color: var(--accent); color: var(--accent); }
 /* der Knopf für die Ansicht trägt Text statt eines Zeichens */
 .hud-btn.is-wide { font-size: 12px; font-weight: 700; letter-spacing: .06em; }
+.hud-btn .hud-icon {
+  width: 17px; height: 17px; display: block; margin: 0 auto;
+  fill: none; stroke: currentColor; stroke-width: 2.4;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* Zeigt kurz an, wie die Kamera gerade steht – Rückmeldung beim Einstellen,
+   danach verschwindet sie wieder, damit sie das Brett nicht zustellt. */
+.cam-readout {
+  margin: 0; padding: 4px 9px; border-radius: 999px;
+  background: rgba(24, 28, 34, .92); border: 1px solid var(--line);
+  font-size: 11px; color: var(--muted); white-space: nowrap;
+  font-variant-numeric: tabular-nums; pointer-events: none;
+  opacity: 0; transition: opacity .35s ease;
+}
+.cam-readout.is-visible { opacity: 1; }
+
+/* Auf Geräten ohne Mauszeiger bleibt der Hover-Zustand nach dem Antippen
+   hängen – ein gedrückter Kamera-Knopf sähe dann dauerhaft wie ausgewählt aus.
+   Dort gibt es die Hervorhebung nur, solange der Finger liegt. */
+@media (hover: none) {
+  .hud-btn:hover { border-color: var(--line); color: var(--text); }
+  .hud-btn:active { border-color: var(--accent); color: var(--accent); }
+}
 .legend {
   position: absolute; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px;
   background: rgba(24, 28, 34, .9); border: 1px solid var(--line);
@@ -366,6 +395,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 /* Wer Bewegung reduziert haben möchte, bekommt ein ruhiges Brett */
 @media (prefers-reduced-motion: reduce) {
   .marker-dot, .mk-capture .marker-ring, .player-card .wood.just-changed { animation: none; }
+  .cam-readout { transition: none; }
   .hex-grass .hex-shape, .hex-water .hex-shape, .phase-banner { transition: none; }
 }
 
@@ -395,8 +425,14 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .wide-btn, .train-btn, .dir-btn { min-height: 46px; }
   /* sechs Knöpfe übereinander passen nicht neben ein halbhohes Brett –
      auf dem Handy liegen sie als Zeile unten rechts, wo die Legende entfällt */
-  .board-hud { flex-direction: row; top: auto; bottom: 10px; right: 10px; }
+  /* acht Knöpfe übereinander passen nicht neben ein halbhohes Brett – auf dem
+     Handy liegen sie als zwei Reihen unten rechts, wo die Legende entfällt */
+  .board-hud {
+    flex-direction: row; flex-wrap: wrap; justify-content: flex-end;
+    top: auto; bottom: 10px; right: 10px; width: 198px;
+  }
   .hud-btn { width: 42px; height: 42px; font-size: 18px; }
+  .cam-readout { order: -1; }
   .ghost-btn { padding: 9px 12px; }
   .topbar { padding: 8px 12px; }
   .brand-name { font-size: 18px; letter-spacing: .12em; }

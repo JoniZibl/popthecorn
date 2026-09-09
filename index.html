@@ -74,9 +74,16 @@
       <button id="zoom-in" class="hud-btn" title="Vergrößern">+</button>
       <button id="zoom-out" class="hud-btn" title="Verkleinern">−</button>
       <button id="zoom-fit" class="hud-btn" title="Einpassen">⤢</button>
+      <button id="view-tilt" class="hud-btn is-wide" title="Zwischen deiner Schrägsicht und der Draufsicht wechseln">2D</button>
       <button id="rot-left" class="hud-btn" title="Brett nach links drehen">⟲</button>
       <button id="rot-right" class="hud-btn" title="Brett nach rechts drehen">⟳</button>
-      <button id="view-tilt" class="hud-btn is-wide" title="Zwischen Schrägsicht und Draufsicht wechseln">2D</button>
+      <button id="tilt-up" class="hud-btn" title="Steiler – mehr von oben">
+        <svg class="hud-icon" viewBox="-10 -10 20 20" aria-hidden="true"><path d="M-6,3 L0,-4 L6,3"/></svg>
+      </button>
+      <button id="tilt-down" class="hud-btn" title="Flacher – mehr Perspektive">
+        <svg class="hud-icon" viewBox="-10 -10 20 20" aria-hidden="true"><path d="M-6,-4 L0,3 L6,-4"/></svg>
+      </button>
+      <p id="cam-readout" class="cam-readout" aria-hidden="true"></p>
     </div>
     <div class="legend">
       <span><i class="lg lg-move"></i>Zug</span>
@@ -115,10 +122,13 @@
           Der Springer trägt einen breiten Pfeil zwischen seinen beiden Sprungrichtungen,
           der Legionär zwei Pfeile für seine Achse nach vorn und zurück.</li>
         <li><strong>Bäume</strong> blockieren; nur der Arbeiter darf ihr Feld betreten und fällt sie dabei.</li>
-        <li><strong>Ansicht:</strong> Das Brett steht als Platte im Raum. Mit <strong>⟲ ⟳</strong>
-          drehst du es, mit <strong>2D/3D</strong> wechselst du zwischen Schrägsicht und
-          Draufsicht. Am Rechner geht beides auch mit gedrückter Umschalt- oder rechter
-          Maustaste, am Handy mit zwei Fingern.</li>
+        <li><strong>Ansicht:</strong> Das Brett steht als Platte im Raum, und du stellst die
+          Kamera selbst ein: <strong>⟲ ⟳</strong> drehen, die beiden <strong>Pfeilknöpfe</strong>
+          kippen. Am Handy drehst du mit zwei verdrehten Fingern und kippst, indem du beide
+          Finger gemeinsam nach oben oder unten ziehst; am Rechner geht beides mit gedrückter
+          Umschalt- oder rechter Maustaste sowie mit den Pfeiltasten. <strong>2D/3D</strong>
+          springt zwischen der Draufsicht und genau dem Winkel, den du dir eingestellt hast –
+          er bleibt auch für die nächste Partie erhalten.</li>
         <li><strong>Holz</strong> stammt aus gefällten Bäumen und bezahlt jede neue Einheit.</li>
         <li>Von <strong>jeder Figur</strong> darf höchstens eine je Spieler auf dem Feld stehen.
           Erst wenn sie geschlagen wird, darf sie neu ausgebildet werden – der Zenturio bleibt
