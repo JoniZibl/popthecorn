@@ -92,6 +92,14 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .player-field { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
 .player-field .swatch { width: 16px; height: 16px; border-radius: 4px; flex: 0 0 auto; }
 .color-name { font-size: 12px; color: var(--muted); width: 52px; flex: 0 0 auto; }
+.kind-select { width: 108px; flex: 0 0 auto; padding: 8px 6px; font-size: 13px; }
+.player-field input[type=text] { min-width: 0; }
+.ai-tag {
+  font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--bg); background: var(--muted); border-radius: 4px; padding: 1px 5px; margin-left: 6px;
+  vertical-align: middle;
+}
+.thinking { color: var(--accent); }
 .hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 8px 0; }
 .hint.small { font-size: 12px; }
 .hint.warn { color: var(--warn); }

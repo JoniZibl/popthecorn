@@ -21,8 +21,9 @@ var Game = (function () {
     { id: 'orange', name: 'Orange', hex: '#f97316' }
   ];
 
-  function create(playerNames) {
+  function create(playerNames, kinds) {
     var count = playerNames.length;
+    kinds = kinds || [];
     var cfg = SETUP[count];
     var board = B.generate(cfg.tiles);
 
@@ -36,6 +37,7 @@ var Game = (function () {
     var players = playerNames.map(function (name, i) {
       return {
         index: i,
+        ai: kinds[i] || null,          // null = Mensch, sonst Spielstärke
         name: name || ('Spieler ' + (i + 1)),
         color: COLORS[i].hex,
         colorName: COLORS[i].name,
@@ -111,9 +113,15 @@ var Game = (function () {
   function autoPlaceTrees(state) {
     var guard = 0;
     while (state.phase === 'trees' && guard++ < 5000) {
-      var free = B.landCells(state.board).filter(B.isFree);
-      if (!free.length) { state.phase = 'kings'; state.current = 0; break; }
-      var cell = free[Math.floor(Math.random() * free.length)];
+      var player = state.players[state.current];
+      var cell = null;
+      // Computergegner setzen ihre Bäume weiterhin nach eigenem Plan
+      if (player.ai && typeof AI !== 'undefined') cell = AI.chooseTree(state, state.current);
+      if (!cell) {
+        var free = B.landCells(state.board).filter(B.isFree);
+        if (!free.length) { state.phase = 'kings'; state.current = 0; break; }
+        cell = free[Math.floor(Math.random() * free.length)];
+      }
       placeTree(state, cell.q, cell.r);
     }
   }

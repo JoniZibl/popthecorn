@@ -42,6 +42,39 @@ Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
 Verliert man den Arbeiter, lohnt sich ein Holzvorrat: Ohne Arbeiter und ohne Holz lassen
 sich keine Bäume mehr fällen – und damit nichts mehr ausbilden.
 
+## Computergegner
+
+Im Startmenü lässt sich jeder Platz auf **Mensch** oder **KI** (leicht / normal / stark)
+stellen – auch alle Plätze gleichzeitig, dann spielt der Computer gegen sich selbst.
+
+Die KI ist keine Zugliste, sondern eine Suche mit Stellungsbewertung:
+
+* **Suche** – Alpha-Beta mit iterativer Vertiefung und Ruhesuche (Schlagzüge werden über
+  die nominelle Tiefe hinaus verfolgt, damit kein Abtausch übersehen wird). Bei mehr als
+  zwei Spielern wird „paranoid“ gesucht: alle Gegner spielen so, als richteten sie sich
+  ausschließlich gegen die KI. Gerechnet wird auf einer kompakten Brettdarstellung mit
+  Zug-Anwenden und -Zurücknehmen, ohne das Brett zu kopieren.
+* **Bewertung** – Materialwerte, Holz als Währung, und darüber hinaus:
+  * **Wirtschaft:** Nähe des Arbeiters zu Bäumen; wer weder Arbeiter noch Holz besitzt,
+    bekommt einen schweren Abzug – seine Partie ist wirtschaftlich vorbei.
+  * **Königssicherheit:** Fluchtfelder, Deckung durch eigene Figuren, Feinde in Reichweite;
+    ein Turm im Schlagbereich ist praktisch verloren.
+  * **Deckung wie im Schach:** Für jede Figur werden Angreifer und Verteidiger gezählt.
+    Eine ungedeckt angegriffene Figur kostet die Hälfte ihres Wertes, eine überzählig
+    angegriffene knapp ein Drittel. Dadurch stellt die KI Figuren gegenseitig in Deckung
+    und greift bevorzugt an, was der Gegner nicht halten kann.
+  * **Handlungsfähigkeit:** Beweglichkeit und freie Ausbildungsfelder an der Turmkette.
+* **Aufbauphase** – Jede KI wählt ein Heimatgebiet, pflanzt ihre Bäume als Ring darum und
+  stellt später ihren Turm mitten hinein, mit Abstand zu den Gegnern und Platz zum Ausbilden.
+
+Die Stufen unterscheiden sich in Rechenzeit und Suchtiefe: *leicht* rechnet 0,15 s und
+wählt gelegentlich einen nur fast optimalen Zug, *normal* 0,6 s, *stark* 1,6 s. Die Zeit
+ist ein hartes Limit – auf einem langsamen Gerät sucht die KI einfach weniger tief,
+statt die Oberfläche zu blockieren.
+
+Gespielt wird ausschließlich über `game.js`: Die KI schlägt einen Zug vor, ausgeführt wird
+er vom Regelwerk. So kann kein KI-Zug an den Regeln vorbei.
+
 ## Bedienung
 
 * **Figur anklicken** → mögliche Züge werden markiert (weiß = Zug, roter Ring = schlagen,
@@ -85,11 +118,14 @@ js/units.js         Einheiten-Definitionen samt Regeltexten
 js/board.js         Spielfeld-Erzeugung aus 7er-Plättchen
 js/moves.js         Regelwerk: legale Züge, Schüsse, Ausbildungsfelder
 js/game.js          Spielzustand, Aufbauphasen, Zugabwicklung, Ausscheiden
+js/ai.js            Computergegner: Suche, Bewertung, Aufbaustrategie
 js/render.js        SVG-Darstellung von Brett, Bäumen und Figuren
 js/ui.js            Steuerung, Seitenleiste, Regelwerk
 build.js            baut alles zu einer einzigen HTML-Datei zusammen
 dist/hexodus.html   erzeugte Einzeldatei (CSS und JS eingebettet)
 test/figuren.js     Zielfelder der Figuren gegen die Regelkarten
+test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
+test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
 test/simulate.js    Regelwerks-Simulation (Node, ohne Browser)
 ```
 
@@ -105,9 +141,16 @@ Verschicken, Hochladen oder Öffnen ohne lokalen Server.
 ## Tests
 
 ```
-node test/figuren.js        # Zielfelder der Figuren gegen die Regelkarten
-node test/simulate.js 100   # komplette Zufallspartien
+node test/figuren.js            # Zielfelder der Figuren gegen die Regelkarten
+node test/ki.js                 # KI-Zuggenerierung gegen das Regelwerk
+node test/simulate.js 100       # komplette Zufallspartien
+node test/kispiel.js 10         # Spielstärke der KI
+node test/kispiel.js 8 stark normal   # eigene Paarung
 ```
+
+`test/ki.js` vergleicht jeden von der KI erzeugten Zug mit `moves.js` – in beide
+Richtungen, damit die Suche weder Züge erfindet noch übersieht – und prüft, dass das
+Zurücknehmen eines Zuges die Stellung bitgenau wiederherstellt.
 
 `test/figuren.js` prüft die ausgemessenen Zielfelder von Samurai, Springer und
 Bogenschütze – inklusive der Eigenschaft des Samurai, auf einer Farbklasse zu bleiben –

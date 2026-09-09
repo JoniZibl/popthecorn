@@ -10,7 +10,7 @@
 
   var state = null;
   var view = null;
-  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null };
+  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, thinking: false };
 
   function $(sel) { return document.querySelector(sel); }
   function esc(s) {
@@ -26,6 +26,11 @@
     function render() {
       var count = +$('#player-count').value;
       var cfg = G.SETUP[count];
+      var previous = [];
+      for (var q = 0; q < 4; q++) {
+        var sel = document.getElementById('pkind' + q);
+        previous[q] = sel ? sel.value : (q === 0 ? 'mensch' : 'normal');
+      }
       wrap.innerHTML = '';
       for (var i = 0; i < count; i++) {
         var c = G.COLORS[i];
@@ -33,8 +38,14 @@
         row.className = 'player-field';
         row.innerHTML = '<span class="swatch" style="background:' + c.hex + '"></span>' +
           '<input type="text" id="pname' + i + '" value="Spieler ' + (i + 1) + '" maxlength="16">' +
-          '<span class="color-name">' + c.name + '</span>';
+          '<select id="pkind' + i + '" class="kind-select">' +
+            '<option value="mensch">Mensch</option>' +
+            '<option value="leicht">KI leicht</option>' +
+            '<option value="normal">KI normal</option>' +
+            '<option value="stark">KI stark</option>' +
+          '</select>';
         wrap.appendChild(row);
+        document.getElementById('pkind' + i).value = previous[i];
       }
       $('#setup-info').textContent =
         cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' + cfg.trees + ' Bäume gesamt';
@@ -44,15 +55,19 @@
 
     $('#start-game').addEventListener('click', function () {
       var count = +$('#player-count').value;
-      var names = [];
-      for (var i = 0; i < count; i++) names.push($('#pname' + i).value.trim() || ('Spieler ' + (i + 1)));
-      startGame(names);
+      var names = [], kinds = [];
+      for (var i = 0; i < count; i++) {
+        names.push($('#pname' + i).value.trim() || ('Spieler ' + (i + 1)));
+        var kind = $('#pkind' + i).value;
+        kinds.push(kind === 'mensch' ? null : kind);
+      }
+      startGame(names, kinds);
     });
   }
 
-  function startGame(names) {
-    state = G.create(names);
-    ui = { mode: 'idle', trainType: null, markers: [], placeable: null };
+  function startGame(names, kinds) {
+    state = G.create(names, kinds);
+    ui = { mode: 'idle', trainType: null, markers: [], placeable: null, thinking: false };
     $('#screen-menu').classList.add('hidden');
     $('#screen-game').classList.remove('hidden');
     if (!view) {
@@ -162,6 +177,7 @@
   }
 
   function handleCellClick(key) {
+    if (ui.thinking || aiLevel()) return;      // die KI ist am Zug
     var cell = state.board.cells[key];
     if (!cell) return;
 
@@ -266,9 +282,10 @@
       if (state.phase === 'trees') extra = p.treesLeft + ' Bäume übrig';
       else if (p.eliminated) extra = 'ausgeschieden';
       else extra = G.pieceCount(state, p.index) + ' Figuren';
+      var tag = p.ai ? ' <span class="ai-tag">KI ' + p.ai + '</span>' : '';
       return '<div class="' + cls + '" style="--pc:' + p.color + '">' +
         '<span class="swatch"></span>' +
-        '<span class="pname">' + esc(p.name) + '</span>' +
+        '<span class="pname">' + esc(p.name) + tag + '</span>' +
         '<span class="wood" title="Holz">\u{1F332} ' + p.wood + '</span>' +
         '<span class="meta">' + extra + '</span>' +
         '</div>';
@@ -345,6 +362,8 @@
     if (state.phase === 'trees') {
       banner.innerHTML = '<strong style="color:' + p.color + '">' + esc(p.name) + '</strong>' +
         ' setzt einen Baum · noch ' + p.treesLeft + ' übrig';
+      if (p.ai) { panel.innerHTML = '<h3>Bäume platzieren</h3>' +
+        '<p class="hint">' + esc(p.name) + ' (KI) verteilt seine Bäume.</p>'; return; }
       panel.innerHTML = '<h3>Bäume platzieren</h3>' +
         '<p class="hint">Jeder Spieler setzt reihum einen Baum auf ein freies Grasfeld. ' +
         'Bäume liefern später das Holz für neue Einheiten.</p>' +
@@ -355,6 +374,8 @@
     if (state.phase === 'kings') {
       banner.innerHTML = '<strong style="color:' + p.color + '">' + esc(p.name) + '</strong> ' +
         (state.awaitWorker ? 'stellt den Arbeiter neben den Turm' : 'setzt den Königs-Turm');
+      if (p.ai) { panel.innerHTML = '<h3>Türme &amp; Arbeiter</h3>' +
+        '<p class="hint">' + esc(p.name) + ' (KI) sucht sich einen Platz.</p>'; return; }
       panel.innerHTML = '<h3>Türme &amp; Arbeiter</h3>' +
         '<p class="hint">' + (state.awaitWorker
           ? 'Der Arbeiter muss direkt neben dem eigenen Turm stehen.'
@@ -375,6 +396,12 @@
     // Spielphase
     banner.innerHTML = 'Runde ' + state.turn + ' · <strong style="color:' + p.color + '">' +
       esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood;
+
+    if (p.ai) {
+      panel.innerHTML = '<h3>' + esc(p.name) + '</h3>' +
+        '<p class="hint">Der Computergegner (' + p.ai + ') ist am Zug.</p>';
+      return;
+    }
 
     var html = '';
     var stuck = !state.pending && !M.hasAnyAction(state, state.current);
@@ -402,6 +429,7 @@
     panel.addEventListener('click', function (e) {
       var btn = e.target.closest('button');
       if (!btn) return;
+      if (ui.thinking && btn.id !== 'back-menu') return;
       if (btn.id === 'auto-trees') { G.autoPlaceTrees(state); return refresh(); }
       if (btn.id === 'back-menu') { return backToMenu(); }
       if (btn.id === 'pass-turn') { G.pass(state); return refresh(); }
@@ -430,6 +458,43 @@
     renderPlayers();
     renderPanel();
     renderLog();
+    scheduleAI();
+  }
+
+  /* ---------------- Computergegner ---------------- */
+
+  function aiLevel() {
+    if (!state || state.phase === 'over') return null;
+    var p = state.players[state.current];
+    return (p && !p.eliminated) ? p.ai : null;
+  }
+
+  /* Ist die KI am Zug, wird ihr Zug nach kurzer Pause ausgeführt – so bleibt
+     die Oberfläche sichtbar und die Züge sind nachvollziehbar. */
+  function scheduleAI() {
+    if (ui.thinking || !aiLevel()) return;
+    ui.thinking = true;
+    var banner = $('#phase-banner');
+    banner.innerHTML += ' <span class="thinking">· denkt nach …</span>';
+    // Erst zeichnen lassen, dann rechnen
+    setTimeout(function () {
+      var level = aiLevel();
+      if (!level) { ui.thinking = false; return refresh(); }
+      var before = state.current, phase = state.phase;
+      try {
+        AI.step(state, level);
+      } catch (err) {
+        G.log(state, 'Die KI ist ins Straucheln geraten – sie setzt aus.', state.current);
+        if (state.phase === 'play') G.pass(state);
+        if (window.console) console.error(err);
+      }
+      if (state.phase === phase && state.current === before &&
+          state.phase === 'play' && !state.pending) {
+        G.pass(state);            // Notbremse gegen Endlosschleifen
+      }
+      ui.thinking = false;
+      refresh();
+    }, state.phase === 'play' ? 240 : 45);
   }
 
   /* ---------------- Regelwerk-Overlay ---------------- */
