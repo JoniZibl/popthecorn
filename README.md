@@ -68,6 +68,21 @@ Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
 | Zenturio | 3 Holz | beliebig weit in jede Richtung; nur einmal pro Spiel |
 | Boot | 1 Holz | kein Figur, sondern ein neutrales Objekt – macht ein Wasserfeld begehbar |
 
+### Woran man die Figuren erkennt
+
+Jede Figur hat einen **eigenen Umriss**, nicht nur andere Zacken: Der Königs-Turm ist ein
+Turm mit Zinnen, der Arbeiter trägt die Axt, mit der er Bäume fällt, der Samurai eine
+schräge Klinge – als Einziger diagonal, wie sein Zug. Der Springer ist der Pferdekopf aus
+dem Schach, der Legionär ein Scutum, der Bogenschütze ein Bogen mit aufgelegtem Pfeil, der
+Tangolin eine Raute. Der **Zenturio** trägt den Helm mit dem gezackten Querbusch, an dem man
+den Zenturio bei den Römern erkannte, und ist die höchste und breiteste Figur im Spiel –
+er steht wie der Königs-Turm auf einem größeren Sockel.
+
+Das ist keine Spielerei: Auf dem Brett ist eine Figur am Handy gut zehn Bildpunkte hoch.
+Was sich erst aus der Nähe unterscheidet, unterscheidet sich im Spiel gar nicht. Die kleinen
+Symbole in Seitenleiste und Regelwerk zeichnen dieselben Umrisse – wer ein Symbol antippt,
+soll die Figur auf dem Feld wiedererkennen.
+
 ### Boote
 
 Wasser betritt nur, wer ein **Boot** hat. Zieht eine Figur im regulären Zug von Land aufs

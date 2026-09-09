@@ -3412,29 +3412,59 @@ var Render = (function () {
   var EARTH = '#6f5136'; // Erde an den Schnittkanten der Platte
   var SVG_NS = 'http://www.w3.org/2000/svg';
 
-  // Silhouetten der Figuren (dunkler Kopf, farbiger Schaft) – Füße auf y = 0
+  /* Silhouetten der Figuren: dunkler Aufsatz auf farbigem Schaft, Füße auf y = 0.
+
+     Jede Figur bekommt einen eigenen Umriss, nicht nur andere Zacken – auf dem
+     Brett ist so ein Aufsatz gut zehn Bildpunkte hoch, und was sich erst aus
+     der Nähe unterscheidet, unterscheidet sich im Spiel gar nicht. Deshalb:
+     ein Turm mit Zinnen, eine Axt, eine schräge Klinge, ein Pferdekopf, ein
+     Schild, ein Bogen samt Pfeil, eine Raute – und für den Zenturio der
+     Helm mit dem Querbusch, an dem man den Zenturio bei den Römern erkannt hat.
+
+     Wer eine Figur ändert, ändert sie auch in der Seitenleiste und im
+     Regelwerk mit: Die kleinen Symbole zeichnen dieselben Pfade. */
   var HEADS = {
-    king:      'M-9,-9 L-9,-20 L-4.5,-15 L0,-23 L4.5,-15 L9,-20 L9,-9 Z',
-    worker:    'M0,-23 L8,-9 L-8,-9 Z',
-    samurai:   'M-8,-9 L-8,-15 L-2,-20 L3,-16 L9,-23 L6,-14 L8,-9 Z',
-    springer:  'M-7,-9 L-6,-16 L-1,-21 L8,-18 L3,-14 L6,-9 Z',
-    legionaer: 'M-5,-9 L-6,-18 L0,-22 L6,-18 L5,-9 Z',
-    archer:    'M-8,-9 L-6,-14 L-7,-18 L0,-23 L7,-18 L6,-14 L8,-9 Z',
-    tangolin:  'M0,-23 L7,-16 L0,-9 L-7,-16 Z',
-    zenturio:  'M-4,-23 L4,-23 L9,-18 L9,-13 L4,-8.5 L-4,-8.5 L-9,-13 L-9,-18 Z'
+    // Königs-Turm: breiter Turm mit drei Zinnen – als einziger rechtwinklig
+    king:      'M-9,-11 L-9,-26 L-5.5,-26 L-5.5,-22.5 L-2,-22.5 L-2,-26 ' +
+               'L2,-26 L2,-22.5 L5.5,-22.5 L5.5,-26 L9,-26 L9,-11 Z',
+    // Arbeiter: Axt – Stiel mit quer sitzendem Blatt, die Schneide nach links.
+    // Er ist der Einzige, der Bäume fällt.
+    worker:    'M-2,-11 L-2,-25 L2,-25 L2,-11 Z ' +
+               'M-10,-31.5 C-5,-29.5 -1,-29 3,-29 L8,-29 L8,-23.5 L3,-23.5 ' +
+               'C-1,-23.5 -5,-23 -10,-21 Z',
+    // Samurai: schräge Klinge mit Stichblatt – als Einziger diagonal, wie sein Zug
+    samurai:   'M-4.2,-11 L-6.8,-13.2 L5.6,-29 L8.2,-26.8 Z ' +
+               'M-1.6,-12.4 L-6.6,-16.6 L-7.6,-15.4 L-2.6,-11.2 Z',
+    // Springer: Pferdekopf mit Schnauze links und Mähne rechts, wie im Schach
+    springer:  'M-8,-11 C-8,-15 -6,-16.5 -4,-18 L-8,-20.5 ' +
+               'C-9,-21.5 -8,-23.5 -6,-24 L-1.5,-25.5 L-2.5,-30 L2,-27.2 ' +
+               'C6,-27.6 8,-23.5 8,-19 L8,-11 Z',
+    // Legionär: Scutum – breites, gewölbtes Rechteckschild mit geradem Abschluss.
+    // Eine Spitze nach unten sähe zusammen mit dem Schaft aus wie ein Kelch.
+    legionaer: 'M-8.5,-29 L8.5,-29 C9.7,-25 9.7,-16 8.5,-12 L-8.5,-12 ' +
+               'C-9.7,-16 -9.7,-25 -8.5,-29 Z',
+    // Bogenschütze: Bogen mit aufgelegtem Pfeil
+    archer:    'M2,-30 C9,-25.5 9,-14.5 2,-10 L-0.8,-11.6 ' +
+               'C5,-15.4 5,-24.6 -0.8,-28.4 Z ' +
+               'M-4.5,-21 L4,-21 L4,-19 L-4.5,-19 Z ' +
+               'M-9.5,-20 L-4,-23.4 L-4,-16.6 Z',
+    // Tangolin: Raute – der einzige gleichmäßige Vierecker
+    tangolin:  'M0,-30 L8.5,-20.5 L0,-11 L-8.5,-20.5 Z',
+    // Zenturio: Helm mit gezacktem Querbusch, an dem man ihn bei den Römern
+    // erkannte – ein Umriss, die höchste und breiteste Figur im Spiel
+    zenturio:  'M-9.5,-11 L-8.5,-16 C-8,-20.5 -6,-22.5 -4,-23.5 ' +
+               'L-5.5,-30 L-2,-31.5 L0,-28.5 L2,-31.5 L5.5,-30 L4,-23.5 ' +
+               'C6,-22.5 8,-20.5 8.5,-16 L9.5,-11 Z'
   };
 
-  // Silhouetten für die flachen Symbole in Seitenleiste und Regelwerk
-  var ICON_HEADS = {
-    king:      'M-9,-4 L-9,-15 L-4.5,-10 L0,-18 L4.5,-10 L9,-15 L9,-4 Z',
-    worker:    'M0,-18 L8,-4 L-8,-4 Z',
-    samurai:   'M-8,-4 L-8,-10 L-2,-15 L3,-11 L9,-18 L6,-9 L8,-4 Z',
-    springer:  'M-7,-4 L-6,-11 L-1,-16 L8,-13 L3,-9 L6,-4 Z',
-    legionaer: 'M-5,-4 L-6,-13 L0,-17 L6,-13 L5,-4 Z',
-    archer:    'M-8,-4 L-6,-9 L-7,-13 L0,-18 L7,-13 L6,-9 L8,-4 Z',
-    tangolin:  'M0,-18 L7,-11 L0,-4 L-7,-11 Z',
-    zenturio:  'M-4,-18 L4,-18 L9,-13 L9,-8 L4,-3.5 L-4,-3.5 L-9,-8 L-9,-13 Z'
-  };
+  /* Königs-Turm und Zenturio stehen auf einem größeren Sockel: Die eine Figur
+     entscheidet die Partie, die andere gibt es nur einmal – das darf man ihnen
+     ansehen, ohne die Silhouette zu vergrößern. */
+  var BASE_SCALE = { king: 1.14, zenturio: 1.14 };
+
+  /* Etwas größer als das Feld es verlangt: Am Handy ist eine Figur nur noch
+     gut zehn Bildpunkte hoch, und woran man sie erkennt, sind diese Punkte. */
+  var PIECE_SCALE = 1.1;
 
   var CORNERS = H.corners(SIZE);
 
@@ -3682,17 +3712,20 @@ var Render = (function () {
   /* Figur: Sockel am Boden, Silhouette aufrecht darauf – wie eine Spielfigur,
      die man aufs Brett stellt. */
   function pieceGlyph(g, cam, o, cx, cy, z, piece, color, k) {
-    groundShadow(g, cam, o, cx, cy, z, SIZE * 0.34, 'piece-shadow');
+    var b = BASE_SCALE[piece.type] || 1;
+    groundShadow(g, cam, o, cx, cy, z, SIZE * 0.34 * b, 'piece-shadow');
     g.appendChild(el('polygon', {
-      class: 'piece-base', points: pts(cam, disc(cx, cy, z + 0.6, SIZE * 0.30, 12), o)
+      class: 'piece-base', points: pts(cam, disc(cx, cy, z + 0.6, SIZE * 0.30 * b, 12), o)
     }));
     g.appendChild(el('polygon', {
-      class: 'piece-rim', points: pts(cam, disc(cx, cy, z + 3.2, SIZE * 0.24, 12), o),
+      class: 'piece-rim', points: pts(cam, disc(cx, cy, z + 3.2, SIZE * 0.24 * b, 12), o),
       fill: color
     }));
-    var stand = el('g', { class: 'piece-stand', transform: 'scale(' + k.toFixed(3) + ')' });
+    var stand = el('g', {
+      class: 'piece-stand', transform: 'scale(' + (k * PIECE_SCALE).toFixed(3) + ')'
+    });
     stand.appendChild(el('rect', {
-      class: 'piece-stem', x: -3.6, y: -12, width: 7.2, height: 11, rx: 1.6, fill: color
+      class: 'piece-stem', x: -4.2, y: -14, width: 8.4, height: 13, rx: 1.8, fill: color
     }));
     stand.appendChild(el('path', { class: 'piece-head', d: HEADS[piece.type], stroke: color }));
     g.appendChild(stand);
@@ -3997,10 +4030,12 @@ var Render = (function () {
   }
 
   /* Figuren-Symbol als HTML-String – für Regelkarten und Startbildschirm.
-     Bewusst flach: als kleines Zeichen ist die Draufsicht klarer als ein
-     perspektivischer Aufsteller. */
+     Gezeichnet wird dieselbe Figur wie auf dem Brett, nur flach und von der
+     Seite: Wer das Symbol in der Seitenleiste antippt, muss die Figur auf dem
+     Feld wiedererkennen. Ein zweiter Satz Silhouetten würde genau das
+     irgendwann verfehlen. */
   function pieceIcon(type, color) {
-    var hexPts = H.cornerPoints(22, 1);
+    var hexPts = H.cornerPoints(24, 1);
     if (type === 'boat') {                    // Objekt, keine Figur: nur der Rumpf
       return '<svg class="piece-icon" viewBox="-26 -26 52 52" aria-hidden="true">' +
         '<polygon class="icon-hex" points="' + hexPts + '"/>' +
@@ -4010,11 +4045,11 @@ var Render = (function () {
     }
     return '<svg class="piece-icon" viewBox="-26 -26 52 52" aria-hidden="true">' +
       '<polygon class="icon-hex" points="' + hexPts + '"/>' +
-      '<ellipse class="icon-shadow" cx="0" cy="12" rx="10" ry="3.5"/>' +
-      '<path class="icon-base" d="M-10,11 L-7,4 L7,4 L10,11 Z"/>' +
-      '<rect class="piece-stem" x="-3.6" y="-6" width="7.2" height="11" rx="1.6" fill="' + color + '"/>' +
-      '<path class="piece-head" d="' + ICON_HEADS[type] + '" stroke="' + color + '"/>' +
-      '</svg>';
+      '<g transform="translate(0,11) scale(0.66)">' +
+      '<ellipse class="icon-shadow" cx="0" cy="0" rx="10" ry="3.4"/>' +
+      '<rect class="piece-stem" x="-4.2" y="-14" width="8.4" height="13" rx="1.8" fill="' + color + '"/>' +
+      '<path class="piece-head" d="' + HEADS[type] + '" stroke="' + color + '"/>' +
+      '</g></svg>';
   }
 
   return { create: create, draw: draw, redraw: redraw, fit: fit, zoomBy: zoomBy,
