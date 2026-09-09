@@ -2201,8 +2201,8 @@ var AI = (function () {
      harmloser Zug könnte in Wahrheit den Turm kosten. */
   var LEVELS = {
     leicht: { limit: 150, maxDepth: 2, slack: 260 },
-    normal: { limit: 600, maxDepth: 5, slack: 0 },
-    stark:  { limit: 1600, maxDepth: 9, slack: 0 }
+    normal: { limit: 450, maxDepth: 4, slack: 0 },
+    stark:  { limit: 2000, maxDepth: 14, slack: 0 }
   };
 
   /* Besten Zug suchen. Liefert eine Beschreibung, die die Oberfläche
