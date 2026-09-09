@@ -21,6 +21,20 @@ Holz kommt ausschließlich aus gefällten Bäumen und bezahlt jede neue Einheit.
 Ausgebildet wird auf freien Feldern rund um den Königs-Turm und um alle Einheiten,
 die über eine lückenlose Kette mit ihm verbunden sind.
 
+### Eine Partie endet immer mit einem Sieger
+
+Läuft die Partie fest, wird gewertet – ein Unentschieden gibt es nicht. Ausgelöst wird die
+Wertung, wenn dieselbe Stellung zum **dritten Mal** auftritt, wenn **50 Züge** ohne
+gefällten Baum, ohne Schlag und ohne Ausbildung vergehen, oder wenn niemand mehr ziehen kann.
+
+Dann gewinnt, wer das größte **Vermögen** hat: Holzvorrat plus das Holz, das in den eigenen
+Figuren steckt. Bei Gleichstand entscheiden nacheinander die Zahl der Figuren, der
+Holzvorrat und wer zuletzt etwas bewegt hat – die Kette bricht jeden Gleichstand auf.
+
+Die KI kennt diese Regel: Sie zählt die Züge ohne Fortschritt in der Suche mit und erkennt
+an der Wurzel, welcher Zug die dritte Wiederholung auslösen würde. Wer bei einer Wertung
+verlieren würde, sucht deshalb den Durchbruch, statt Figuren hin und her zu schieben.
+
 Von **jeder Figur darf höchstens eine** je Spieler auf dem Feld stehen. Erst wenn sie
 geschlagen wird, darf sie neu ausgebildet werden – der Zenturio bleibt davon ausgenommen
 und ist auf eine Ausbildung pro Partie beschränkt. Eine Armee umfasst damit höchstens
@@ -143,6 +157,7 @@ test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
 test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
 test/jagd.js        KI gegen einen Gegner, der gezielt den Turm jagt
 test/blunder.js     lässt die KI ihren Turm im Schlagbereich stehen?
+test/entscheidung.js  endet jede Partie mit genau einem Sieger?
 test/simulate.js    Regelwerks-Simulation (Node, ohne Browser)
 ```
 
@@ -165,7 +180,13 @@ node test/kispiel.js 10         # Spielstärke der KI
 node test/kispiel.js 8 stark normal   # eigene Paarung
 node test/jagd.js 10 normal     # hält der Turm einem gezielten Angriff stand?
 node test/blunder.js 6 normal   # stellt die KI ihren Turm ins Schlagfeld?
+node test/entscheidung.js 10 normal normal   # endet jede Partie mit einem Sieger?
 ```
+
+`test/entscheidung.js` spielt komplette Partien bis zum Ende und schlägt fehl, sobald eine
+Partie nicht endet oder ohne Sieger ausgeht. Es meldet außerdem, wodurch die Partien
+entschieden wurden – so sieht man, ob die Wertung nur die Notbremse ist oder ob die KI
+zu oft ins Festfahren läuft.
 
 `test/jagd.js` ist der schärfste Test der KI: Der Gegner läuft stur mit allem auf ihren
 Königs-Turm zu und schlägt ihn, sobald er kann. Genau daran scheitert eine KI, die den

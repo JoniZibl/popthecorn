@@ -388,8 +388,18 @@
       banner.innerHTML = state.winner !== null
         ? '<strong style="color:' + state.players[state.winner].color + '">' +
           esc(state.players[state.winner].name) + '</strong> gewinnt Hexodus!'
-        : 'Das Spiel endet unentschieden.';
-      panel.innerHTML = '<h3>Spielende</h3><button class="wide-btn" id="back-menu">Neues Spiel</button>';
+        : 'Das Spiel ist beendet.';
+      var grund = state.endReason
+        ? '<p class="hint">' + esc(state.endReason) + ' – gewertet wurde nach Vermögen: ' +
+          'Holzvorrat plus das Holz, das in den Figuren steckt.</p>' +
+          '<ul class="score-list">' + state.players.map(function (pl) {
+            return '<li><span class="dot" style="background:' + pl.color + '"></span>' +
+              esc(pl.name) + ': <strong>' + G.wealth(state, pl.index) + '</strong> Holz' +
+              (pl.eliminated ? ' (ausgeschieden)' : '') + '</li>';
+          }).join('') + '</ul>'
+        : '<p class="hint">Der Königs-Turm ist gefallen.</p>';
+      panel.innerHTML = '<h3>Spielende</h3>' + grund +
+        '<button class="wide-btn" id="back-menu">Neues Spiel</button>';
       return;
     }
 

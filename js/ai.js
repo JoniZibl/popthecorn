@@ -653,6 +653,73 @@ var AI = (function () {
     return sc[me] - bestOther;
   }
 
+  /* ---------------- Wertung bei festgefahrener Partie ----------------
+     Das Regelwerk beendet eine Partie, die 50 Züge lang keinen Fortschritt
+     sieht, und entscheidet nach Vermögen. Die Suche muss das kennen, sonst
+     schiebt sie Figuren hin und her, bis gewertet wird. */
+
+  function stallLimit() {
+    return (typeof Game !== 'undefined' && Game.STALL_LIMIT) || 50;
+  }
+
+  function wealthOf(s, p) {
+    var sum = s.wood[p];
+    for (var i = 0; i < s.n; i++) {
+      if (s.po[i] === p && s.pt[i] !== T.king) sum += COST[s.pt[i]];
+    }
+    return sum;
+  }
+
+  function piecesOf(s, p) {
+    var n = 0;
+    for (var i = 0; i < s.n; i++) if (s.po[i] === p) n++;
+    return n;
+  }
+
+  /* Gleiche Kette wie im Regelwerk: Vermögen, Figuren, Holz, Spielerreihenfolge. */
+  function adjudicationScore(s, me) {
+    var mine = [wealthOf(s, me), piecesOf(s, me), s.wood[me], -me];
+    var best = null;
+    for (var p = 0; p < s.np; p++) {
+      if (p === me || !s.alive[p]) continue;
+      var other = [wealthOf(s, p), piecesOf(s, p), s.wood[p], -p];
+      if (!best || cmp(other, best) > 0) best = other;
+    }
+    if (!best) return WIN;
+    var d = cmp(mine, best);
+    // Klarer Sieg, aber weniger wert als ein wirklich geschlagener Turm
+    if (d > 0) return WIN - 60000 + (mine[0] - best[0]) * 100;
+    if (d < 0) return -WIN + 60000 + (mine[0] - best[0]) * 100;
+    return 0;
+  }
+
+  function cmp(a, b) {
+    for (var i = 0; i < a.length; i++) { if (a[i] !== b[i]) return a[i] > b[i] ? 1 : -1; }
+    return 0;
+  }
+
+  /* Stellungskennung wie in game.js – damit die KI erkennt, wann ein Zug die
+     dritte Wiederholung und damit die Wertung auslöst. Wird nur an der Wurzel
+     gebildet; im Suchbaum wäre der Aufbau der Zeichenkette zu teuer. */
+  function positionKeyOf(s, current) {
+    var parts = [], keys = s.geo.keys;
+    for (var i = 0; i < s.n; i++) {
+      if (s.pt[i] >= 0) parts.push(keys[i] + '=' + TYPES[s.pt[i]] + s.po[i] + s.pf[i]);
+      else if (s.tree[i]) parts.push(keys[i] + '=T');
+    }
+    var wood = [];
+    for (var p = 0; p < s.np; p++) wood.push(s.wood[p]);
+    parts.push('h' + wood.join('.'));
+    parts.push('z' + current);
+    return parts.join('|');
+  }
+
+  /* Bringt der Zug die Partie voran? Nur das setzt den Zähler zurück. */
+  function isProgress(mv) {
+    var k = mvKind(mv);
+    return k === KIND_CAPTURE || k === KIND_SHOOT || k === KIND_HARVEST || k === KIND_TRAIN;
+  }
+
   /* ---------------- Zugsortierung ---------------- */
 
   function moveScore(s, mv, ctx) {
@@ -720,13 +787,15 @@ var AI = (function () {
     return best;
   }
 
-  function alphabeta(s, player, depth, alpha, beta, ctx, ply) {
+  function alphabeta(s, player, depth, alpha, beta, ctx, ply, stall) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me, p;
     if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + ply;
     var others = 0;
     for (p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
     if (!others) return WIN - ply;
+    // Festgefahren: das Regelwerk wertet aus, danach ist die Partie vorbei
+    if (stall >= ctx.stallLimit) return adjudicationScore(s, me);
     if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0);
 
     var moves = ctx.pool[ply] || (ctx.pool[ply] = []);
@@ -734,7 +803,7 @@ var AI = (function () {
     if (!moves.length) {                                  // aussetzen
       var nx = nextAlive(s, player);
       if (nx === player) return evaluate(s, me, ctx);
-      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1);
+      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1);
     }
     orderMoves(s, moves, ctx, 0);
 
@@ -743,7 +812,8 @@ var AI = (function () {
     for (var i = 0; i < moves.length; i++) {
       var mv = moves[i];
       var u = make(s, mv, player);
-      var val = alphabeta(s, nextAlive(s, player), depth - 1, alpha, beta, ctx, ply + 1);
+      var val = alphabeta(s, nextAlive(s, player), depth - 1, alpha, beta, ctx, ply + 1,
+                          isProgress(mv) ? 0 : stall + 1);
       unmake(s, u);
       if (ctx.stop) return (best === INF || best === -INF) ? val : best;
       if (isMe) {
@@ -788,6 +858,10 @@ var AI = (function () {
     var cfg = LEVELS[level] || LEVELS.normal;
     var s = snapshot(state);
     var ctx = makeContext(s, me, cfg.limit);
+    ctx.stallLimit = stallLimit();
+    var stall0 = state.sinceProgress || 0;
+    var history = state.history || {};
+    var repeatLimit = (typeof Game !== 'undefined' && Game.REPEAT_LIMIT) || 3;
     var rootMoves = [];
     genMoves(s, me, rootMoves, false);
     if (!rootMoves.length) return null;
@@ -801,7 +875,16 @@ var AI = (function () {
         var u = make(s, rootMoves[i], me);
         // Mit slack brauchen alle Wurzelzüge echte Werte, nicht nur Schranken
         var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
-        var val = alphabeta(s, nextAlive(s, me), depth - 1, alpha, INF, ctx, 1);
+        var val;
+        var nxt = nextAlive(s, me);
+        var repKey = positionKeyOf(s, nxt);
+        if ((history[repKey] || 0) + 1 >= repeatLimit) {
+          // Dieser Zug führt zur dritten Wiederholung: die Partie wird gewertet
+          val = adjudicationScore(s, me);
+        } else {
+          val = alphabeta(s, nxt, depth - 1, alpha, INF, ctx, 1,
+                          isProgress(rootMoves[i]) ? 0 : stall0 + 1);
+        }
         unmake(s, u);
         if (ctx.stop) break;
         vals.push({ mv: rootMoves[i], val: val });
@@ -1008,6 +1091,7 @@ var AI = (function () {
            nextAlive: nextAlive, hasType: hasType,
            genMoves: genMoves, make: make, unmake: unmake, clusterSpots: clusterSpots,
            evaluate: evaluate, chooseMove: chooseMove, makeContext: makeContext,
+           wealthOf: wealthOf, adjudicationScore: adjudicationScore,
            playMove: playMove, step: step, chooseTree: chooseTree,
            chooseKing: chooseKing, chooseWorker: chooseWorker, LEVELS: LEVELS };
 })();

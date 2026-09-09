@@ -218,6 +218,11 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .dir-btn:hover { border-color: var(--accent); }
 .dir-btn.is-active { border-color: var(--accent); background: #26331f; }
 
+.score-list { list-style: none; margin: 8px 0; padding: 0; font-size: 13px; }
+.score-list li { display: flex; align-items: center; gap: 8px; padding: 4px 0; color: var(--muted); }
+.score-list .dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.score-list strong { color: var(--text); }
+
 .log { padding: 10px 12px 22px; border-top: 1px solid var(--line); margin-top: auto; flex: 0 0 auto; }
 .log h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
 #log-list { list-style: none; margin: 0; padding: 0; max-height: 210px; overflow: auto; font-size: 13px; }
@@ -434,6 +439,19 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
         <li>Richtungsfiguren (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet werden;
           eine Drehung ohne Bewegung kostet den ganzen Zug.</li>
       </ul>
+    </section>
+
+    <section class="rule-block">
+      <h3>Wenn nichts mehr vorangeht</h3>
+      <p>Eine Partie endet immer mit einem Sieger. Läuft sie fest, wird gewertet:</p>
+      <ul>
+        <li>Dieselbe Stellung zum <strong>dritten Mal</strong>, oder</li>
+        <li><strong>50 Züge</strong> ohne gefällten Baum, ohne Schlag und ohne Ausbildung, oder</li>
+        <li>niemand kann mehr ziehen.</li>
+      </ul>
+      <p>Dann gewinnt, wer das größte <strong>Vermögen</strong> hat: Holzvorrat plus das Holz,
+        das in den eigenen Figuren steckt. Bei Gleichstand entscheiden nacheinander die Zahl
+        der Figuren, der Holzvorrat und wer zuletzt etwas bewegt hat.</p>
     </section>
 
     <div id="rule-cards" class="rule-cards"></div>
@@ -1102,6 +1120,10 @@ var Game = (function () {
       board: board,
       players: players,
       phase: 'trees',          // trees → kings → play → over
+      history: {},             // wie oft trat jede Stellung auf?
+      sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
+      lastProgressBy: null,
+      endReason: null,
       current: 0,
       pending: null,           // {kind:'rotate'|'trainFacing', key}
       awaitWorker: false,      // König gesetzt, Arbeiter fehlt noch
@@ -1111,6 +1133,37 @@ var Game = (function () {
       winner: null,
       log: []
     };
+  }
+
+  var STALL_LIMIT = 50;      // Züge ohne Fortschritt, dann wird gewertet
+  var REPEAT_LIMIT = 3;      // dieselbe Stellung dreimal, dann wird gewertet
+
+  /* Eindeutige Kennung der Stellung: Figuren, Bäume, Holz und wer am Zug ist. */
+  function positionKey(state) {
+    var parts = [];
+    for (var i = 0; i < state.board.keys.length; i++) {
+      var k = state.board.keys[i], c = state.board.cells[k];
+      if (c.piece) parts.push(k + '=' + c.piece.type + c.piece.owner + c.piece.facing);
+      else if (c.tree) parts.push(k + '=T');
+    }
+    parts.push('h' + state.players.map(function (p) { return p.wood; }).join('.'));
+    parts.push('z' + state.current);
+    return parts.join('|');
+  }
+
+  /* Vermögen = Holzvorrat plus das Holz, das in den eigenen Figuren steckt. */
+  function wealth(state, owner) {
+    var sum = state.players[owner].wood;
+    state.board.keys.forEach(function (k) {
+      var c = state.board.cells[k];
+      if (c.piece && c.piece.owner === owner) sum += U.DEFS[c.piece.type].cost || 0;
+    });
+    return sum;
+  }
+
+  function noteProgress(state) {
+    state.sinceProgress = 0;
+    state.lastProgressBy = state.current;
   }
 
   function log(state, text, playerIndex) {
@@ -1265,6 +1318,57 @@ var Game = (function () {
     checkVictory(state);
   }
 
+  /* Wertung: Wenn sich nichts mehr bewegt, entscheidet der Spielstand.
+     Die Kette bricht jeden Gleichstand auf – es gibt immer genau einen Sieger. */
+  function adjudicate(state, reason) {
+    var alive = alivePlayers(state);
+    if (!alive.length) { state.phase = 'over'; state.winner = null; return true; }
+
+    var best = null;
+    alive.forEach(function (pl) {
+      var cand = {
+        index: pl.index,
+        wealth: wealth(state, pl.index),
+        pieces: pieceCount(state, pl.index),
+        wood: pl.wood,
+        last: state.lastProgressBy === pl.index ? 1 : 0
+      };
+      if (!best ||
+          cand.wealth > best.wealth ||
+          (cand.wealth === best.wealth && cand.pieces > best.pieces) ||
+          (cand.wealth === best.wealth && cand.pieces === best.pieces && cand.wood > best.wood) ||
+          (cand.wealth === best.wealth && cand.pieces === best.pieces &&
+           cand.wood === best.wood && cand.last > best.last)) {
+        best = cand;
+      }
+    });
+
+    state.phase = 'over';
+    state.winner = best.index;
+    state.endReason = reason;
+    state.pending = null;
+    state.selected = null;
+    log(state, reason + ' – es wird gewertet.');
+    log(state, state.players[best.index].name + ' gewinnt mit ' + best.wealth +
+        ' Holz in Vorrat und Figuren.', best.index);
+    return true;
+  }
+
+  /* Nach jedem Zug prüfen, ob die Partie festgefahren ist. */
+  function checkStalemate(state) {
+    if (state.phase !== 'play') return false;
+    state.sinceProgress++;
+    var key = positionKey(state);
+    state.history[key] = (state.history[key] || 0) + 1;
+    if (state.history[key] >= REPEAT_LIMIT) {
+      return adjudicate(state, 'Dieselbe Stellung zum ' + REPEAT_LIMIT + '. Mal');
+    }
+    if (state.sinceProgress >= STALL_LIMIT) {
+      return adjudicate(state, STALL_LIMIT + ' Züge ohne Baum, Schlag oder Ausbildung');
+    }
+    return false;
+  }
+
   function checkVictory(state) {
     var alive = alivePlayers(state);
     if (alive.length <= 1) {
@@ -1293,6 +1397,7 @@ var Game = (function () {
       if (!target.piece) return false;
       log(state, player.name + ': Bogenschütze schießt.', state.current);
       capture(state, target, state.current);
+      noteProgress(state);
       state.passes = 0;
       finishTurn(state, null);
       return true;
@@ -1304,11 +1409,12 @@ var Game = (function () {
       log(state, player.name + ' zahlt ' + action.cost + ' Holz für den Königs-Sprung.', state.current);
     }
 
-    if (action.kind === 'capture') capture(state, target, state.current);
+    if (action.kind === 'capture') { capture(state, target, state.current); noteProgress(state); }
 
     if (action.kind === 'harvest') {
       target.tree = false;
       player.wood += 1;
+      noteProgress(state);
       log(state, player.name + ': Arbeiter fällt einen Baum (+1 Holz).', state.current);
     }
 
@@ -1371,6 +1477,7 @@ var Game = (function () {
     player.wood -= def.cost;
     player.trained[type] = (player.trained[type] || 0) + 1;
     cell.piece = { type: type, owner: state.current, facing: 0 };
+    noteProgress(state);
     log(state, player.name + ' bildet einen ' + def.name + ' aus (-' + def.cost + ' Holz).', state.current);
     state.passes = 0;
 
@@ -1388,10 +1495,7 @@ var Game = (function () {
     log(state, state.players[state.current].name + ' setzt aus.', state.current);
     state.passes++;
     if (state.passes >= alivePlayers(state).length) {
-      state.phase = 'over';
-      state.winner = null;
-      log(state, 'Niemand kann mehr ziehen – das Spiel endet unentschieden.');
-      return true;
+      return adjudicate(state, 'Niemand kann mehr ziehen');
     }
     finishTurn(state, null);
     return true;
@@ -1406,6 +1510,7 @@ var Game = (function () {
     var next = nextPlayer(state);
     if (next <= state.current) state.turn++;
     state.current = next;
+    checkStalemate(state);
   }
 
   function endPending(state) {
@@ -1431,7 +1536,8 @@ var Game = (function () {
     canPlaceKing: canPlaceKing, placeKing: placeKing, placeWorker: placeWorker,
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
-    alivePlayers: alivePlayers, pieceCount: pieceCount
+    alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
+    STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT
   };
 })();
 
@@ -2095,6 +2201,73 @@ var AI = (function () {
     return sc[me] - bestOther;
   }
 
+  /* ---------------- Wertung bei festgefahrener Partie ----------------
+     Das Regelwerk beendet eine Partie, die 50 Züge lang keinen Fortschritt
+     sieht, und entscheidet nach Vermögen. Die Suche muss das kennen, sonst
+     schiebt sie Figuren hin und her, bis gewertet wird. */
+
+  function stallLimit() {
+    return (typeof Game !== 'undefined' && Game.STALL_LIMIT) || 50;
+  }
+
+  function wealthOf(s, p) {
+    var sum = s.wood[p];
+    for (var i = 0; i < s.n; i++) {
+      if (s.po[i] === p && s.pt[i] !== T.king) sum += COST[s.pt[i]];
+    }
+    return sum;
+  }
+
+  function piecesOf(s, p) {
+    var n = 0;
+    for (var i = 0; i < s.n; i++) if (s.po[i] === p) n++;
+    return n;
+  }
+
+  /* Gleiche Kette wie im Regelwerk: Vermögen, Figuren, Holz, Spielerreihenfolge. */
+  function adjudicationScore(s, me) {
+    var mine = [wealthOf(s, me), piecesOf(s, me), s.wood[me], -me];
+    var best = null;
+    for (var p = 0; p < s.np; p++) {
+      if (p === me || !s.alive[p]) continue;
+      var other = [wealthOf(s, p), piecesOf(s, p), s.wood[p], -p];
+      if (!best || cmp(other, best) > 0) best = other;
+    }
+    if (!best) return WIN;
+    var d = cmp(mine, best);
+    // Klarer Sieg, aber weniger wert als ein wirklich geschlagener Turm
+    if (d > 0) return WIN - 60000 + (mine[0] - best[0]) * 100;
+    if (d < 0) return -WIN + 60000 + (mine[0] - best[0]) * 100;
+    return 0;
+  }
+
+  function cmp(a, b) {
+    for (var i = 0; i < a.length; i++) { if (a[i] !== b[i]) return a[i] > b[i] ? 1 : -1; }
+    return 0;
+  }
+
+  /* Stellungskennung wie in game.js – damit die KI erkennt, wann ein Zug die
+     dritte Wiederholung und damit die Wertung auslöst. Wird nur an der Wurzel
+     gebildet; im Suchbaum wäre der Aufbau der Zeichenkette zu teuer. */
+  function positionKeyOf(s, current) {
+    var parts = [], keys = s.geo.keys;
+    for (var i = 0; i < s.n; i++) {
+      if (s.pt[i] >= 0) parts.push(keys[i] + '=' + TYPES[s.pt[i]] + s.po[i] + s.pf[i]);
+      else if (s.tree[i]) parts.push(keys[i] + '=T');
+    }
+    var wood = [];
+    for (var p = 0; p < s.np; p++) wood.push(s.wood[p]);
+    parts.push('h' + wood.join('.'));
+    parts.push('z' + current);
+    return parts.join('|');
+  }
+
+  /* Bringt der Zug die Partie voran? Nur das setzt den Zähler zurück. */
+  function isProgress(mv) {
+    var k = mvKind(mv);
+    return k === KIND_CAPTURE || k === KIND_SHOOT || k === KIND_HARVEST || k === KIND_TRAIN;
+  }
+
   /* ---------------- Zugsortierung ---------------- */
 
   function moveScore(s, mv, ctx) {
@@ -2162,13 +2335,15 @@ var AI = (function () {
     return best;
   }
 
-  function alphabeta(s, player, depth, alpha, beta, ctx, ply) {
+  function alphabeta(s, player, depth, alpha, beta, ctx, ply, stall) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me, p;
     if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + ply;
     var others = 0;
     for (p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
     if (!others) return WIN - ply;
+    // Festgefahren: das Regelwerk wertet aus, danach ist die Partie vorbei
+    if (stall >= ctx.stallLimit) return adjudicationScore(s, me);
     if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0);
 
     var moves = ctx.pool[ply] || (ctx.pool[ply] = []);
@@ -2176,7 +2351,7 @@ var AI = (function () {
     if (!moves.length) {                                  // aussetzen
       var nx = nextAlive(s, player);
       if (nx === player) return evaluate(s, me, ctx);
-      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1);
+      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1);
     }
     orderMoves(s, moves, ctx, 0);
 
@@ -2185,7 +2360,8 @@ var AI = (function () {
     for (var i = 0; i < moves.length; i++) {
       var mv = moves[i];
       var u = make(s, mv, player);
-      var val = alphabeta(s, nextAlive(s, player), depth - 1, alpha, beta, ctx, ply + 1);
+      var val = alphabeta(s, nextAlive(s, player), depth - 1, alpha, beta, ctx, ply + 1,
+                          isProgress(mv) ? 0 : stall + 1);
       unmake(s, u);
       if (ctx.stop) return (best === INF || best === -INF) ? val : best;
       if (isMe) {
@@ -2230,6 +2406,10 @@ var AI = (function () {
     var cfg = LEVELS[level] || LEVELS.normal;
     var s = snapshot(state);
     var ctx = makeContext(s, me, cfg.limit);
+    ctx.stallLimit = stallLimit();
+    var stall0 = state.sinceProgress || 0;
+    var history = state.history || {};
+    var repeatLimit = (typeof Game !== 'undefined' && Game.REPEAT_LIMIT) || 3;
     var rootMoves = [];
     genMoves(s, me, rootMoves, false);
     if (!rootMoves.length) return null;
@@ -2243,7 +2423,16 @@ var AI = (function () {
         var u = make(s, rootMoves[i], me);
         // Mit slack brauchen alle Wurzelzüge echte Werte, nicht nur Schranken
         var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
-        var val = alphabeta(s, nextAlive(s, me), depth - 1, alpha, INF, ctx, 1);
+        var val;
+        var nxt = nextAlive(s, me);
+        var repKey = positionKeyOf(s, nxt);
+        if ((history[repKey] || 0) + 1 >= repeatLimit) {
+          // Dieser Zug führt zur dritten Wiederholung: die Partie wird gewertet
+          val = adjudicationScore(s, me);
+        } else {
+          val = alphabeta(s, nxt, depth - 1, alpha, INF, ctx, 1,
+                          isProgress(rootMoves[i]) ? 0 : stall0 + 1);
+        }
         unmake(s, u);
         if (ctx.stop) break;
         vals.push({ mv: rootMoves[i], val: val });
@@ -2450,6 +2639,7 @@ var AI = (function () {
            nextAlive: nextAlive, hasType: hasType,
            genMoves: genMoves, make: make, unmake: unmake, clusterSpots: clusterSpots,
            evaluate: evaluate, chooseMove: chooseMove, makeContext: makeContext,
+           wealthOf: wealthOf, adjudicationScore: adjudicationScore,
            playMove: playMove, step: step, chooseTree: chooseTree,
            chooseKing: chooseKing, chooseWorker: chooseWorker, LEVELS: LEVELS };
 })();
@@ -3064,8 +3254,18 @@ var Render = (function () {
       banner.innerHTML = state.winner !== null
         ? '<strong style="color:' + state.players[state.winner].color + '">' +
           esc(state.players[state.winner].name) + '</strong> gewinnt Hexodus!'
-        : 'Das Spiel endet unentschieden.';
-      panel.innerHTML = '<h3>Spielende</h3><button class="wide-btn" id="back-menu">Neues Spiel</button>';
+        : 'Das Spiel ist beendet.';
+      var grund = state.endReason
+        ? '<p class="hint">' + esc(state.endReason) + ' – gewertet wurde nach Vermögen: ' +
+          'Holzvorrat plus das Holz, das in den Figuren steckt.</p>' +
+          '<ul class="score-list">' + state.players.map(function (pl) {
+            return '<li><span class="dot" style="background:' + pl.color + '"></span>' +
+              esc(pl.name) + ': <strong>' + G.wealth(state, pl.index) + '</strong> Holz' +
+              (pl.eliminated ? ' (ausgeschieden)' : '') + '</li>';
+          }).join('') + '</ul>'
+        : '<p class="hint">Der Königs-Turm ist gefallen.</p>';
+      panel.innerHTML = '<h3>Spielende</h3>' + grund +
+        '<button class="wide-btn" id="back-menu">Neues Spiel</button>';
       return;
     }
 

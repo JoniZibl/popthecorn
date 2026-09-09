@@ -52,6 +52,10 @@ var Game = (function () {
       board: board,
       players: players,
       phase: 'trees',          // trees → kings → play → over
+      history: {},             // wie oft trat jede Stellung auf?
+      sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
+      lastProgressBy: null,
+      endReason: null,
       current: 0,
       pending: null,           // {kind:'rotate'|'trainFacing', key}
       awaitWorker: false,      // König gesetzt, Arbeiter fehlt noch
@@ -61,6 +65,37 @@ var Game = (function () {
       winner: null,
       log: []
     };
+  }
+
+  var STALL_LIMIT = 50;      // Züge ohne Fortschritt, dann wird gewertet
+  var REPEAT_LIMIT = 3;      // dieselbe Stellung dreimal, dann wird gewertet
+
+  /* Eindeutige Kennung der Stellung: Figuren, Bäume, Holz und wer am Zug ist. */
+  function positionKey(state) {
+    var parts = [];
+    for (var i = 0; i < state.board.keys.length; i++) {
+      var k = state.board.keys[i], c = state.board.cells[k];
+      if (c.piece) parts.push(k + '=' + c.piece.type + c.piece.owner + c.piece.facing);
+      else if (c.tree) parts.push(k + '=T');
+    }
+    parts.push('h' + state.players.map(function (p) { return p.wood; }).join('.'));
+    parts.push('z' + state.current);
+    return parts.join('|');
+  }
+
+  /* Vermögen = Holzvorrat plus das Holz, das in den eigenen Figuren steckt. */
+  function wealth(state, owner) {
+    var sum = state.players[owner].wood;
+    state.board.keys.forEach(function (k) {
+      var c = state.board.cells[k];
+      if (c.piece && c.piece.owner === owner) sum += U.DEFS[c.piece.type].cost || 0;
+    });
+    return sum;
+  }
+
+  function noteProgress(state) {
+    state.sinceProgress = 0;
+    state.lastProgressBy = state.current;
   }
 
   function log(state, text, playerIndex) {
@@ -215,6 +250,57 @@ var Game = (function () {
     checkVictory(state);
   }
 
+  /* Wertung: Wenn sich nichts mehr bewegt, entscheidet der Spielstand.
+     Die Kette bricht jeden Gleichstand auf – es gibt immer genau einen Sieger. */
+  function adjudicate(state, reason) {
+    var alive = alivePlayers(state);
+    if (!alive.length) { state.phase = 'over'; state.winner = null; return true; }
+
+    var best = null;
+    alive.forEach(function (pl) {
+      var cand = {
+        index: pl.index,
+        wealth: wealth(state, pl.index),
+        pieces: pieceCount(state, pl.index),
+        wood: pl.wood,
+        last: state.lastProgressBy === pl.index ? 1 : 0
+      };
+      if (!best ||
+          cand.wealth > best.wealth ||
+          (cand.wealth === best.wealth && cand.pieces > best.pieces) ||
+          (cand.wealth === best.wealth && cand.pieces === best.pieces && cand.wood > best.wood) ||
+          (cand.wealth === best.wealth && cand.pieces === best.pieces &&
+           cand.wood === best.wood && cand.last > best.last)) {
+        best = cand;
+      }
+    });
+
+    state.phase = 'over';
+    state.winner = best.index;
+    state.endReason = reason;
+    state.pending = null;
+    state.selected = null;
+    log(state, reason + ' – es wird gewertet.');
+    log(state, state.players[best.index].name + ' gewinnt mit ' + best.wealth +
+        ' Holz in Vorrat und Figuren.', best.index);
+    return true;
+  }
+
+  /* Nach jedem Zug prüfen, ob die Partie festgefahren ist. */
+  function checkStalemate(state) {
+    if (state.phase !== 'play') return false;
+    state.sinceProgress++;
+    var key = positionKey(state);
+    state.history[key] = (state.history[key] || 0) + 1;
+    if (state.history[key] >= REPEAT_LIMIT) {
+      return adjudicate(state, 'Dieselbe Stellung zum ' + REPEAT_LIMIT + '. Mal');
+    }
+    if (state.sinceProgress >= STALL_LIMIT) {
+      return adjudicate(state, STALL_LIMIT + ' Züge ohne Baum, Schlag oder Ausbildung');
+    }
+    return false;
+  }
+
   function checkVictory(state) {
     var alive = alivePlayers(state);
     if (alive.length <= 1) {
@@ -243,6 +329,7 @@ var Game = (function () {
       if (!target.piece) return false;
       log(state, player.name + ': Bogenschütze schießt.', state.current);
       capture(state, target, state.current);
+      noteProgress(state);
       state.passes = 0;
       finishTurn(state, null);
       return true;
@@ -254,11 +341,12 @@ var Game = (function () {
       log(state, player.name + ' zahlt ' + action.cost + ' Holz für den Königs-Sprung.', state.current);
     }
 
-    if (action.kind === 'capture') capture(state, target, state.current);
+    if (action.kind === 'capture') { capture(state, target, state.current); noteProgress(state); }
 
     if (action.kind === 'harvest') {
       target.tree = false;
       player.wood += 1;
+      noteProgress(state);
       log(state, player.name + ': Arbeiter fällt einen Baum (+1 Holz).', state.current);
     }
 
@@ -321,6 +409,7 @@ var Game = (function () {
     player.wood -= def.cost;
     player.trained[type] = (player.trained[type] || 0) + 1;
     cell.piece = { type: type, owner: state.current, facing: 0 };
+    noteProgress(state);
     log(state, player.name + ' bildet einen ' + def.name + ' aus (-' + def.cost + ' Holz).', state.current);
     state.passes = 0;
 
@@ -338,10 +427,7 @@ var Game = (function () {
     log(state, state.players[state.current].name + ' setzt aus.', state.current);
     state.passes++;
     if (state.passes >= alivePlayers(state).length) {
-      state.phase = 'over';
-      state.winner = null;
-      log(state, 'Niemand kann mehr ziehen – das Spiel endet unentschieden.');
-      return true;
+      return adjudicate(state, 'Niemand kann mehr ziehen');
     }
     finishTurn(state, null);
     return true;
@@ -356,6 +442,7 @@ var Game = (function () {
     var next = nextPlayer(state);
     if (next <= state.current) state.turn++;
     state.current = next;
+    checkStalemate(state);
   }
 
   function endPending(state) {
@@ -381,7 +468,8 @@ var Game = (function () {
     canPlaceKing: canPlaceKing, placeKing: placeKing, placeWorker: placeWorker,
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
-    alivePlayers: alivePlayers, pieceCount: pieceCount
+    alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
+    STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT
   };
 })();
 
