@@ -103,6 +103,14 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   vertical-align: middle;
 }
 .thinking { color: var(--accent); }
+.forest { color: var(--muted); }
+/* Schlussrunde: die auffälligste Information auf dem Schirm */
+.countdown {
+  color: var(--warn); font-weight: 700;
+  animation: countdownPulse 1.4s ease-in-out infinite;
+}
+@keyframes countdownPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+@media (prefers-reduced-motion: reduce) { .countdown { animation: none; } }
 .hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 8px 0; }
 .hint.small { font-size: 12px; }
 .hint.warn { color: var(--warn); }
@@ -258,6 +266,13 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .marker-dot { animation: markerBreathe 1.6s ease-in-out infinite; transform-origin: center; }
 .mk-capture .marker-ring { animation: markerBreathe 1.3s ease-in-out infinite; transform-origin: center; }
 .hex-selected { fill: none; stroke: #fff; stroke-width: 3; pointer-events: none; }
+
+/* Versorgungskette: Verbindung vom Turm zu jeder Einheit, an der ausgebildet
+   werden darf. Zurückhaltend gezeichnet – sie soll informieren, nicht dominieren. */
+.supply-link {
+  stroke-width: 5; stroke-linecap: round; opacity: .5;
+  stroke-dasharray: 2 9; pointer-events: none;
+}
 
 /* Der letzte Zug bleibt sichtbar – sonst weiß man nicht, was die KI getan hat */
 .last-move { fill: none; pointer-events: none; }
@@ -489,6 +504,28 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
         <li>Richtungsfiguren (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet werden;
           eine Drehung ohne Bewegung kostet den ganzen Zug.</li>
       </ul>
+    </section>
+
+    <section class="rule-block">
+      <h3>Die Rodung als Uhr</h3>
+      <p>Bäume wachsen nicht nach. Fällt der <strong>letzte Baum</strong>, kann niemand mehr
+        Holz gewinnen – dann läuft eine <strong>Schlussrunde von 10 Zügen</strong>, danach
+        gewinnt das größere Vermögen.</p>
+      <p>Daraus wird eine echte Entscheidung: <em>Fälle ich den letzten Baum?</em> Wer vorn
+        liegt, friert damit seinen Vorsprung ein. Wer zurückliegt, sollte ihn stehen lassen
+        und angreifen – auch wenn er das Holz gut gebrauchen könnte.</p>
+
+      <h3>Beute</h3>
+      <p>Wer eine Figur schlägt, erhält die <strong>Hälfte ihrer Ausbildungskosten</strong> als
+        Holz zurück (aufgerundet: 1 für die meisten Figuren, 2 für den Zenturio). Kämpfen ist
+        damit auch dann noch wirtschaftlich sinnvoll, wenn der Wald leer ist – und wer
+        zurückliegt, kann sich zurückkämpfen.</p>
+
+      <h3>Versorgungskette</h3>
+      <p>Ausgebildet wird nur an Feldern rund um den Königs-Turm und um alle Einheiten, die
+        über eine <strong>lückenlose Kette</strong> mit ihm verbunden sind. Die Kette ist auf
+        dem Brett als gepunktete Linie in deiner Farbe zu sehen. Wer seine Figuren zu weit
+        auseinanderzieht, verliert die Verbindung – und kann vorn nichts mehr nachschieben.</p>
     </section>
 
     <section class="rule-block">
@@ -1127,30 +1164,42 @@ var Moves = (function () {
     return uniq;
   }
 
-  /* Felder, auf denen ein Spieler ausbilden darf:
-     freie Felder neben dem König oder neben jeder mit ihm verbundenen eigenen Einheit. */
-  function trainingSpots(board, owner) {
+  /* Versorgungskette: alle eigenen Einheiten, die über eine lückenlose Kette
+     von Nachbarfeldern mit dem Königs-Turm verbunden sind – und die Verbindungen
+     dazwischen. Nur an dieser Kette darf ausgebildet werden. */
+  function supplyChain(board, owner) {
     var kingKey = null;
     for (var i = 0; i < board.keys.length; i++) {
       var c = board.cells[board.keys[i]];
       if (c.piece && c.piece.owner === owner && c.piece.type === 'king') { kingKey = board.keys[i]; break; }
     }
-    if (!kingKey) return [];
+    if (!kingKey) return { cells: [], links: [], king: null };
 
-    // Zusammenhängende Traube eigener Einheiten ab dem König
-    var cluster = {}, queue = [board.cells[kingKey]];
+    var cluster = {}, queue = [board.cells[kingKey]], cells = [], links = [];
     cluster[kingKey] = true;
+    cells.push(board.cells[kingKey]);
     while (queue.length) {
       var cur = queue.shift();
+      var curKey = H.key(cur.q, cur.r);
       H.neighbors(cur).forEach(function (nb) {
         var cell = B.at(board, nb);
         if (!cell || !cell.piece || cell.piece.owner !== owner) return;
         var k = H.key(cell.q, cell.r);
-        if (cluster[k]) return;
-        cluster[k] = true;
-        queue.push(cell);
+        if (!cluster[k]) { cluster[k] = true; cells.push(cell); queue.push(cell); }
+        // Verbindung nur einmal aufnehmen
+        if (curKey < k) links.push([cur, cell]);
       });
     }
+    return { cells: cells, links: links, king: board.cells[kingKey] };
+  }
+
+  /* Felder, auf denen ein Spieler ausbilden darf:
+     freie Felder neben dem König oder neben jeder mit ihm verbundenen eigenen Einheit. */
+  function trainingSpots(board, owner) {
+    var chain = supplyChain(board, owner);
+    if (!chain.king) return [];
+    var cluster = {};
+    chain.cells.forEach(function (c) { cluster[H.key(c.q, c.r)] = true; });
 
     var spots = {}, list = [];
     Object.keys(cluster).forEach(function (k) {
@@ -1211,7 +1260,7 @@ var Moves = (function () {
   }
 
   return {
-    forPiece: forPiece, trainingSpots: trainingSpots,
+    forPiece: forPiece, trainingSpots: trainingSpots, supplyChain: supplyChain,
     waterPlan: waterPlan, stepCost: stepCost, isWater: isWater, pathCells: pathCells,
     hasAnyAction: hasAnyAction, affordableUnits: affordableUnits,
     trainBlocker: trainBlocker, typesOnBoard: typesOnBoard, enterable: enterable
@@ -1281,6 +1330,8 @@ var Game = (function () {
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
       lastProgressBy: null,
       endReason: null,
+      forest: 0,               // Bäume auf dem Feld
+      finalCountdown: null,    // läuft, sobald der letzte Baum gefallen ist
       moveNo: 0,               // zählt Aktionen – die Oberfläche erkennt daran Neues
       lastMove: null,          // { fromKey, toKey, type, owner, kind }
       lastCapture: null,       // { key, type, owner, by }
@@ -1299,6 +1350,21 @@ var Game = (function () {
 
   var STALL_LIMIT = 50;      // Züge ohne Fortschritt, dann wird gewertet
   var REPEAT_LIMIT = 3;      // dieselbe Stellung dreimal, dann wird gewertet
+  var FINAL_TURNS = 10;      // Züge nach dem letzten Baum bis zur Wertung
+
+  function countTrees(state) {
+    var n = 0;
+    state.board.keys.forEach(function (k) { if (state.board.cells[k].tree) n++; });
+    return n;
+  }
+
+  /* Beute: Wer eine Figur schlägt, bekommt die Hälfte ihrer Ausbildungskosten
+     als Holz zurück (aufgerundet). Beim Königs-Turm wechselt ohnehin der ganze
+     Vorrat den Besitzer. */
+  function plunder(type) {
+    var cost = U.DEFS[type].cost || 0;
+    return Math.ceil(cost / 2);
+  }
 
   /* Eindeutige Kennung der Stellung: Figuren, Bäume, Holz und wer am Zug ist. */
   function positionKey(state) {
@@ -1455,6 +1521,7 @@ var Game = (function () {
       state.phase = 'play';
       state.current = state.players.length - 1;
       state.turn = 1;
+      state.forest = countTrees(state);
       log(state, 'Das Spiel beginnt – ' + state.players[state.current].name + ' ist am Zug.', state.current);
     } else {
       state.current++;
@@ -1478,8 +1545,16 @@ var Game = (function () {
     });
     cell.piece = null;
     var vName = U.DEFS[victim.type].name;
-    log(state, U.DEFS[victim.type].name + ' von ' + state.players[victim.owner].name + ' geschlagen.', attacker);
-    if (victim.type === 'king') eliminate(state, victim.owner, attacker);
+    log(state, vName + ' von ' + state.players[victim.owner].name + ' geschlagen.', attacker);
+    if (victim.type === 'king') {
+      eliminate(state, victim.owner, attacker);
+    } else {
+      var beute = plunder(victim.type);
+      if (beute > 0 && attacker !== null && attacker !== undefined) {
+        state.players[attacker].wood += beute;
+        log(state, state.players[attacker].name + ' erbeutet ' + beute + ' Holz.', attacker);
+      }
+    }
     return vName;
   }
 
@@ -1539,6 +1614,19 @@ var Game = (function () {
   /* Nach jedem Zug prüfen, ob die Partie festgefahren ist. */
   function checkStalemate(state) {
     if (state.phase !== 'play') return false;
+
+    /* Rodungs-Uhr: Sobald der letzte Baum gefallen ist, kann niemand mehr Holz
+       gewinnen. Statt die Partie auslaufen zu lassen, läuft eine Schlussrunde –
+       und die Entscheidung, ob man den letzten Baum fällt, wird selbst zum Zug. */
+    state.forest = countTrees(state);
+    if (state.forest === 0 && state.finalCountdown === null) {
+      state.finalCountdown = FINAL_TURNS;
+      log(state, 'Der letzte Baum ist gefallen – noch ' + FINAL_TURNS + ' Züge bis zur Wertung.');
+    } else if (state.finalCountdown !== null) {
+      state.finalCountdown--;
+      if (state.finalCountdown <= 0) return adjudicate(state, 'Der Wald ist gerodet');
+    }
+
     state.sinceProgress++;
     var key = positionKey(state);
     state.history[key] = (state.history[key] || 0) + 1;
@@ -1747,7 +1835,8 @@ var Game = (function () {
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
-    STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT
+    countTrees: countTrees, plunder: plunder,
+    STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT, FINAL_TURNS: FINAL_TURNS
   };
 })();
 
@@ -1865,13 +1954,14 @@ var AI = (function () {
       terrain: new Uint8Array(n), tree: new Uint8Array(n), boat: new Uint8Array(n),
       pt: new Int8Array(n), po: new Int8Array(n), pf: new Int8Array(n),
       wood: new Int32Array(np), alive: new Uint8Array(np), zent: new Uint8Array(np),
-      kingAt: new Int16Array(np)
+      kingAt: new Int16Array(np), treeCount: 0
     };
     s.pt.fill(-1); s.po.fill(-1); s.kingAt.fill(-1);
     for (var i = 0; i < n; i++) {
       var c = state.board.cells[geo.keys[i]];
       s.terrain[i] = c.terrain === 'water' ? 1 : 0;
       s.tree[i] = c.tree ? 1 : 0;
+      if (c.tree) s.treeCount++;
       s.boat[i] = c.boat ? 1 : 0;
       if (c.piece) {
         s.pt[i] = T[c.piece.type];
@@ -2195,7 +2285,7 @@ var AI = (function () {
     var kind = mvKind(mv), from = mvFrom(mv), to = mvTo(mv), extra = mvExtra(mv);
     var u = { mv: mv, p: p, capT: -1, capO: -1, capF: 0, hadTree: 0,
               spend: 0, oldF: -1, removed: null, steal: 0, elim: -1, zentBefore: 0,
-              boatCost: 0, boatWas: null };
+              boatCost: 0, boatWas: null, loot: 0 };
 
     if (kind === KIND_ROTATE) { u.oldF = s.pf[from]; s.pf[from] = extra; return u; }
 
@@ -2212,6 +2302,10 @@ var AI = (function () {
     if (kind === KIND_CAPTURE || kind === KIND_SHOOT) {
       u.capT = s.pt[to]; u.capO = s.po[to]; u.capF = s.pf[to];
       s.pt[to] = -1; s.po[to] = -1; s.pf[to] = 0;
+      if (u.capT !== T.king) {
+        u.loot = Math.ceil(COST[u.capT] / 2);      // Beute
+        s.wood[p] += u.loot;
+      }
       if (u.capT === T.king) {
         u.elim = u.capO;
         u.removed = [];
@@ -2231,7 +2325,7 @@ var AI = (function () {
 
     if (kind === KIND_SHOOT) return u;                 // Bogenschütze bleibt stehen
 
-    if (kind === KIND_HARVEST) { u.hadTree = 1; s.tree[to] = 0; s.wood[p] += 1; }
+    if (kind === KIND_HARVEST) { u.hadTree = 1; s.tree[to] = 0; s.treeCount--; s.wood[p] += 1; }
     if (s.pt[from] === T.king) { u.spend = 1; s.wood[p] -= 1; }
 
     // Boote: bezahlen, mitnehmen, zurücklassen
@@ -2282,7 +2376,7 @@ var AI = (function () {
       s.pt[to] = -1; s.po[to] = -1; s.pf[to] = 0;
       s.pt[from] = mt; s.po[from] = p; s.pf[from] = u.oldF;
       if (mt === T.king) s.kingAt[p] = from;
-      if (u.hadTree) { s.tree[to] = 1; s.wood[p] -= 1; }
+      if (u.hadTree) { s.tree[to] = 1; s.treeCount++; s.wood[p] -= 1; }
       if (u.spend && s.pt[from] === T.king) s.wood[p] += u.spend;
     }
 
@@ -2298,6 +2392,7 @@ var AI = (function () {
         if (s.pt[idx] === T.king) s.kingAt[u.elim] = idx;
       }
     }
+    if (u.loot) s.wood[p] -= u.loot;
     if (u.capT >= 0) {
       s.pt[to] = u.capT; s.po[to] = u.capO; s.pf[to] = u.capF;
       // Der geschlagene Turm stand nicht in u.removed – seine Position fehlt sonst
@@ -2514,7 +2609,29 @@ var AI = (function () {
 
     var bestOther = -INF;
     for (p = 0; p < np; p++) if (p !== me && s.alive[p] && sc[p] > bestOther) bestOther = sc[p];
-    return sc[me] - bestOther;
+    var score = sc[me] - bestOther;
+
+    /* Rodungs-Uhr: Steht kein Baum mehr, entscheidet in wenigen Zügen das
+       Vermögen – und niemand kann es noch aufholen, weil es kein Holz mehr gibt.
+       Die Schlussrunde ist länger als die Suchtiefe; ohne diesen Term würde die
+       KI den letzten Baum fällen, ohne die Folge zu sehen. */
+    if (s.treeCount === 0) {
+      var mineW = wealthOf(s, me), bestW = -1e9;
+      for (p = 0; p < np; p++) {
+        if (p === me || !s.alive[p]) continue;
+        var w = wealthOf(s, p);
+        if (w > bestW) bestW = w;
+      }
+      if (bestW > -1e9) {
+        /* Gewicht bewusst hoch: Steht der Wald nicht mehr, ist das Vermögen
+           kein Stellungsvorteil mehr, sondern die Partie selbst. Wer zurückliegt,
+           darf den letzten Baum deshalb gar nicht erst fällen. */
+        var diff = (mineW - bestW) * 2500;
+        if (diff > 20000) diff = 20000; else if (diff < -20000) diff = -20000;
+        score += diff;
+      }
+    }
+    return score;
   }
 
   /* ---------------- Wertung bei festgefahrener Partie ----------------
@@ -2524,6 +2641,20 @@ var AI = (function () {
 
   function stallLimit() {
     return (typeof Game !== 'undefined' && Game.STALL_LIMIT) || 50;
+  }
+
+  function finalTurns() {
+    return (typeof Game !== 'undefined' && Game.FINAL_TURNS) || 10;
+  }
+
+  /* Rodungs-Uhr im Suchbaum: Unendlich, solange der Wald steht. Fällt der letzte
+     Baum, beginnt die Schlussrunde und zählt je Zug herunter. Dadurch sieht die
+     Suche, dass das Fällen des letzten Baums die Partie beendet – und wählt es
+     nur, wenn sie die Wertung gewinnt. */
+  function nextFinal(s, finalLeft, ctx) {
+    if (s.treeCount > 0) return Infinity;
+    if (finalLeft === Infinity) return ctx.finalTurns;
+    return finalLeft - 1;
   }
 
   function wealthOf(s, p) {
@@ -2629,9 +2760,10 @@ var AI = (function () {
     return ctx.stop;
   }
 
-  function quiesce(s, player, alpha, beta, ctx, qd) {
+  function quiesce(s, player, alpha, beta, ctx, qd, finalLeft) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me;
+    if (finalLeft !== undefined && finalLeft <= 0) return adjudicationScore(s, me);
     if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + qd;
     var others = 0;
     for (var p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
@@ -2651,7 +2783,8 @@ var AI = (function () {
     var best = stand;
     for (var i = 0; i < moves.length; i++) {
       var u = make(s, moves[i], player);
-      var val = quiesce(s, nextAlive(s, player), alpha, beta, ctx, qd + 1);
+      var val = quiesce(s, nextAlive(s, player), alpha, beta, ctx, qd + 1,
+                        finalLeft === undefined ? undefined : nextFinal(s, finalLeft, ctx));
       unmake(s, u);
       if (ctx.stop) return best;
       if (isMe) {
@@ -2666,23 +2799,24 @@ var AI = (function () {
     return best;
   }
 
-  function alphabeta(s, player, depth, alpha, beta, ctx, ply, stall) {
+  function alphabeta(s, player, depth, alpha, beta, ctx, ply, stall, finalLeft) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me, p;
     if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + ply;
     var others = 0;
     for (p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
     if (!others) return WIN - ply;
-    // Festgefahren: das Regelwerk wertet aus, danach ist die Partie vorbei
-    if (stall >= ctx.stallLimit) return adjudicationScore(s, me);
-    if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0);
+    // Festgefahren oder Wald gerodet: das Regelwerk wertet aus
+    if (stall >= ctx.stallLimit || finalLeft <= 0) return adjudicationScore(s, me);
+    if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0, finalLeft);
 
     var moves = ctx.pool[ply] || (ctx.pool[ply] = []);
     genMoves(s, player, moves, false);
     if (!moves.length) {                                  // aussetzen
       var nx = nextAlive(s, player);
       if (nx === player) return evaluate(s, me, ctx);
-      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1);
+      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1,
+                       nextFinal(s, finalLeft, ctx));
     }
     orderMoves(s, moves, ctx, 0);
 
@@ -2692,7 +2826,7 @@ var AI = (function () {
       var mv = moves[i];
       var u = make(s, mv, player);
       var val = alphabeta(s, nextAlive(s, player), depth - 1, alpha, beta, ctx, ply + 1,
-                          isProgress(mv) ? 0 : stall + 1);
+                          isProgress(mv) ? 0 : stall + 1, nextFinal(s, finalLeft, ctx));
       unmake(s, u);
       if (ctx.stop) return (best === INF || best === -INF) ? val : best;
       if (isMe) {
@@ -2745,8 +2879,11 @@ var AI = (function () {
     var s = snapshot(state);
     var ctx = makeContext(s, me, cfg.limit, cfg.aggression);
     ctx.stallLimit = stallLimit();
+    ctx.finalTurns = finalTurns();
 
     var stall0 = state.sinceProgress || 0;
+    var final0 = (state.finalCountdown === null || state.finalCountdown === undefined)
+      ? Infinity : state.finalCountdown;
     var history = state.history || {};
     var repeatLimit = (typeof Game !== 'undefined' && Game.REPEAT_LIMIT) || 3;
 
@@ -2795,7 +2932,7 @@ var AI = (function () {
         } else {
           var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
           val = alphabeta(s, nxt, depth - 1, alpha, INF, ctx, 1,
-                          isProgress(mv) ? 0 : stall0 + 1);
+                          isProgress(mv) ? 0 : stall0 + 1, nextFinal(s, final0, ctx));
         }
         unmake(s, u);
 
@@ -3251,6 +3388,19 @@ var Render = (function () {
         class: 'hex-selected', points: hexPts,
         transform: 'translate(' + sp.x.toFixed(2) + ',' + sp.y.toFixed(2) + ')'
       }));
+    }
+
+    /* Versorgungskette des Spielers am Zug: Nur an dieser Kette darf ausgebildet
+       werden. Sichtbar gemacht wird daraus eine Positionsfrage statt einer
+       Überraschung, wenn plötzlich nichts mehr geht. */
+    if (ctx.chain && ctx.chain.links) {
+      ctx.chain.links.forEach(function (pair) {
+        var a = H.toPixel(pair[0], SIZE), b = H.toPixel(pair[1], SIZE);
+        view.layers.overlay.appendChild(el('line', {
+          class: 'supply-link', x1: a.x.toFixed(2), y1: a.y.toFixed(2),
+          x2: b.x.toFixed(2), y2: b.y.toFixed(2), stroke: ctx.chainColor || '#fff'
+        }));
+      });
     }
 
     // Letzter Zug bleibt sichtbar – so ist nachvollziehbar, was die KI getan hat
@@ -3792,9 +3942,18 @@ var Render = (function () {
       return;
     }
 
-    // Spielphase
+    // Spielphase – dazu der Stand des Waldes bzw. die Schlussrunde
+    var wald = state.finalCountdown !== null
+      ? '<span class="countdown">Wald gerodet · noch ' + state.finalCountdown +
+        (state.finalCountdown === 1 ? ' Zug' : ' Züge') + '</span>'
+      : (function () {
+          // live zählen: state.forest stammt vom Ende des letzten Zuges
+          var n = G.countTrees(state);
+          return '<span class="forest">\u{1F332} ' + n +
+                 (n === 1 ? ' Baum' : ' Bäume') + ' übrig</span>';
+        })();
     banner.innerHTML = 'Runde ' + state.turn + ' · <strong style="color:' + p.color + '">' +
-      esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood;
+      esc(p.name) + '</strong> · \u{1F332} ' + p.wood + ' · ' + wald;
 
     if (p.ai) {
       panel.innerHTML = '<h3>' + esc(p.name) + '</h3>' +
@@ -3853,8 +4012,11 @@ var Render = (function () {
 
   function refresh() {
     computeMarkers();
+    var chain = (state.phase === 'play' && !state.players[state.current].eliminated)
+      ? M.supplyChain(state.board, state.current) : null;
     Render.draw(view, state, {
-      markers: ui.markers, placeable: ui.placeable, lastMove: state.lastMove
+      markers: ui.markers, placeable: ui.placeable, lastMove: state.lastMove,
+      chain: chain, chainColor: state.players[state.current].color
     });
     renderPlayers();
     renderPanel();

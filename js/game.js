@@ -56,6 +56,8 @@ var Game = (function () {
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
       lastProgressBy: null,
       endReason: null,
+      forest: 0,               // Bäume auf dem Feld
+      finalCountdown: null,    // läuft, sobald der letzte Baum gefallen ist
       moveNo: 0,               // zählt Aktionen – die Oberfläche erkennt daran Neues
       lastMove: null,          // { fromKey, toKey, type, owner, kind }
       lastCapture: null,       // { key, type, owner, by }
@@ -74,6 +76,21 @@ var Game = (function () {
 
   var STALL_LIMIT = 50;      // Züge ohne Fortschritt, dann wird gewertet
   var REPEAT_LIMIT = 3;      // dieselbe Stellung dreimal, dann wird gewertet
+  var FINAL_TURNS = 10;      // Züge nach dem letzten Baum bis zur Wertung
+
+  function countTrees(state) {
+    var n = 0;
+    state.board.keys.forEach(function (k) { if (state.board.cells[k].tree) n++; });
+    return n;
+  }
+
+  /* Beute: Wer eine Figur schlägt, bekommt die Hälfte ihrer Ausbildungskosten
+     als Holz zurück (aufgerundet). Beim Königs-Turm wechselt ohnehin der ganze
+     Vorrat den Besitzer. */
+  function plunder(type) {
+    var cost = U.DEFS[type].cost || 0;
+    return Math.ceil(cost / 2);
+  }
 
   /* Eindeutige Kennung der Stellung: Figuren, Bäume, Holz und wer am Zug ist. */
   function positionKey(state) {
@@ -230,6 +247,7 @@ var Game = (function () {
       state.phase = 'play';
       state.current = state.players.length - 1;
       state.turn = 1;
+      state.forest = countTrees(state);
       log(state, 'Das Spiel beginnt – ' + state.players[state.current].name + ' ist am Zug.', state.current);
     } else {
       state.current++;
@@ -253,8 +271,16 @@ var Game = (function () {
     });
     cell.piece = null;
     var vName = U.DEFS[victim.type].name;
-    log(state, U.DEFS[victim.type].name + ' von ' + state.players[victim.owner].name + ' geschlagen.', attacker);
-    if (victim.type === 'king') eliminate(state, victim.owner, attacker);
+    log(state, vName + ' von ' + state.players[victim.owner].name + ' geschlagen.', attacker);
+    if (victim.type === 'king') {
+      eliminate(state, victim.owner, attacker);
+    } else {
+      var beute = plunder(victim.type);
+      if (beute > 0 && attacker !== null && attacker !== undefined) {
+        state.players[attacker].wood += beute;
+        log(state, state.players[attacker].name + ' erbeutet ' + beute + ' Holz.', attacker);
+      }
+    }
     return vName;
   }
 
@@ -314,6 +340,19 @@ var Game = (function () {
   /* Nach jedem Zug prüfen, ob die Partie festgefahren ist. */
   function checkStalemate(state) {
     if (state.phase !== 'play') return false;
+
+    /* Rodungs-Uhr: Sobald der letzte Baum gefallen ist, kann niemand mehr Holz
+       gewinnen. Statt die Partie auslaufen zu lassen, läuft eine Schlussrunde –
+       und die Entscheidung, ob man den letzten Baum fällt, wird selbst zum Zug. */
+    state.forest = countTrees(state);
+    if (state.forest === 0 && state.finalCountdown === null) {
+      state.finalCountdown = FINAL_TURNS;
+      log(state, 'Der letzte Baum ist gefallen – noch ' + FINAL_TURNS + ' Züge bis zur Wertung.');
+    } else if (state.finalCountdown !== null) {
+      state.finalCountdown--;
+      if (state.finalCountdown <= 0) return adjudicate(state, 'Der Wald ist gerodet');
+    }
+
     state.sinceProgress++;
     var key = positionKey(state);
     state.history[key] = (state.history[key] || 0) + 1;
@@ -522,7 +561,8 @@ var Game = (function () {
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
-    STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT
+    countTrees: countTrees, plunder: plunder,
+    STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT, FINAL_TURNS: FINAL_TURNS
   };
 })();
 

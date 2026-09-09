@@ -412,9 +412,18 @@
       return;
     }
 
-    // Spielphase
+    // Spielphase – dazu der Stand des Waldes bzw. die Schlussrunde
+    var wald = state.finalCountdown !== null
+      ? '<span class="countdown">Wald gerodet · noch ' + state.finalCountdown +
+        (state.finalCountdown === 1 ? ' Zug' : ' Züge') + '</span>'
+      : (function () {
+          // live zählen: state.forest stammt vom Ende des letzten Zuges
+          var n = G.countTrees(state);
+          return '<span class="forest">\u{1F332} ' + n +
+                 (n === 1 ? ' Baum' : ' Bäume') + ' übrig</span>';
+        })();
     banner.innerHTML = 'Runde ' + state.turn + ' · <strong style="color:' + p.color + '">' +
-      esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood;
+      esc(p.name) + '</strong> · \u{1F332} ' + p.wood + ' · ' + wald;
 
     if (p.ai) {
       panel.innerHTML = '<h3>' + esc(p.name) + '</h3>' +
@@ -473,8 +482,11 @@
 
   function refresh() {
     computeMarkers();
+    var chain = (state.phase === 'play' && !state.players[state.current].eliminated)
+      ? M.supplyChain(state.board, state.current) : null;
     Render.draw(view, state, {
-      markers: ui.markers, placeable: ui.placeable, lastMove: state.lastMove
+      markers: ui.markers, placeable: ui.placeable, lastMove: state.lastMove,
+      chain: chain, chainColor: state.players[state.current].color
     });
     renderPlayers();
     renderPanel();

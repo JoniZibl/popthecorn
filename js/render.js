@@ -203,6 +203,19 @@ var Render = (function () {
       }));
     }
 
+    /* Versorgungskette des Spielers am Zug: Nur an dieser Kette darf ausgebildet
+       werden. Sichtbar gemacht wird daraus eine Positionsfrage statt einer
+       Überraschung, wenn plötzlich nichts mehr geht. */
+    if (ctx.chain && ctx.chain.links) {
+      ctx.chain.links.forEach(function (pair) {
+        var a = H.toPixel(pair[0], SIZE), b = H.toPixel(pair[1], SIZE);
+        view.layers.overlay.appendChild(el('line', {
+          class: 'supply-link', x1: a.x.toFixed(2), y1: a.y.toFixed(2),
+          x2: b.x.toFixed(2), y2: b.y.toFixed(2), stroke: ctx.chainColor || '#fff'
+        }));
+      });
+    }
+
     // Letzter Zug bleibt sichtbar – so ist nachvollziehbar, was die KI getan hat
     if (ctx.lastMove) {
       [['from', ctx.lastMove.fromKey], ['to', ctx.lastMove.toKey]].forEach(function (pair) {

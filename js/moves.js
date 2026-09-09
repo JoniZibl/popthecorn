@@ -245,30 +245,42 @@ var Moves = (function () {
     return uniq;
   }
 
-  /* Felder, auf denen ein Spieler ausbilden darf:
-     freie Felder neben dem König oder neben jeder mit ihm verbundenen eigenen Einheit. */
-  function trainingSpots(board, owner) {
+  /* Versorgungskette: alle eigenen Einheiten, die über eine lückenlose Kette
+     von Nachbarfeldern mit dem Königs-Turm verbunden sind – und die Verbindungen
+     dazwischen. Nur an dieser Kette darf ausgebildet werden. */
+  function supplyChain(board, owner) {
     var kingKey = null;
     for (var i = 0; i < board.keys.length; i++) {
       var c = board.cells[board.keys[i]];
       if (c.piece && c.piece.owner === owner && c.piece.type === 'king') { kingKey = board.keys[i]; break; }
     }
-    if (!kingKey) return [];
+    if (!kingKey) return { cells: [], links: [], king: null };
 
-    // Zusammenhängende Traube eigener Einheiten ab dem König
-    var cluster = {}, queue = [board.cells[kingKey]];
+    var cluster = {}, queue = [board.cells[kingKey]], cells = [], links = [];
     cluster[kingKey] = true;
+    cells.push(board.cells[kingKey]);
     while (queue.length) {
       var cur = queue.shift();
+      var curKey = H.key(cur.q, cur.r);
       H.neighbors(cur).forEach(function (nb) {
         var cell = B.at(board, nb);
         if (!cell || !cell.piece || cell.piece.owner !== owner) return;
         var k = H.key(cell.q, cell.r);
-        if (cluster[k]) return;
-        cluster[k] = true;
-        queue.push(cell);
+        if (!cluster[k]) { cluster[k] = true; cells.push(cell); queue.push(cell); }
+        // Verbindung nur einmal aufnehmen
+        if (curKey < k) links.push([cur, cell]);
       });
     }
+    return { cells: cells, links: links, king: board.cells[kingKey] };
+  }
+
+  /* Felder, auf denen ein Spieler ausbilden darf:
+     freie Felder neben dem König oder neben jeder mit ihm verbundenen eigenen Einheit. */
+  function trainingSpots(board, owner) {
+    var chain = supplyChain(board, owner);
+    if (!chain.king) return [];
+    var cluster = {};
+    chain.cells.forEach(function (c) { cluster[H.key(c.q, c.r)] = true; });
 
     var spots = {}, list = [];
     Object.keys(cluster).forEach(function (k) {
@@ -329,7 +341,7 @@ var Moves = (function () {
   }
 
   return {
-    forPiece: forPiece, trainingSpots: trainingSpots,
+    forPiece: forPiece, trainingSpots: trainingSpots, supplyChain: supplyChain,
     waterPlan: waterPlan, stepCost: stepCost, isWater: isWater, pathCells: pathCells,
     hasAnyAction: hasAnyAction, affordableUnits: affordableUnits,
     trainBlocker: trainBlocker, typesOnBoard: typesOnBoard, enterable: enterable

@@ -21,6 +21,36 @@ Holz kommt ausschließlich aus gefällten Bäumen und bezahlt jede neue Einheit.
 Ausgebildet wird auf freien Feldern rund um den Königs-Turm und um alle Einheiten,
 die über eine lückenlose Kette mit ihm verbunden sind.
 
+### Die Rodung als Uhr
+
+Bäume wachsen nicht nach. Fällt der **letzte Baum**, kann niemand mehr Holz gewinnen – dann
+läuft eine **Schlussrunde von 10 Zügen**, danach gewinnt das größere Vermögen. Der Waldstand
+und die Schlussrunde stehen in der Kopfzeile.
+
+Daraus wird eine Entscheidung, die es vorher nicht gab: *Fälle ich den letzten Baum?* Wer
+vorn liegt, friert damit seinen Vorsprung ein; wer zurückliegt, lässt ihn besser stehen und
+greift an. Gemessen an Teststellungen fällt die KI den letzten Baum mit Vorsprung in 7 von 10
+Fällen, im Rückstand nur in 4 von 14.
+
+Damit die KI das überhaupt sehen kann, steckt die Uhr an zwei Stellen: Die Suche zählt die
+Schlussrunde mit, und weil zehn Züge weiter reichen als die Suchtiefe, gewichtet die
+Bewertung bei leerem Wald zusätzlich den Vermögensstand – dort ist er kein Stellungsvorteil
+mehr, sondern die Partie selbst.
+
+### Beute
+
+Wer eine Figur schlägt, erhält die **Hälfte ihrer Ausbildungskosten** als Holz zurück
+(aufgerundet: 1 für die meisten Figuren, 2 für den Zenturio). Beim Königs-Turm wechselt
+ohnehin der gesamte Vorrat den Besitzer. Kämpfen bleibt damit auch bei leerem Wald
+wirtschaftlich sinnvoll – und wer zurückliegt, kann sich zurückkämpfen.
+
+### Versorgungskette
+
+Ausgebildet wird nur an Feldern rund um den Königs-Turm und um alle Einheiten, die über eine
+lückenlose Kette mit ihm verbunden sind. Diese Kette ist auf dem Brett als gepunktete Linie
+in der Farbe des Spielers am Zug zu sehen. Wer seine Figuren zu weit auseinanderzieht,
+verliert die Verbindung und kann vorn nichts mehr nachschieben.
+
 ### Eine Partie endet immer mit einem Sieger
 
 Läuft die Partie fest, wird gewertet – ein Unentschieden gibt es nicht. Ausgelöst wird die
@@ -207,6 +237,7 @@ build.js            baut alles zu einer einzigen HTML-Datei zusammen
 dist/hexodus.html   erzeugte Einzeldatei (CSS und JS eingebettet)
 test/figuren.js     Zielfelder der Figuren gegen die Regelkarten
 test/boot.js        Boot-Regeln inklusive des Beispiels von der Regelkarte
+test/rodung.js      Rodungs-Uhr und Beute
 test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
 test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
 test/jagd.js        KI gegen einen Gegner, der gezielt den Turm jagt
@@ -229,6 +260,7 @@ Verschicken, Hochladen oder Öffnen ohne lokalen Server.
 ```
 node test/figuren.js            # Zielfelder der Figuren gegen die Regelkarten
 node test/boot.js               # Boot-Regeln gegen die Regelkarte
+node test/rodung.js             # Rodungs-Uhr und Beute
 node test/ki.js                 # KI-Zuggenerierung gegen das Regelwerk
 node test/simulate.js 100       # komplette Zufallspartien
 node test/kispiel.js 10         # Spielstärke der KI
