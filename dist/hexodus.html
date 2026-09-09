@@ -155,7 +155,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .hud-btn:hover { border-color: var(--accent); color: var(--accent); }
 /* der Knopf für die Ansicht trägt Text statt eines Zeichens */
 .hud-btn.is-wide { font-size: 12px; font-weight: 700; letter-spacing: .06em; }
-.hud-btn .hud-icon {
+.hud-icon {
   width: 17px; height: 17px; display: block; margin: 0 auto;
   fill: none; stroke: currentColor; stroke-width: 2.4;
   stroke-linecap: round; stroke-linejoin: round;
@@ -235,6 +235,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   border: 1px solid var(--line); border-radius: 9px;
 }
 .wide-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Schublade und Handy-Leiste gibt es nur auf schmalen Bildschirmen */
+.sheet-extra, .mobile-bar { display: none; }
 
 .train-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .train-btn {
@@ -402,44 +405,113 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .hex-grass .hex-shape, .hex-water .hex-shape, .phase-banner { transition: none; }
 }
 
-/* ---------- Schmale Bildschirme ---------- */
+/* ---------- Schmale Bildschirme ----------
+   Am Handy zählt das Brett. Alles andere ist entweder eine dünne Zeile über
+   dem Brett oder wartet in einer Schublade, die man aufzieht, wenn man sie
+   braucht. Sichtbar bleiben genau zwei Knöpfe: die Schublade und die Ansicht. */
 @media (max-width: 900px) {
   .menu { grid-template-columns: 1fr; padding: 22px 16px 44px; gap: 20px; }
   .setup-card { grid-column: 1; grid-row: auto; }
   .hero h1 { font-size: clamp(38px, 13vw, 64px); }
   .lede { font-size: 15px; }
-  .game { grid-template-columns: 1fr; grid-template-rows: minmax(280px, 50vh) 1fr; }
-  .sidebar { border-left: 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
 
-  /* Spielerstand zuerst – Holz beider Seiten muss ohne Scrollen sichtbar sein */
-  .players {
-    order: 0; flex: 0 0 auto; flex-direction: row; overflow-x: auto; overflow-y: hidden;
-    gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line);
-  }
-  .player-card { align-self: stretch; }
-  .panel { order: 1; border-top: 0; padding-top: 10px; }
-  .players::-webkit-scrollbar { display: none; }
-  .player-card { flex: 0 0 auto; min-width: 150px; }
-  .log { order: 3; }
-  #log-list { max-height: 140px; }
+  /* Im Spiel gehört der Bildschirm dem Brett – die Kopfzeile ist Beiwerk.
+     Zurück ins Menü und zu den Regeln kommt man unten aus der Schublade. */
+  body.in-game .topbar { display: none; }
+
+  .game { display: block; position: relative; }
+  .board-wrap { position: absolute; inset: 0; }
+  /* Das Brett bekommt genau die freie Fläche: unter der Kopfzeile aus Chips und
+     Hinweis, über der Bedienleiste. Sonst läge das halbe Spielfeld darunter –
+     und das Einpassen rechnete mit Platz, den es nicht gibt. */
+  .board { top: 78px; bottom: 54px; }
   .legend { display: none; }
+
+  /* Die Seitenleiste wird zur durchsichtigen Ebene über dem Brett; nur ihre
+     Kinder nehmen Berührungen an, damit man überall aufs Brett fassen kann. */
+  .sidebar {
+    position: absolute; inset: 0; z-index: 5;
+    border: 0; background: none; overflow: visible; display: block;
+    pointer-events: none;
+  }
+
+  /* Wichtigste Info: Wer ist dran und wie viel Holz hat wer. Mehr nicht. */
+  .players {
+    position: absolute; top: 8px; left: 8px; right: 8px; z-index: 2;
+    flex-direction: row; justify-content: center; gap: 6px;
+    padding: 0; background: none; border: 0; overflow: visible;
+    pointer-events: auto;
+  }
+  .player-card {
+    flex: 0 0 auto; min-width: 0; gap: 6px; padding: 5px 10px; border-radius: 999px;
+    display: flex; align-items: center; border-left-width: 1px;
+    background: rgba(24, 28, 34, .92);
+  }
+  .player-card .pname, .player-card .meta, .player-card .ai-tag { display: none; }
+  .player-card .swatch { width: 10px; height: 10px; }
+  .player-card .wood { font-size: 14px; }
+  .player-card.is-current { box-shadow: 0 0 0 2px var(--pc) inset; }
+
+  .phase-banner { top: 44px; font-size: 13px; padding: 6px 12px; }
+
+  /* Die Kamerasteuerung ist eingeklappt, bis man sie über die Leiste aufruft */
+  .board-hud {
+    flex-direction: row; flex-wrap: wrap; justify-content: flex-end;
+    top: auto; bottom: 58px; right: 8px; width: 198px;
+  }
+  .board-hud .hud-btn { display: none; }
+  .board-hud.is-open .hud-btn { display: block; }
+  .hud-btn { width: 42px; height: 42px; font-size: 18px; }
+  /* Die Anzeige schwebt über den Knöpfen, statt in ihrer Reihe mitzuzählen –
+     sonst passen statt vier nur drei Knöpfe nebeneinander. */
+  .cam-readout { position: absolute; right: 0; bottom: 100%; margin-bottom: 6px; }
+
+  /* Schublade: liegt unter dem Bildrand und fährt bei Bedarf herauf */
+  .panel {
+    position: absolute; left: 0; right: 0; bottom: 50px; z-index: 3;
+    max-height: 64%; overflow: auto; padding: 4px 12px 14px;
+    background: var(--bg); border-top: 1px solid var(--line);
+    border-radius: 14px 14px 0 0; box-shadow: 0 -12px 30px rgba(0, 0, 0, .45);
+    transform: translateY(calc(100% + 60px)); transition: transform .24s ease;
+    pointer-events: auto; visibility: hidden;
+  }
+  .panel.is-open { transform: none; visibility: visible; }
+  /* Die langen Erklärungen stehen im Regelwerk – in der Schublade zählt,
+     was man antippen kann. */
+  .panel .hint.small { display: none; }
+  .sheet-extra { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+  .sheet-extra .wide-btn { margin: 0; }
+
+  /* Der Verlauf entfällt am Handy: Was zuletzt geschah, steht auf dem Brett –
+     gestrichelt das Start-, weiß das Zielfeld des letzten Zuges. */
+  .log { display: none; }
+
+  /* Die einzige feste Bedienung: Schublade auf, Ansicht einstellen */
+  .mobile-bar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+    display: flex; gap: 8px; padding: 4px 8px 8px;
+    pointer-events: none;
+  }
+  .bar-btn {
+    height: 42px; border-radius: 12px; pointer-events: auto;
+    background: rgba(24, 28, 34, .94); color: var(--text);
+    border: 1px solid var(--line); font-size: 14px; font-weight: 600;
+  }
+  .bar-btn.is-main { flex: 1 1 auto; }
+  .bar-btn.is-main::after { content: ' ▲'; font-size: 10px; color: var(--muted); }
+  .bar-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+  .bar-btn.is-main[aria-expanded="true"]::after { content: ' ▼'; }
+  .bar-btn .hud-icon { width: 20px; height: 20px; }
+  .bar-btn { width: 46px; }
+  .bar-btn.is-main { width: auto; }
+  /* verlangt das Spiel eine Entscheidung, sticht die Schublade hervor */
+  .bar-btn.is-main.is-urgent { border-color: var(--accent); color: var(--accent); }
 
   /* Fingerfreundliche Ziele */
   .wide-btn, .train-btn, .dir-btn { min-height: 46px; }
-  /* sechs Knöpfe übereinander passen nicht neben ein halbhohes Brett –
-     auf dem Handy liegen sie als Zeile unten rechts, wo die Legende entfällt */
-  /* acht Knöpfe übereinander passen nicht neben ein halbhohes Brett – auf dem
-     Handy liegen sie als zwei Reihen unten rechts, wo die Legende entfällt */
-  .board-hud {
-    flex-direction: row; flex-wrap: wrap; justify-content: flex-end;
-    top: auto; bottom: 10px; right: 10px; width: 198px;
-  }
-  .hud-btn { width: 42px; height: 42px; font-size: 18px; }
-  .cam-readout { order: -1; }
   .ghost-btn { padding: 9px 12px; }
   .topbar { padding: 8px 12px; }
   .brand-name { font-size: 18px; letter-spacing: .12em; }
-  .phase-banner { font-size: 13px; padding: 7px 12px; }
   .overlay { padding: 14px 10px; }
   .overlay-inner { padding: 20px 16px; }
   .rule-cards { grid-template-columns: 1fr; }
@@ -449,7 +521,6 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .train-btn { padding: 7px 8px; }
   .train-btn .tn { font-size: 12px; }
   .unit-strip { grid-template-columns: 1fr 1fr; }
-  .player-card { min-width: 138px; }
 }
 
 </style>
@@ -540,12 +611,29 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 
   <aside class="sidebar">
     <div id="players" class="players"></div>
-    <div id="action-panel" class="panel"></div>
+    <div id="sheet" class="panel">
+      <div id="action-panel"></div>
+      <!-- Am Handy ist die Kopfzeile ausgeblendet; diese beiden Wege bleiben -->
+      <div class="sheet-extra">
+        <button id="sheet-rules" class="wide-btn">Regeln</button>
+        <button id="sheet-menu" class="wide-btn">Neues Spiel</button>
+      </div>
+    </div>
     <div class="log">
       <h3>Verlauf</h3>
       <ul id="log-list"></ul>
     </div>
   </aside>
+
+  <!-- Nur am Handy: alles, was man wirklich braucht, in einer Zeile -->
+  <div id="mobile-bar" class="mobile-bar">
+    <button id="sheet-toggle" class="bar-btn is-main" aria-expanded="false">Aktionen</button>
+    <button id="hud-toggle" class="bar-btn" title="Ansicht einstellen" aria-expanded="false">
+      <svg class="hud-icon" viewBox="-11 -11 22 22" aria-hidden="true">
+        <path d="M-9,2 L0,-4 L9,2 L0,8 Z"/><path d="M0,-8 L0,-4"/>
+      </svg>
+    </button>
+  </div>
 </main>
 
 <!-- ---------- Regelwerk ---------- -->
@@ -3466,7 +3554,8 @@ var Render = (function () {
         }
       }
     });
-    return { minX: minX - 8, minY: minY - 34, maxX: maxX + 8, maxY: maxY + 8 };
+    // oben Platz für die stehenden Bäume und Figuren, die über ihr Feld hinausragen
+    return { minX: minX - 8, minY: minY - 44, maxX: maxX + 8, maxY: maxY + 8 };
   }
 
   function boxOf(view) {
@@ -3567,13 +3656,13 @@ var Render = (function () {
     var seed = jitter(cell);
     var scale = 0.92 + (seed % 22) / 100;
     var tilt = ((seed >> 5) % 9) - 4;
-    groundShadow(g, cam, o, cx, cy, 0, 10.5 * scale, 'tree-shadow');
+    groundShadow(g, cam, o, cx, cy, 0, 13 * scale, 'tree-shadow');
     // Aufsteller: Stamm und Krone stehen auf dem Standpunkt (y = 0)
     var stand = el('g', { transform: 'scale(' + k.toFixed(3) + ') rotate(' + tilt + ')' });
     var body = el('g', { transform: 'scale(' + scale.toFixed(2) + ')' });
-    body.appendChild(el('rect', { class: 'tree-trunk', x: -2.4, y: -7, width: 4.8, height: 7.6, rx: 1.2 }));
-    body.appendChild(el('path', { class: 'tree-top', d: 'M0,-28 L10,-4 L-10,-4 Z' }));
-    body.appendChild(el('path', { class: 'tree-top2', d: 'M0,-28 L10,-4 L0,-4 Z' }));
+    body.appendChild(el('rect', { class: 'tree-trunk', x: -3, y: -9, width: 6, height: 9.5, rx: 1.4 }));
+    body.appendChild(el('path', { class: 'tree-top', d: 'M0,-35 L12.5,-5 L-12.5,-5 Z' }));
+    body.appendChild(el('path', { class: 'tree-top2', d: 'M0,-35 L12.5,-5 L0,-5 Z' }));
     stand.appendChild(body);
     g.appendChild(stand);
   }
@@ -3952,7 +4041,8 @@ var Render = (function () {
   var state = null;
   var view = null;
   var ui = { mode: 'idle', trainType: null, markers: [], placeable: null,
-             thinking: false, shownEvent: 0, woodShown: null };
+             thinking: false, shownEvent: 0, woodShown: null,
+             sheetOpen: false, sheetAuto: false, sheetMove: null };
 
   function $(sel) { return document.querySelector(sel); }
   function esc(s) {
@@ -4010,9 +4100,12 @@ var Render = (function () {
   function startGame(names, kinds) {
     state = G.create(names, kinds);
     ui = { mode: 'idle', trainType: null, markers: [], placeable: null,
-           thinking: false, shownEvent: 0, woodShown: null };
+           thinking: false, shownEvent: 0, woodShown: null,
+           sheetOpen: false, sheetAuto: false, sheetMove: null };
     $('#screen-menu').classList.add('hidden');
     $('#screen-game').classList.remove('hidden');
+    // am Handy blendet das die Kopfzeile aus – der Bildschirm gehört dem Brett
+    document.body.classList.add('in-game');
     if (!view) {
       view = Render.create($('#board'));
       ladeAnsicht();
@@ -4022,6 +4115,8 @@ var Render = (function () {
     // Brett zuletzt hingestellt hat.
     Render.setCamera(view, ansicht.pitch, ansicht.yaw);
     Render.fit(view, state.board);
+    var r = $('#board').getBoundingClientRect();
+    brettGroesse = { w: r.width, h: r.height };
     updateTiltButton();
     refresh();
   }
@@ -4032,6 +4127,7 @@ var Render = (function () {
      die Zellen müssen für den Maler-Algorithmus neu sortiert werden. */
 
   var camAnim = null;
+  var brettGroesse = null;      // zuletzt gesehene Größe der Brettfläche
 
   /* Der eingestellte Blickwinkel gehört dem Spieler, nicht der Partie: Er
      überlebt das Umschalten in die Draufsicht, ein neues Spiel und das
@@ -4176,6 +4272,10 @@ var Render = (function () {
     }
 
     svg.addEventListener('pointerdown', function (e) {
+      // Wer das Brett anfasst, will das Brett: Schublade und Kamerasteuerung
+      // machen Platz. Verlangt die Stellung eine Entscheidung, zieht das
+      // nächste Neuzeichnen die Schublade ohnehin wieder auf.
+      schliesseUeberlagerungen();
       // Zielfeld schon hier merken: durch das Pointer-Capture landet das
       // pointerup-Event sonst auf dem SVG statt auf dem Hexfeld.
       var node = e.target.closest ? e.target.closest('[data-key]') : null;
@@ -4374,6 +4474,87 @@ var Render = (function () {
       ui.trainType = null;
       refresh();
     }
+  }
+
+  /* ---------------- Handy: Schublade und Ansicht ----------------
+     Am Handy gehört der Bildschirm dem Brett. Die Aktionen warten in einer
+     Schublade, die Kamerasteuerung ist eingeklappt. Von selbst aufgezogen wird
+     die Schublade nur, wenn das Spiel eine Entscheidung verlangt – und wieder
+     geschlossen, sobald man ein Feld antippen soll. */
+
+  function schmal() {
+    return !window.matchMedia || window.matchMedia('(max-width: 900px)').matches;
+  }
+
+  // Verlangt die Stellung eine Eingabe, die nur die Schublade bietet?
+  function brauchtSchublade() {
+    if (!state) return false;
+    if (state.phase === 'over' || state.pending) return true;
+    if (state.phase !== 'play') return false;
+    var p = state.players[state.current];
+    return !p.ai && !p.eliminated && !M.hasAnyAction(state, state.current);
+  }
+
+  function schubladenTitel() {
+    if (!state) return 'Aktionen';
+    if (state.phase === 'over') return 'Spielende';
+    if (state.pending) return 'Richtung wählen';
+    if (state.phase === 'trees') return 'Bäume';
+    if (state.phase === 'kings') return 'Aufstellen';
+    if (state.players[state.current].ai) return 'Aktionen';
+    return brauchtSchublade() ? 'Zug aussetzen' : 'Ausbilden';
+  }
+
+  function setSchublade(offen) {
+    ui.sheetOpen = !!offen;
+    var sheet = $('#sheet'), knopf = $('#sheet-toggle');
+    if (sheet) sheet.classList.toggle('is-open', ui.sheetOpen);
+    if (knopf) knopf.setAttribute('aria-expanded', ui.sheetOpen ? 'true' : 'false');
+  }
+
+  function updateSchublade() {
+    var knopf = $('#sheet-toggle');
+    var noetig = brauchtSchublade();
+    if (knopf) {
+      knopf.textContent = schubladenTitel();
+      knopf.classList.toggle('is-urgent', noetig);
+    }
+    if (!schmal()) return setSchublade(false);
+    // Ein neuer Zug – oder ein Phasenwechsel – räumt die Schublade wieder weg,
+    // damit das Brett frei liegt
+    var marke = state.phase + '#' + state.moveNo;
+    if (ui.sheetMove !== marke) {
+      ui.sheetMove = marke;
+      if (!noetig) setSchublade(false);
+    }
+    // Von selbst Aufgezogenes wird auch von selbst wieder weggeräumt, sobald
+    // die Entscheidung getroffen ist – von Hand Geöffnetes bleibt stehen.
+    if (noetig) { ui.sheetAuto = true; return setSchublade(true); }
+    if (ui.sheetAuto) { ui.sheetAuto = false; return setSchublade(false); }
+    if (ui.trainType) return setSchublade(false);   // jetzt wird ein Feld angetippt
+    setSchublade(ui.sheetOpen);
+  }
+
+  function schliesseUeberlagerungen() {
+    if (!schmal()) return;
+    if (ui.sheetOpen) setSchublade(false);
+    var hud = $('.board-hud'), knopf = $('#hud-toggle');
+    if (hud && hud.classList.contains('is-open')) {
+      hud.classList.remove('is-open');
+      if (knopf) knopf.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function bindMobileBar() {
+    $('#sheet-toggle').addEventListener('click', function () { setSchublade(!ui.sheetOpen); });
+    $('#hud-toggle').addEventListener('click', function () {
+      var hud = $('.board-hud');
+      var offen = !hud.classList.contains('is-open');
+      hud.classList.toggle('is-open', offen);
+      this.setAttribute('aria-expanded', offen ? 'true' : 'false');
+    });
+    $('#sheet-rules').addEventListener('click', function () { $('#rules').classList.remove('hidden'); });
+    $('#sheet-menu').addEventListener('click', backToMenu);
   }
 
   /* ---------------- Markierungen ---------------- */
@@ -4577,7 +4758,7 @@ var Render = (function () {
     html += selectedHtml();
     if (!state.pending) html += trainMenuHtml();
     if (!state.selected && !state.pending) {
-      html += '<p class="hint">Wähle eine eigene Figur, um ihre Züge zu sehen.</p>';
+      html += '<p class="hint small">Wähle eine eigene Figur, um ihre Züge zu sehen.</p>';
     }
     panel.innerHTML = html;
   }
@@ -4615,6 +4796,9 @@ var Render = (function () {
   function backToMenu() {
     $('#screen-game').classList.add('hidden');
     $('#screen-menu').classList.remove('hidden');
+    document.body.classList.remove('in-game');
+    $('#rules').classList.add('hidden');
+    setSchublade(false);
   }
 
   function refresh() {
@@ -4628,6 +4812,7 @@ var Render = (function () {
     renderPlayers();
     renderPanel();
     renderLog();
+    updateSchublade();
     playEffects();
     scheduleAI();
   }
@@ -4829,9 +5014,24 @@ var Render = (function () {
     buildMenu();
     buildRules();
     bindPanel();
+    bindMobileBar();
     $('#new-game').addEventListener('click', backToMenu);
+    /* Beim Drehen des Geräts wechselt die freie Fläche völlig – dann wird das
+       Brett neu eingepasst. Kleine Änderungen lassen den gewählten Ausschnitt
+       in Ruhe: Wer hineingezoomt hat, soll das nicht durch eine eingeblendete
+       Adressleiste verlieren. */
     window.addEventListener('resize', function () {
-      if (state && view && !$('#screen-game').classList.contains('hidden')) Render.applyView(view);
+      if (!state || !view || $('#screen-game').classList.contains('hidden')) return;
+      var r = $('#board').getBoundingClientRect();
+      var alt = brettGroesse;
+      brettGroesse = { w: r.width, h: r.height };
+      if (alt && r.width && r.height &&
+          (Math.abs(r.width - alt.w) > alt.w * 0.15 || Math.abs(r.height - alt.h) > alt.h * 0.15)) {
+        Render.fit(view, state.board);
+        refresh();
+      } else {
+        Render.applyView(view);
+      }
     });
   });
 })();

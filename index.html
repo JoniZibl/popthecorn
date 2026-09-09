@@ -96,12 +96,29 @@
 
   <aside class="sidebar">
     <div id="players" class="players"></div>
-    <div id="action-panel" class="panel"></div>
+    <div id="sheet" class="panel">
+      <div id="action-panel"></div>
+      <!-- Am Handy ist die Kopfzeile ausgeblendet; diese beiden Wege bleiben -->
+      <div class="sheet-extra">
+        <button id="sheet-rules" class="wide-btn">Regeln</button>
+        <button id="sheet-menu" class="wide-btn">Neues Spiel</button>
+      </div>
+    </div>
     <div class="log">
       <h3>Verlauf</h3>
       <ul id="log-list"></ul>
     </div>
   </aside>
+
+  <!-- Nur am Handy: alles, was man wirklich braucht, in einer Zeile -->
+  <div id="mobile-bar" class="mobile-bar">
+    <button id="sheet-toggle" class="bar-btn is-main" aria-expanded="false">Aktionen</button>
+    <button id="hud-toggle" class="bar-btn" title="Ansicht einstellen" aria-expanded="false">
+      <svg class="hud-icon" viewBox="-11 -11 22 22" aria-hidden="true">
+        <path d="M-9,2 L0,-4 L9,2 L0,8 Z"/><path d="M0,-8 L0,-4"/>
+      </svg>
+    </button>
+  </div>
 </main>
 
 <!-- ---------- Regelwerk ---------- -->

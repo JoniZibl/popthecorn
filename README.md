@@ -238,7 +238,7 @@ mitwandert, oder wenn ein Finger liegen bleibt und nur der andere wegzieht.
   Springer trägt einen breiten Pfeil zwischen seinen beiden Sprungrichtungen, der Legionär
   zwei Pfeile für seine Achse nach vorn und zurück.
 * Brett verschieben durch Ziehen, Zoom per Mausrad, Zwei-Finger-Geste oder über die
-  Schaltflächen rechts oben. Am Handy liegen die Aktionen direkt unter dem Brett.
+  Schaltflächen rechts oben.
 * **Blickwinkel** stellst du selbst ein: `⟲` `⟳` drehen, die beiden Pfeilknöpfe kippen –
   jeder Druck um sechs Grad, von der Draufsicht bis fast auf Augenhöhe mit dem Brett.
   `2D`/`3D` springt zwischen der Draufsicht und **genau dem Winkel, den du eingestellt
@@ -250,6 +250,35 @@ mitwandert, oder wenn ein Finger liegen bleibt und nur der andere wegzieht.
   nächste Partie und über das Neuladen der Seite hinweg. War vorher das ganze Brett zu
   sehen, passt es sich nach dem Drehen selbst wieder ein; wer hineingezoomt hat, behält
   seinen Ausschnitt.
+
+## Am Handy
+
+Auf schmalen Bildschirmen gehört der Bildschirm dem Brett. Sichtbar bleibt nur, was man
+zum Spielen wirklich braucht:
+
+* **Oben** eine Zeile aus Farbpunkt und Holzstand je Spieler – der Spieler am Zug ist
+  umrandet – und darunter der Hinweis, was gerade zu tun ist.
+* **Das Brett** dazwischen, über die ganze Fläche.
+* **Unten zwei Knöpfe**: die *Schublade* mit allen Aktionen und die *Ansicht* mit der
+  Kamerasteuerung. Beide sind eingeklappt, bis man sie braucht.
+
+Die Kopfzeile mit Schriftzug entfällt im Spiel; Regelwerk und „Neues Spiel“ stehen unten in
+der Schublade. Der Verlauf entfällt ganz – was zuletzt geschah, steht auf dem Brett:
+gestrichelt das Start-, weiß das Zielfeld des letzten Zuges.
+
+Die Schublade zieht sich **von selbst auf**, wenn das Spiel eine Entscheidung verlangt: eine
+Richtung nach dem Zug einer Richtungsfigur, ein Zug, der ausgesetzt werden muss, das
+Spielende. Ist die Entscheidung getroffen, räumt sie sich wieder weg – von Hand Geöffnetes
+bleibt dagegen stehen. Wer eine Einheit zum Ausbilden wählt, bekommt sie ebenfalls aus dem
+Weg geräumt, denn der nächste Schritt ist ein Fingertipp aufs Brett. Und wer das Brett
+anfasst, schließt damit Schublade und Kamerasteuerung – wer das Brett anfasst, meint das
+Brett.
+
+Das Brett bekommt genau die freie Fläche zwischen Kopfzeile und Bedienleiste zugewiesen,
+nicht den ganzen Bildschirm. Sonst läge die Hälfte des Spielfelds unter den Einblendungen –
+und das Einpassen rechnete mit Platz, den es gar nicht gibt. Dreht man das Gerät, wird neu
+eingepasst; kleine Änderungen der Fenstergröße lassen den gewählten Ausschnitt in Ruhe,
+damit eine ein- und ausfahrende Adressleiste nicht dauernd den Zoom verstellt.
 
 ## Auslegung der Regeln
 

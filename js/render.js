@@ -170,7 +170,8 @@ var Render = (function () {
         }
       }
     });
-    return { minX: minX - 8, minY: minY - 34, maxX: maxX + 8, maxY: maxY + 8 };
+    // oben Platz für die stehenden Bäume und Figuren, die über ihr Feld hinausragen
+    return { minX: minX - 8, minY: minY - 44, maxX: maxX + 8, maxY: maxY + 8 };
   }
 
   function boxOf(view) {
@@ -271,13 +272,13 @@ var Render = (function () {
     var seed = jitter(cell);
     var scale = 0.92 + (seed % 22) / 100;
     var tilt = ((seed >> 5) % 9) - 4;
-    groundShadow(g, cam, o, cx, cy, 0, 10.5 * scale, 'tree-shadow');
+    groundShadow(g, cam, o, cx, cy, 0, 13 * scale, 'tree-shadow');
     // Aufsteller: Stamm und Krone stehen auf dem Standpunkt (y = 0)
     var stand = el('g', { transform: 'scale(' + k.toFixed(3) + ') rotate(' + tilt + ')' });
     var body = el('g', { transform: 'scale(' + scale.toFixed(2) + ')' });
-    body.appendChild(el('rect', { class: 'tree-trunk', x: -2.4, y: -7, width: 4.8, height: 7.6, rx: 1.2 }));
-    body.appendChild(el('path', { class: 'tree-top', d: 'M0,-28 L10,-4 L-10,-4 Z' }));
-    body.appendChild(el('path', { class: 'tree-top2', d: 'M0,-28 L10,-4 L0,-4 Z' }));
+    body.appendChild(el('rect', { class: 'tree-trunk', x: -3, y: -9, width: 6, height: 9.5, rx: 1.4 }));
+    body.appendChild(el('path', { class: 'tree-top', d: 'M0,-35 L12.5,-5 L-12.5,-5 Z' }));
+    body.appendChild(el('path', { class: 'tree-top2', d: 'M0,-35 L12.5,-5 L0,-5 Z' }));
     stand.appendChild(body);
     g.appendChild(stand);
   }

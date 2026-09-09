@@ -11,7 +11,8 @@
   var state = null;
   var view = null;
   var ui = { mode: 'idle', trainType: null, markers: [], placeable: null,
-             thinking: false, shownEvent: 0, woodShown: null };
+             thinking: false, shownEvent: 0, woodShown: null,
+             sheetOpen: false, sheetAuto: false, sheetMove: null };
 
   function $(sel) { return document.querySelector(sel); }
   function esc(s) {
@@ -69,9 +70,12 @@
   function startGame(names, kinds) {
     state = G.create(names, kinds);
     ui = { mode: 'idle', trainType: null, markers: [], placeable: null,
-           thinking: false, shownEvent: 0, woodShown: null };
+           thinking: false, shownEvent: 0, woodShown: null,
+           sheetOpen: false, sheetAuto: false, sheetMove: null };
     $('#screen-menu').classList.add('hidden');
     $('#screen-game').classList.remove('hidden');
+    // am Handy blendet das die Kopfzeile aus – der Bildschirm gehört dem Brett
+    document.body.classList.add('in-game');
     if (!view) {
       view = Render.create($('#board'));
       ladeAnsicht();
@@ -81,6 +85,8 @@
     // Brett zuletzt hingestellt hat.
     Render.setCamera(view, ansicht.pitch, ansicht.yaw);
     Render.fit(view, state.board);
+    var r = $('#board').getBoundingClientRect();
+    brettGroesse = { w: r.width, h: r.height };
     updateTiltButton();
     refresh();
   }
@@ -91,6 +97,7 @@
      die Zellen müssen für den Maler-Algorithmus neu sortiert werden. */
 
   var camAnim = null;
+  var brettGroesse = null;      // zuletzt gesehene Größe der Brettfläche
 
   /* Der eingestellte Blickwinkel gehört dem Spieler, nicht der Partie: Er
      überlebt das Umschalten in die Draufsicht, ein neues Spiel und das
@@ -235,6 +242,10 @@
     }
 
     svg.addEventListener('pointerdown', function (e) {
+      // Wer das Brett anfasst, will das Brett: Schublade und Kamerasteuerung
+      // machen Platz. Verlangt die Stellung eine Entscheidung, zieht das
+      // nächste Neuzeichnen die Schublade ohnehin wieder auf.
+      schliesseUeberlagerungen();
       // Zielfeld schon hier merken: durch das Pointer-Capture landet das
       // pointerup-Event sonst auf dem SVG statt auf dem Hexfeld.
       var node = e.target.closest ? e.target.closest('[data-key]') : null;
@@ -433,6 +444,87 @@
       ui.trainType = null;
       refresh();
     }
+  }
+
+  /* ---------------- Handy: Schublade und Ansicht ----------------
+     Am Handy gehört der Bildschirm dem Brett. Die Aktionen warten in einer
+     Schublade, die Kamerasteuerung ist eingeklappt. Von selbst aufgezogen wird
+     die Schublade nur, wenn das Spiel eine Entscheidung verlangt – und wieder
+     geschlossen, sobald man ein Feld antippen soll. */
+
+  function schmal() {
+    return !window.matchMedia || window.matchMedia('(max-width: 900px)').matches;
+  }
+
+  // Verlangt die Stellung eine Eingabe, die nur die Schublade bietet?
+  function brauchtSchublade() {
+    if (!state) return false;
+    if (state.phase === 'over' || state.pending) return true;
+    if (state.phase !== 'play') return false;
+    var p = state.players[state.current];
+    return !p.ai && !p.eliminated && !M.hasAnyAction(state, state.current);
+  }
+
+  function schubladenTitel() {
+    if (!state) return 'Aktionen';
+    if (state.phase === 'over') return 'Spielende';
+    if (state.pending) return 'Richtung wählen';
+    if (state.phase === 'trees') return 'Bäume';
+    if (state.phase === 'kings') return 'Aufstellen';
+    if (state.players[state.current].ai) return 'Aktionen';
+    return brauchtSchublade() ? 'Zug aussetzen' : 'Ausbilden';
+  }
+
+  function setSchublade(offen) {
+    ui.sheetOpen = !!offen;
+    var sheet = $('#sheet'), knopf = $('#sheet-toggle');
+    if (sheet) sheet.classList.toggle('is-open', ui.sheetOpen);
+    if (knopf) knopf.setAttribute('aria-expanded', ui.sheetOpen ? 'true' : 'false');
+  }
+
+  function updateSchublade() {
+    var knopf = $('#sheet-toggle');
+    var noetig = brauchtSchublade();
+    if (knopf) {
+      knopf.textContent = schubladenTitel();
+      knopf.classList.toggle('is-urgent', noetig);
+    }
+    if (!schmal()) return setSchublade(false);
+    // Ein neuer Zug – oder ein Phasenwechsel – räumt die Schublade wieder weg,
+    // damit das Brett frei liegt
+    var marke = state.phase + '#' + state.moveNo;
+    if (ui.sheetMove !== marke) {
+      ui.sheetMove = marke;
+      if (!noetig) setSchublade(false);
+    }
+    // Von selbst Aufgezogenes wird auch von selbst wieder weggeräumt, sobald
+    // die Entscheidung getroffen ist – von Hand Geöffnetes bleibt stehen.
+    if (noetig) { ui.sheetAuto = true; return setSchublade(true); }
+    if (ui.sheetAuto) { ui.sheetAuto = false; return setSchublade(false); }
+    if (ui.trainType) return setSchublade(false);   // jetzt wird ein Feld angetippt
+    setSchublade(ui.sheetOpen);
+  }
+
+  function schliesseUeberlagerungen() {
+    if (!schmal()) return;
+    if (ui.sheetOpen) setSchublade(false);
+    var hud = $('.board-hud'), knopf = $('#hud-toggle');
+    if (hud && hud.classList.contains('is-open')) {
+      hud.classList.remove('is-open');
+      if (knopf) knopf.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function bindMobileBar() {
+    $('#sheet-toggle').addEventListener('click', function () { setSchublade(!ui.sheetOpen); });
+    $('#hud-toggle').addEventListener('click', function () {
+      var hud = $('.board-hud');
+      var offen = !hud.classList.contains('is-open');
+      hud.classList.toggle('is-open', offen);
+      this.setAttribute('aria-expanded', offen ? 'true' : 'false');
+    });
+    $('#sheet-rules').addEventListener('click', function () { $('#rules').classList.remove('hidden'); });
+    $('#sheet-menu').addEventListener('click', backToMenu);
   }
 
   /* ---------------- Markierungen ---------------- */
@@ -636,7 +728,7 @@
     html += selectedHtml();
     if (!state.pending) html += trainMenuHtml();
     if (!state.selected && !state.pending) {
-      html += '<p class="hint">Wähle eine eigene Figur, um ihre Züge zu sehen.</p>';
+      html += '<p class="hint small">Wähle eine eigene Figur, um ihre Züge zu sehen.</p>';
     }
     panel.innerHTML = html;
   }
@@ -674,6 +766,9 @@
   function backToMenu() {
     $('#screen-game').classList.add('hidden');
     $('#screen-menu').classList.remove('hidden');
+    document.body.classList.remove('in-game');
+    $('#rules').classList.add('hidden');
+    setSchublade(false);
   }
 
   function refresh() {
@@ -687,6 +782,7 @@
     renderPlayers();
     renderPanel();
     renderLog();
+    updateSchublade();
     playEffects();
     scheduleAI();
   }
@@ -888,9 +984,24 @@
     buildMenu();
     buildRules();
     bindPanel();
+    bindMobileBar();
     $('#new-game').addEventListener('click', backToMenu);
+    /* Beim Drehen des Geräts wechselt die freie Fläche völlig – dann wird das
+       Brett neu eingepasst. Kleine Änderungen lassen den gewählten Ausschnitt
+       in Ruhe: Wer hineingezoomt hat, soll das nicht durch eine eingeblendete
+       Adressleiste verlieren. */
     window.addEventListener('resize', function () {
-      if (state && view && !$('#screen-game').classList.contains('hidden')) Render.applyView(view);
+      if (!state || !view || $('#screen-game').classList.contains('hidden')) return;
+      var r = $('#board').getBoundingClientRect();
+      var alt = brettGroesse;
+      brettGroesse = { w: r.width, h: r.height };
+      if (alt && r.width && r.height &&
+          (Math.abs(r.width - alt.w) > alt.w * 0.15 || Math.abs(r.height - alt.h) > alt.h * 0.15)) {
+        Render.fit(view, state.board);
+        refresh();
+      } else {
+        Render.applyView(view);
+      }
     });
   });
 })();

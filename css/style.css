@@ -152,7 +152,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .hud-btn:hover { border-color: var(--accent); color: var(--accent); }
 /* der Knopf für die Ansicht trägt Text statt eines Zeichens */
 .hud-btn.is-wide { font-size: 12px; font-weight: 700; letter-spacing: .06em; }
-.hud-btn .hud-icon {
+.hud-icon {
   width: 17px; height: 17px; display: block; margin: 0 auto;
   fill: none; stroke: currentColor; stroke-width: 2.4;
   stroke-linecap: round; stroke-linejoin: round;
@@ -232,6 +232,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   border: 1px solid var(--line); border-radius: 9px;
 }
 .wide-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Schublade und Handy-Leiste gibt es nur auf schmalen Bildschirmen */
+.sheet-extra, .mobile-bar { display: none; }
 
 .train-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .train-btn {
@@ -399,44 +402,113 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .hex-grass .hex-shape, .hex-water .hex-shape, .phase-banner { transition: none; }
 }
 
-/* ---------- Schmale Bildschirme ---------- */
+/* ---------- Schmale Bildschirme ----------
+   Am Handy zählt das Brett. Alles andere ist entweder eine dünne Zeile über
+   dem Brett oder wartet in einer Schublade, die man aufzieht, wenn man sie
+   braucht. Sichtbar bleiben genau zwei Knöpfe: die Schublade und die Ansicht. */
 @media (max-width: 900px) {
   .menu { grid-template-columns: 1fr; padding: 22px 16px 44px; gap: 20px; }
   .setup-card { grid-column: 1; grid-row: auto; }
   .hero h1 { font-size: clamp(38px, 13vw, 64px); }
   .lede { font-size: 15px; }
-  .game { grid-template-columns: 1fr; grid-template-rows: minmax(280px, 50vh) 1fr; }
-  .sidebar { border-left: 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
 
-  /* Spielerstand zuerst – Holz beider Seiten muss ohne Scrollen sichtbar sein */
-  .players {
-    order: 0; flex: 0 0 auto; flex-direction: row; overflow-x: auto; overflow-y: hidden;
-    gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line);
-  }
-  .player-card { align-self: stretch; }
-  .panel { order: 1; border-top: 0; padding-top: 10px; }
-  .players::-webkit-scrollbar { display: none; }
-  .player-card { flex: 0 0 auto; min-width: 150px; }
-  .log { order: 3; }
-  #log-list { max-height: 140px; }
+  /* Im Spiel gehört der Bildschirm dem Brett – die Kopfzeile ist Beiwerk.
+     Zurück ins Menü und zu den Regeln kommt man unten aus der Schublade. */
+  body.in-game .topbar { display: none; }
+
+  .game { display: block; position: relative; }
+  .board-wrap { position: absolute; inset: 0; }
+  /* Das Brett bekommt genau die freie Fläche: unter der Kopfzeile aus Chips und
+     Hinweis, über der Bedienleiste. Sonst läge das halbe Spielfeld darunter –
+     und das Einpassen rechnete mit Platz, den es nicht gibt. */
+  .board { top: 78px; bottom: 54px; }
   .legend { display: none; }
+
+  /* Die Seitenleiste wird zur durchsichtigen Ebene über dem Brett; nur ihre
+     Kinder nehmen Berührungen an, damit man überall aufs Brett fassen kann. */
+  .sidebar {
+    position: absolute; inset: 0; z-index: 5;
+    border: 0; background: none; overflow: visible; display: block;
+    pointer-events: none;
+  }
+
+  /* Wichtigste Info: Wer ist dran und wie viel Holz hat wer. Mehr nicht. */
+  .players {
+    position: absolute; top: 8px; left: 8px; right: 8px; z-index: 2;
+    flex-direction: row; justify-content: center; gap: 6px;
+    padding: 0; background: none; border: 0; overflow: visible;
+    pointer-events: auto;
+  }
+  .player-card {
+    flex: 0 0 auto; min-width: 0; gap: 6px; padding: 5px 10px; border-radius: 999px;
+    display: flex; align-items: center; border-left-width: 1px;
+    background: rgba(24, 28, 34, .92);
+  }
+  .player-card .pname, .player-card .meta, .player-card .ai-tag { display: none; }
+  .player-card .swatch { width: 10px; height: 10px; }
+  .player-card .wood { font-size: 14px; }
+  .player-card.is-current { box-shadow: 0 0 0 2px var(--pc) inset; }
+
+  .phase-banner { top: 44px; font-size: 13px; padding: 6px 12px; }
+
+  /* Die Kamerasteuerung ist eingeklappt, bis man sie über die Leiste aufruft */
+  .board-hud {
+    flex-direction: row; flex-wrap: wrap; justify-content: flex-end;
+    top: auto; bottom: 58px; right: 8px; width: 198px;
+  }
+  .board-hud .hud-btn { display: none; }
+  .board-hud.is-open .hud-btn { display: block; }
+  .hud-btn { width: 42px; height: 42px; font-size: 18px; }
+  /* Die Anzeige schwebt über den Knöpfen, statt in ihrer Reihe mitzuzählen –
+     sonst passen statt vier nur drei Knöpfe nebeneinander. */
+  .cam-readout { position: absolute; right: 0; bottom: 100%; margin-bottom: 6px; }
+
+  /* Schublade: liegt unter dem Bildrand und fährt bei Bedarf herauf */
+  .panel {
+    position: absolute; left: 0; right: 0; bottom: 50px; z-index: 3;
+    max-height: 64%; overflow: auto; padding: 4px 12px 14px;
+    background: var(--bg); border-top: 1px solid var(--line);
+    border-radius: 14px 14px 0 0; box-shadow: 0 -12px 30px rgba(0, 0, 0, .45);
+    transform: translateY(calc(100% + 60px)); transition: transform .24s ease;
+    pointer-events: auto; visibility: hidden;
+  }
+  .panel.is-open { transform: none; visibility: visible; }
+  /* Die langen Erklärungen stehen im Regelwerk – in der Schublade zählt,
+     was man antippen kann. */
+  .panel .hint.small { display: none; }
+  .sheet-extra { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+  .sheet-extra .wide-btn { margin: 0; }
+
+  /* Der Verlauf entfällt am Handy: Was zuletzt geschah, steht auf dem Brett –
+     gestrichelt das Start-, weiß das Zielfeld des letzten Zuges. */
+  .log { display: none; }
+
+  /* Die einzige feste Bedienung: Schublade auf, Ansicht einstellen */
+  .mobile-bar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+    display: flex; gap: 8px; padding: 4px 8px 8px;
+    pointer-events: none;
+  }
+  .bar-btn {
+    height: 42px; border-radius: 12px; pointer-events: auto;
+    background: rgba(24, 28, 34, .94); color: var(--text);
+    border: 1px solid var(--line); font-size: 14px; font-weight: 600;
+  }
+  .bar-btn.is-main { flex: 1 1 auto; }
+  .bar-btn.is-main::after { content: ' ▲'; font-size: 10px; color: var(--muted); }
+  .bar-btn[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+  .bar-btn.is-main[aria-expanded="true"]::after { content: ' ▼'; }
+  .bar-btn .hud-icon { width: 20px; height: 20px; }
+  .bar-btn { width: 46px; }
+  .bar-btn.is-main { width: auto; }
+  /* verlangt das Spiel eine Entscheidung, sticht die Schublade hervor */
+  .bar-btn.is-main.is-urgent { border-color: var(--accent); color: var(--accent); }
 
   /* Fingerfreundliche Ziele */
   .wide-btn, .train-btn, .dir-btn { min-height: 46px; }
-  /* sechs Knöpfe übereinander passen nicht neben ein halbhohes Brett –
-     auf dem Handy liegen sie als Zeile unten rechts, wo die Legende entfällt */
-  /* acht Knöpfe übereinander passen nicht neben ein halbhohes Brett – auf dem
-     Handy liegen sie als zwei Reihen unten rechts, wo die Legende entfällt */
-  .board-hud {
-    flex-direction: row; flex-wrap: wrap; justify-content: flex-end;
-    top: auto; bottom: 10px; right: 10px; width: 198px;
-  }
-  .hud-btn { width: 42px; height: 42px; font-size: 18px; }
-  .cam-readout { order: -1; }
   .ghost-btn { padding: 9px 12px; }
   .topbar { padding: 8px 12px; }
   .brand-name { font-size: 18px; letter-spacing: .12em; }
-  .phase-banner { font-size: 13px; padding: 7px 12px; }
   .overlay { padding: 14px 10px; }
   .overlay-inner { padding: 20px 16px; }
   .rule-cards { grid-template-columns: 1fr; }
@@ -446,5 +518,4 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .train-btn { padding: 7px 8px; }
   .train-btn .tn { font-size: 12px; }
   .unit-strip { grid-template-columns: 1fr 1fr; }
-  .player-card { min-width: 138px; }
 }
