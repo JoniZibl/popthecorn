@@ -706,6 +706,8 @@ var AI = (function () {
       if (!mobile) danger *= 2.5;
       else if (escapes === 0) danger *= 1.8;
       else if (escapes === 1) danger *= 1.3;
+      // Angriffslustige Stufen bewerten Druck auf fremde Türme höher
+      if (p !== me && ctx.aggression > 1) danger *= ctx.aggression;
       sc[p] -= danger;
       part(p, 'Turmdruck', -danger);
 
@@ -721,6 +723,29 @@ var AI = (function () {
       }
       sc[p] += (guards < 3 ? guards : 3) * 18;
       part(p, 'Turmdeckung', (guards < 3 ? guards : 3) * 18);
+
+      /* Vorrücken: Figuren, die dem nächsten Feindturm nahe kommen, zählen extra.
+         Nur für angriffslustige Stufen – sonst ist der Zuschlag null. */
+      if (ctx.aggression > 1) {
+        var push = 0;
+        for (k = 0; k < nocc; k++) {
+          var mc = occ[k];
+          if (s.po[mc] !== p || s.pt[mc] === T.king) continue;
+          var nearest = 99;
+          for (var op = 0; op < np; op++) {
+            if (op === p || !s.alive[op] || s.kingAt[op] < 0) continue;
+            var dk = dist[s.kingAt[op] * n + mc];
+            if (dk < nearest) nearest = dk;
+          }
+          if (nearest < 9) push += (9 - nearest) * 6;
+        }
+        push *= (ctx.aggression - 1);
+        // Erst das eigene Haus: steht der Feind schon am Turm, wird nicht gestürmt
+        if (soonest <= 1) push *= 0.15;
+        else if (soonest <= 2) push *= 0.4;
+        sc[p] += push;
+        part(p, 'Vorrücken', push);
+      }
 
       // Kann überhaupt ausgebildet werden?
       clusterSpots(s, p, evalSpots);
@@ -914,9 +939,10 @@ var AI = (function () {
     return best;
   }
 
-  function makeContext(s, me, limit) {
+  function makeContext(s, me, limit, aggression) {
     return {
       me: me, n: s.n, start: Date.now(), limit: limit, nodes: 0, stop: false,
+      aggression: aggression || 1,
       atk: new Int8Array(s.n * s.np), mob: new Int32Array(s.np),
       sc: new Float64Array(s.np), workerAt: new Int32Array(s.np),
       occ: new Int32Array(s.n), trees: new Int32Array(s.n),
@@ -929,10 +955,14 @@ var AI = (function () {
      spielt). Sobald slack gesetzt ist, wird die Wurzel mit vollem Fenster
      durchsucht – sonst wären die Werte nur obere Schranken und ein scheinbar
      harmloser Zug könnte in Wahrheit den Turm kosten. */
+  /* aggression: wie sehr die Stufe auf Angriff spielt. 1 = ausgewogen.
+     Über 1 zählt der Druck auf den gegnerischen Turm mehr und Figuren werden
+     fürs Vorrücken belohnt – die schwache Stufe sucht so die Entscheidung,
+     statt Figuren hin und her zu schieben, bis gewertet wird. */
   var LEVELS = {
-    leicht: { limit: 150, maxDepth: 2, slack: 260 },
-    normal: { limit: 450, maxDepth: 4, slack: 0 },
-    stark:  { limit: 2000, maxDepth: 14, slack: 0 }
+    leicht: { limit: 150, maxDepth: 2, slack: 260, aggression: 2.2 },
+    normal: { limit: 450, maxDepth: 4, slack: 0, aggression: 1 },
+    stark:  { limit: 2000, maxDepth: 14, slack: 0, aggression: 1 }
   };
 
   /* Besten Zug suchen. Liefert eine Beschreibung, die die Oberfläche
@@ -940,7 +970,7 @@ var AI = (function () {
   function chooseMove(state, me, level) {
     var cfg = LEVELS[level] || LEVELS.normal;
     var s = snapshot(state);
-    var ctx = makeContext(s, me, cfg.limit);
+    var ctx = makeContext(s, me, cfg.limit, cfg.aggression);
     ctx.stallLimit = stallLimit();
     var stall0 = state.sinceProgress || 0;
     var history = state.history || {};
@@ -986,6 +1016,9 @@ var AI = (function () {
       var floor = bestScore - cfg.slack;
       if (floor < -WIN + 100000) floor = -WIN + 100000;
       var pool = scored.filter(function (e) { return e.val >= floor; });
+      // Unter gleichwertigen Zügen lieber einen, der die Partie voranbringt
+      var pushing = pool.filter(function (e) { return isProgress(e.mv); });
+      if (pushing.length && Math.random() < 0.8) pool = pushing;
       if (pool.length) best = pool[Math.floor(Math.random() * pool.length)].mv;
     }
 

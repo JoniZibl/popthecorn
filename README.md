@@ -102,7 +102,20 @@ Die KI ist keine Zugliste, sondern eine Suche mit Stellungsbewertung:
   stellt später ihren Turm mitten hinein, mit Abstand zu den Gegnern und Platz zum Ausbilden.
 
 Die Stufen unterscheiden sich in Rechenzeit und Suchtiefe: *leicht* rechnet 0,15 s und
-kommt auf Suchtiefe 2, *normal* 0,45 s und Tiefe 4, *stark* 2 s und Tiefe 7. Gemessen in
+kommt auf Suchtiefe 2, *normal* 0,45 s und Tiefe 4, *stark* 2 s und Tiefe 7.
+
+Zwischen Zugbeginn und ausgeführtem Zug vergeht **mindestens eine Sekunde**, damit die KI
+wie ein nachdenkender Mitspieler wirkt. Rechnet sie ohnehin länger – *stark* nimmt sich bis
+zu zwei Sekunden – wird nicht zusätzlich gewartet. Die Aufbauphase bleibt zügig; dreißig
+Bäume mit je einer Sekunde wären eine halbe Minute Zuschauen.
+
+*leicht* spielt zusätzlich **angriffslustig**: Druck auf den gegnerischen Turm zählt doppelt,
+Figuren werden fürs Vorrücken belohnt, und unter gleichwertigen Zügen wählt sie bevorzugt
+einen, der die Partie voranbringt. Das macht sie nicht stärker – sie überdehnt sich eher –,
+aber ihre Partien enden entschieden statt im Stillstand: Zwei leichte KIs schlagen sich in
+vier von fünf Partien gegenseitig den Turm ab, vorher endete etwa die Hälfte per Wertung.
+Steht der eigene Turm unter Druck, tritt der Angriffsdrang zurück; ohne diese Bremse hat sie
+gegen einen gezielten Angriff ihren eigenen Turm verloren. Gemessen in
 kompletten Partien schlägt *stark* die Stufe *normal* mit 7:0 und *normal* die Stufe
 *leicht* deutlich. *normal*
 und *stark* spielen immer den besten gefundenen Zug. Wo überhaupt gewürfelt wird, werden

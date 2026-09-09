@@ -482,32 +482,57 @@
     return (p && !p.eliminated) ? p.ai : null;
   }
 
-  /* Ist die KI am Zug, wird ihr Zug nach kurzer Pause ausgeführt – so bleibt
-     die Oberfläche sichtbar und die Züge sind nachvollziehbar. */
+  /* Ist die KI am Zug, vergeht bis zu ihrem Zug mindestens eine Sekunde – so
+     wirkt sie wie ein Mitspieler, der nachdenkt, statt sofort zuzuschlagen.
+     Rechnet sie länger (starke Stufe), wird nicht zusätzlich gewartet.
+     In der Aufbauphase bleibt es zügig: 30 Bäume mit je einer Sekunde wären
+     eine halbe Minute Zuschauen. */
+  var MIN_THINK = 1000;
+
   function scheduleAI() {
     if (ui.thinking || !aiLevel()) return;
     ui.thinking = true;
-    var banner = $('#phase-banner');
-    banner.innerHTML += ' <span class="thinking">· denkt nach …</span>';
+    var setup = state.phase !== 'play';
+    var started = Date.now();
+    $('#phase-banner').innerHTML += ' <span class="thinking">· denkt nach …</span>';
+
     // Erst zeichnen lassen, dann rechnen
     setTimeout(function () {
       var level = aiLevel();
       if (!level) { ui.thinking = false; return refresh(); }
-      var before = state.current, phase = state.phase;
+
+      if (setup) return finishAiTurn(level, null, null);
+      if (state.pending) { G.endPending(state); ui.thinking = false; return refresh(); }
+
+      var desc = null, err = null;
       try {
-        AI.step(state, level);
-      } catch (err) {
-        G.log(state, 'Die KI ist ins Straucheln geraten – sie setzt aus.', state.current);
-        if (state.phase === 'play') G.pass(state);
-        if (window.console) console.error(err);
-      }
-      if (state.phase === phase && state.current === before &&
-          state.phase === 'play' && !state.pending) {
-        G.pass(state);            // Notbremse gegen Endlosschleifen
-      }
-      ui.thinking = false;
-      refresh();
-    }, state.phase === 'play' ? 240 : 45);
+        desc = AI.chooseMove(state, state.current, level);
+      } catch (e) { err = e; }
+
+      // Denkzeit anrechnen: gewartet wird nur, was zur Sekunde noch fehlt
+      var rest = Math.max(0, MIN_THINK - (Date.now() - started));
+      setTimeout(function () { finishAiTurn(level, desc, err); }, rest);
+    }, setup ? 45 : 60);
+  }
+
+  /* Zug tatsächlich ausführen – getrennt vom Denken, damit die Pause davor passt. */
+  function finishAiTurn(level, desc, err) {
+    var before = state.current, phase = state.phase;
+    try {
+      if (err) throw err;
+      if (phase !== 'play') AI.step(state, level);
+      else if (!desc || !AI.playMove(state, desc)) G.pass(state);
+    } catch (e) {
+      G.log(state, 'Die KI ist ins Straucheln geraten – sie setzt aus.', state.current);
+      if (state.phase === 'play') G.pass(state);
+      if (window.console) console.error(e);
+    }
+    if (state.phase === phase && state.current === before &&
+        state.phase === 'play' && !state.pending) {
+      G.pass(state);            // Notbremse gegen Endlosschleifen
+    }
+    ui.thinking = false;
+    refresh();
   }
 
   /* ---------------- Regelwerk-Overlay ---------------- */
