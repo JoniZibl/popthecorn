@@ -244,9 +244,17 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 #log-list .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
 
 /* ---------- Brett ---------- */
+/* Flache Felder in vier ähnlichen Tönen je Gelände – die Streuung stammt aus
+   den Koordinaten, ist also stabil und wirkt wie gewachsener Untergrund. */
 .hex-shape { stroke: #00000033; stroke-width: 1.2; }
-.hex-grass .hex-shape { fill: url(#grassGrad); }
-.hex-water .hex-shape { fill: url(#waterGrad); }
+.hex-shape.ton-g0 { fill: #8ed07a; }
+.hex-shape.ton-g1 { fill: #86c973; }
+.hex-shape.ton-g2 { fill: #97d884; }
+.hex-shape.ton-g3 { fill: #81c56e; }
+.hex-shape.ton-w0 { fill: #2b6a78; }
+.hex-shape.ton-w1 { fill: #2f7284; }
+.hex-shape.ton-w2 { fill: #27616e; }
+.hex-shape.ton-w3 { fill: #326f80; }
 .hex.is-placeable .hex-shape { fill: #b6e9a4; cursor: pointer; }
 .hex.is-placeable:hover .hex-shape { fill: #d9f7cd; }
 .hex-grass .hex-shape, .hex-water .hex-shape { transition: fill .12s ease; }
@@ -280,7 +288,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .pulse-train { stroke: var(--accent); }
 .float-text text { font-size: 17px; font-weight: 800; paint-order: stroke; stroke: rgba(0,0,0,.6); stroke-width: 3; }
 
-.tree-bg { fill: url(#canopyGrad); opacity: .85; }
+.tree-shadow { fill: rgba(0, 0, 0, .18); }
 .tree-top { fill: url(#treeGrad); }
 .tree-top2 { fill: #268342; }
 .tree { pointer-events: none; }
@@ -3142,11 +3150,8 @@ var Render = (function () {
       d.appendChild(g);
       return g;
     }
-    grad('grassGrad', '#9bd98a', '#74b563');
-    grad('waterGrad', '#357f92', '#215663');
     grad('headGrad', '#2b333b', '#111519');
     grad('treeGrad', '#3fb463', '#238044');
-    grad('canopyGrad', '#7ec26b', '#5da24e');
     return d;
   }
 
@@ -3204,16 +3209,21 @@ var Render = (function () {
     applyView(view);
   }
 
+  /* Aus den Koordinaten abgeleitete Streuung: gleiche Zelle, gleicher Wert –
+     der Wald wirkt gewachsen statt gestempelt und bleibt über Neuzeichnungen
+     stabil. Dieselbe Streuung gibt den Feldern ihren Grünton. */
+  function jitter(cell) {
+    return ((cell.q * 73856093) ^ (cell.r * 19349663)) >>> 0;
+  }
+
   function treeGlyph(g, cell) {
-    // feste, aus den Koordinaten abgeleitete Abweichung: der Wald sieht dadurch
-    // gewachsen aus statt gestempelt, bleibt aber über Neuzeichnungen gleich
-    var seed = ((cell.q * 73856093) ^ (cell.r * 19349663)) >>> 0;
-    var scale = 0.88 + (seed % 25) / 100;
+    var seed = jitter(cell);
+    var scale = 0.92 + (seed % 22) / 100;
     var tilt = ((seed >> 5) % 9) - 4;
-    g.appendChild(el('circle', { class: 'tree-bg', cx: 0, cy: 0, r: SIZE * 0.5 }));
     var top = el('g', { transform: 'rotate(' + tilt + ') scale(' + scale.toFixed(2) + ')' });
-    top.appendChild(el('path', { class: 'tree-top', d: 'M0,-15 L9,7 L-9,7 Z' }));
-    top.appendChild(el('path', { class: 'tree-top2', d: 'M0,-15 L9,7 L0,7 Z' }));
+    top.appendChild(el('ellipse', { class: 'tree-shadow', cx: 0, cy: 8, rx: 10, ry: 3.5 }));
+    top.appendChild(el('path', { class: 'tree-top', d: 'M0,-17 L10,8 L-10,8 Z' }));
+    top.appendChild(el('path', { class: 'tree-top2', d: 'M0,-17 L10,8 L0,8 Z' }));
     g.appendChild(top);
   }
 
@@ -3285,7 +3295,12 @@ var Render = (function () {
         transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')',
         'data-key': k
       });
-      g.appendChild(el('polygon', { class: 'hex-shape', points: hexPts }));
+      // vier ähnliche Töne je Gelände – gibt dem Brett Leben ohne Farbverlauf
+      var ton = jitter(cell) % 4;
+      g.appendChild(el('polygon', {
+        class: 'hex-shape ton-' + (cell.terrain === 'water' ? 'w' : 'g') + ton,
+        points: hexPts
+      }));
       view.layers.terrain.appendChild(g);
 
       if (cell.tree) {

@@ -166,8 +166,10 @@ innere Gruppe. Ohne diese Trennung überschreibt die CSS-Transformation der Anim
 `transform`-Attribut und der Effekt springt auf den Brett-Ursprung, statt dort zu erscheinen,
 wo er hingehört.
 
-Felder, Bäume und Figurenköpfe nutzen gemeinsame Farbverläufe aus einem einzigen
-`<defs>`-Block – das gibt dem Brett Tiefe, ohne ein zusätzliches Element je Feld zu kosten.
+Die Felder sind flach gefärbt, aber nicht einheitlich: Jede Zelle bekommt einen von vier
+ähnlichen Grün- beziehungsweise Blautönen. Welchen, ergibt sich fest aus ihren Koordinaten –
+der Untergrund wirkt dadurch gewachsen statt gestempelt und bleibt über Neuzeichnungen
+stabil. Dieselbe Streuung bestimmt Größe und Neigung der Bäume.
 
 Wer im Betriebssystem „Bewegung reduzieren" eingestellt hat, bekommt ein ruhiges Brett:
 Alle Animationen entfallen, die Markierung des letzten Zuges bleibt.

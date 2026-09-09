@@ -36,11 +36,8 @@ var Render = (function () {
       d.appendChild(g);
       return g;
     }
-    grad('grassGrad', '#9bd98a', '#74b563');
-    grad('waterGrad', '#357f92', '#215663');
     grad('headGrad', '#2b333b', '#111519');
     grad('treeGrad', '#3fb463', '#238044');
-    grad('canopyGrad', '#7ec26b', '#5da24e');
     return d;
   }
 
@@ -98,16 +95,21 @@ var Render = (function () {
     applyView(view);
   }
 
+  /* Aus den Koordinaten abgeleitete Streuung: gleiche Zelle, gleicher Wert –
+     der Wald wirkt gewachsen statt gestempelt und bleibt über Neuzeichnungen
+     stabil. Dieselbe Streuung gibt den Feldern ihren Grünton. */
+  function jitter(cell) {
+    return ((cell.q * 73856093) ^ (cell.r * 19349663)) >>> 0;
+  }
+
   function treeGlyph(g, cell) {
-    // feste, aus den Koordinaten abgeleitete Abweichung: der Wald sieht dadurch
-    // gewachsen aus statt gestempelt, bleibt aber über Neuzeichnungen gleich
-    var seed = ((cell.q * 73856093) ^ (cell.r * 19349663)) >>> 0;
-    var scale = 0.88 + (seed % 25) / 100;
+    var seed = jitter(cell);
+    var scale = 0.92 + (seed % 22) / 100;
     var tilt = ((seed >> 5) % 9) - 4;
-    g.appendChild(el('circle', { class: 'tree-bg', cx: 0, cy: 0, r: SIZE * 0.5 }));
     var top = el('g', { transform: 'rotate(' + tilt + ') scale(' + scale.toFixed(2) + ')' });
-    top.appendChild(el('path', { class: 'tree-top', d: 'M0,-15 L9,7 L-9,7 Z' }));
-    top.appendChild(el('path', { class: 'tree-top2', d: 'M0,-15 L9,7 L0,7 Z' }));
+    top.appendChild(el('ellipse', { class: 'tree-shadow', cx: 0, cy: 8, rx: 10, ry: 3.5 }));
+    top.appendChild(el('path', { class: 'tree-top', d: 'M0,-17 L10,8 L-10,8 Z' }));
+    top.appendChild(el('path', { class: 'tree-top2', d: 'M0,-17 L10,8 L0,8 Z' }));
     g.appendChild(top);
   }
 
@@ -179,7 +181,12 @@ var Render = (function () {
         transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')',
         'data-key': k
       });
-      g.appendChild(el('polygon', { class: 'hex-shape', points: hexPts }));
+      // vier ähnliche Töne je Gelände – gibt dem Brett Leben ohne Farbverlauf
+      var ton = jitter(cell) % 4;
+      g.appendChild(el('polygon', {
+        class: 'hex-shape ton-' + (cell.terrain === 'water' ? 'w' : 'g') + ton,
+        points: hexPts
+      }));
       view.layers.terrain.appendChild(g);
 
       if (cell.tree) {
