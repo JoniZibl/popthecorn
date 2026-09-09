@@ -104,6 +104,13 @@ Die KI ist keine Zugliste, sondern eine Suche mit Stellungsbewertung:
 Die Stufen unterscheiden sich in Rechenzeit und Suchtiefe: *leicht* rechnet 0,15 s und
 kommt auf Suchtiefe 2, *normal* 0,45 s und Tiefe 4, *stark* 2 s und Tiefe 7.
 
+Die Suche rechnet **in Häppchen** und gibt dem Browser zwischendurch die Kontrolle zurück.
+Ohne das blockierte die starke Stufe den Hauptthread zwei Sekunden am Stück – die Seite ließ
+sich in der Zeit nicht einmal verschieben. Ein einzelner tiefer Suchast lässt sich nicht
+unterbrechen; dauert er länger als **220 ms**, wird die angefangene Suchtiefe verworfen und
+das Ergebnis der letzten fertigen Tiefe genommen. Die längste Blockade sinkt dadurch von
+2000 ms auf 220 ms, bei einer Suchtiefe weniger.
+
 Zwischen Zugbeginn und ausgeführtem Zug vergeht **mindestens eine Sekunde**, damit die KI
 wie ein nachdenkender Mitspieler wirkt. Rechnet sie ohnehin länger – *stark* nimmt sich bis
 zu zwei Sekunden – wird nicht zusätzlich gewartet. Die Aufbauphase bleibt zügig; dreißig

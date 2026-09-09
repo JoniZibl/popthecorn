@@ -853,8 +853,21 @@ var AI = (function () {
 
   /* ---------------- Suche ---------------- */
 
+  /* Zeitgrenze: gezählt wird nur gerechnete Zeit. Wird die Suche in Häppchen
+     ausgeführt, zählen die Pausen dazwischen nicht mit – sonst wäre die
+     Spielstärke davon abhängig, wie oft der Browser dazwischenfunkt. */
+  /* Zeitgrenzen. Zwei Stück:
+     - limit: gesamte Rechenzeit der Suche (Pausen zwischen Häppchen zählen nicht)
+     - blockLimit: wie lange am Stück gerechnet werden darf. Ein einzelner tiefer
+       Suchast lässt sich nicht unterbrechen; dauert er zu lange, wird die
+       angefangene Tiefe verworfen und das Ergebnis der letzten fertigen Tiefe
+       genommen. So bleibt die Oberfläche bedienbar. */
   function timeUp(ctx) {
-    if ((++ctx.nodes & 255) === 0 && Date.now() - ctx.start > ctx.limit) ctx.stop = true;
+    if ((++ctx.nodes & 255) === 0) {
+      var imBlock = Date.now() - ctx.sliceStart;
+      if (ctx.spent + imBlock > ctx.limit) ctx.stop = true;
+      else if (imBlock > ctx.blockLimit) ctx.stop = true;
+    }
     return ctx.stop;
   }
 
@@ -941,7 +954,8 @@ var AI = (function () {
 
   function makeContext(s, me, limit, aggression) {
     return {
-      me: me, n: s.n, start: Date.now(), limit: limit, nodes: 0, stop: false,
+      me: me, n: s.n, start: Date.now(), sliceStart: Date.now(), spent: 0,
+      limit: limit, blockLimit: 1e9, nodes: 0, stop: false,
       aggression: aggression || 1,
       atk: new Int8Array(s.n * s.np), mob: new Int32Array(s.np),
       sc: new Float64Array(s.np), workerAt: new Int32Array(s.np),
@@ -965,68 +979,125 @@ var AI = (function () {
     stark:  { limit: 2000, maxDepth: 14, slack: 0, aggression: 1 }
   };
 
-  /* Besten Zug suchen. Liefert eine Beschreibung, die die Oberfläche
-     in echte Spielzüge übersetzt – oder null, wenn nichts möglich ist. */
-  function chooseMove(state, me, level) {
+  /* Wurzelsuche als Schrittmaschine: `tick` rechnet höchstens `sliceMs`
+     Millisekunden und kehrt zurück. So kann die Oberfläche zwischendurch
+     zeichnen und auf Eingaben reagieren, statt sekundenlang einzufrieren. */
+  function makeRootSearch(state, me, level) {
     var cfg = LEVELS[level] || LEVELS.normal;
     var s = snapshot(state);
     var ctx = makeContext(s, me, cfg.limit, cfg.aggression);
     ctx.stallLimit = stallLimit();
+
     var stall0 = state.sinceProgress || 0;
     var history = state.history || {};
     var repeatLimit = (typeof Game !== 'undefined' && Game.REPEAT_LIMIT) || 3;
+
     var rootMoves = [];
     genMoves(s, me, rootMoves, false);
-    if (!rootMoves.length) return null;
 
     var best = rootMoves[0], bestScore = -INF, reached = 0, scored = null;
+    var depth = 1, i = 0, localBest = -INF, localMove = rootMoves[0], vals = [];
+    var finished = !rootMoves.length;
 
-    for (var depth = 1; depth <= cfg.maxDepth; depth++) {
+    function beginDepth() {
       orderMoves(s, rootMoves, ctx, best);
-      var localBest = -INF, localMove = rootMoves[0], vals = [];
-      for (var i = 0; i < rootMoves.length; i++) {
-        var u = make(s, rootMoves[i], me);
-        // Mit slack brauchen alle Wurzelzüge echte Werte, nicht nur Schranken
-        var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
-        var val;
+      localBest = -INF; localMove = rootMoves[0]; vals = []; i = 0;
+    }
+    if (!finished) beginDepth();
+
+    function endDepth() {
+      if (ctx.stop && vals.length < 2) return true;
+      if (vals.length) { best = localMove; bestScore = localBest; reached = depth; scored = vals; }
+      if (ctx.stop || bestScore >= WIN - 1000 || bestScore <= -WIN + 1000) return true;
+      depth++;
+      if (depth > cfg.maxDepth) return true;
+      beginDepth();
+      return false;
+    }
+
+    function tick(sliceMs, blockMs) {
+      if (finished) return true;
+      ctx.sliceStart = Date.now();
+      ctx.blockLimit = blockMs || 1e9;
+      var sliceEnd = ctx.sliceStart + sliceMs;
+
+      for (;;) {
+        if (i >= rootMoves.length) {
+          if (endDepth()) { finished = true; break; }
+          continue;
+        }
+        var mv = rootMoves[i++];
+        var u = make(s, mv, me);
         var nxt = nextAlive(s, me);
+        var val;
         var repKey = positionKeyOf(s, nxt);
         if ((history[repKey] || 0) + 1 >= repeatLimit) {
           // Dieser Zug führt zur dritten Wiederholung: die Partie wird gewertet
           val = adjudicationScore(s, me);
         } else {
+          var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
           val = alphabeta(s, nxt, depth - 1, alpha, INF, ctx, 1,
-                          isProgress(rootMoves[i]) ? 0 : stall0 + 1);
+                          isProgress(mv) ? 0 : stall0 + 1);
         }
         unmake(s, u);
-        if (ctx.stop) break;
-        vals.push({ mv: rootMoves[i], val: val });
-        if (val > localBest) { localBest = val; localMove = rootMoves[i]; }
+
+        if (ctx.stop) { if (endDepth()) finished = true; break; }
+        vals.push({ mv: mv, val: val });
+        if (val > localBest) { localBest = val; localMove = mv; }
+        if (Date.now() >= sliceEnd) break;
       }
-      if (ctx.stop && vals.length < 2) break;
-      if (vals.length) {
-        best = localMove; bestScore = localBest; reached = depth; scored = vals;
-      }
-      if (ctx.stop || bestScore >= WIN - 1000 || bestScore <= -WIN + 1000) break;
+
+      ctx.spent += Date.now() - ctx.sliceStart;
+      return finished;
     }
 
-    // Auf niedriger Stufe darf es auch mal ein fast so guter Zug sein – aber
-    // niemals einer, der den eigenen Turm verschenkt.
-    if (cfg.slack && scored && scored.length > 1) {
-      var floor = bestScore - cfg.slack;
-      if (floor < -WIN + 100000) floor = -WIN + 100000;
-      var pool = scored.filter(function (e) { return e.val >= floor; });
-      // Unter gleichwertigen Zügen lieber einen, der die Partie voranbringt
-      var pushing = pool.filter(function (e) { return isProgress(e.mv); });
-      if (pushing.length && Math.random() < 0.8) pool = pushing;
-      if (pool.length) best = pool[Math.floor(Math.random() * pool.length)].mv;
+    function result() {
+      if (!rootMoves.length) return null;
+      var chosen = best;
+      // Auf niedriger Stufe darf es auch mal ein fast so guter Zug sein – aber
+      // niemals einer, der den eigenen Turm verschenkt.
+      if (cfg.slack && scored && scored.length > 1) {
+        var floor = bestScore - cfg.slack;
+        if (floor < -WIN + 100000) floor = -WIN + 100000;
+        var pool = scored.filter(function (e) { return e.val >= floor; });
+        var pushing = pool.filter(function (e) { return isProgress(e.mv); });
+        if (pushing.length && Math.random() < 0.8) pool = pushing;
+        if (pool.length) chosen = pool[Math.floor(Math.random() * pool.length)].mv;
+      }
+      var out = describe(s, chosen);
+      out.score = bestScore;
+      out.depth = reached;
+      out.nodes = ctx.nodes;
+      return out;
     }
 
-    var out = describe(s, best);
-    out.score = bestScore;
-    out.depth = reached;
-    out.nodes = ctx.nodes;
-    return out;
+    return { tick: tick, result: result, empty: !rootMoves.length };
+  }
+
+  /* Am Stück rechnen – für Tests und alles ohne Oberfläche. */
+  function chooseMove(state, me, level) {
+    var rs = makeRootSearch(state, me, level);
+    if (rs.empty) return null;
+    while (!rs.tick(1e9)) { /* läuft bis zum Ende */ }
+    return rs.result();
+  }
+
+  /* In Häppchen rechnen und danach `done` aufrufen – hält die Oberfläche wach. */
+  function chooseMoveSliced(state, me, level, done, sliceMs) {
+    var rs = makeRootSearch(state, me, level);
+    if (rs.empty) { done(null); return; }
+    var slice = sliceMs || 25;
+    function schritt() {
+      var fertig;
+      /* 220 ms am Stück: kurz genug, dass Tippen und Schieben flüssig bleiben,
+         lang genug für eine Suchtiefe mehr. Darüber bringt mehr Zeit kaum noch
+         Tiefe – gemessen an Mittelspielstellungen. */
+      try { fertig = rs.tick(slice, 220); }
+      catch (e) { done(null, e); return; }
+      if (fertig) done(rs.result(), null);
+      else setTimeout(schritt, 0);
+    }
+    setTimeout(schritt, 0);
   }
 
   function describe(s, mv) {
@@ -1206,7 +1277,9 @@ var AI = (function () {
            geometry: geometry, snapshot: snapshot, landable: landable,
            nextAlive: nextAlive, hasType: hasType,
            genMoves: genMoves, make: make, unmake: unmake, clusterSpots: clusterSpots,
-           evaluate: evaluate, chooseMove: chooseMove, makeContext: makeContext,
+           evaluate: evaluate, chooseMove: chooseMove, chooseMoveSliced: chooseMoveSliced,
+           makeRootSearch: makeRootSearch,
+           makeContext: makeContext,
            wealthOf: wealthOf, adjudicationScore: adjudicationScore,
            playMove: playMove, step: step, chooseTree: chooseTree,
            chooseKing: chooseKing, chooseWorker: chooseWorker, LEVELS: LEVELS };

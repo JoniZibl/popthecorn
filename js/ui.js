@@ -590,14 +590,14 @@
       if (setup) return finishAiTurn(level, null, null);
       if (state.pending) { G.endPending(state); ui.thinking = false; return refresh(); }
 
-      var desc = null, err = null;
-      try {
-        desc = AI.chooseMove(state, state.current, level);
-      } catch (e) { err = e; }
-
-      // Denkzeit anrechnen: gewartet wird nur, was zur Sekunde noch fehlt
-      var rest = Math.max(0, MIN_THINK - (Date.now() - started));
-      setTimeout(function () { finishAiTurn(level, desc, err); }, rest);
+      /* Die Suche rechnet in Häppchen und gibt dem Browser zwischendurch die
+         Kontrolle zurück – sonst friert die Seite bei der starken Stufe
+         zwei Sekunden lang ein und man kann das Brett nicht einmal schieben. */
+      AI.chooseMoveSliced(state, state.current, level, function (desc, err) {
+        // Denkzeit anrechnen: gewartet wird nur, was zur Sekunde noch fehlt
+        var rest = Math.max(0, MIN_THINK - (Date.now() - started));
+        setTimeout(function () { finishAiTurn(level, desc, err); }, rest);
+      });
     }, setup ? 45 : 60);
   }
 
