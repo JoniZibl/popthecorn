@@ -51,7 +51,7 @@ var AI = (function () {
   var DIRECTIONAL = [false, false, false, true, true, false, false, false];
 
   var KIND_MOVE = 0, KIND_CAPTURE = 1, KIND_HARVEST = 2, KIND_SHOOT = 3,
-      KIND_TRAIN = 4, KIND_ROTATE = 5;
+      KIND_TRAIN = 4, KIND_ROTATE = 5, KIND_CHAIN = 6;
   var KEEP = 15;                // "Blickrichtung beibehalten"
 
   var INF = 1e9, WIN = 500000;
@@ -178,10 +178,79 @@ var AI = (function () {
 
   /* ---------------- Zuggenerierung ---------------- */
 
-  var visitStamp = null, visitMark = 0, genSpots = [];
+  var genSpots = [];
 
-  function ensureScratch(n) {
-    if (!visitStamp || visitStamp.length < n) visitStamp = new Int32Array(n);
+  /* ---------------- Kettensprünge des Tangolins ----------------
+     Dieselbe Regel wie in moves.js: über Bäume, eigene Einheiten und Gegner,
+     nie über Wasser; wer übersprungen wird, fällt, danach darf weitergesprungen
+     werden. Je Zielfeld wird der Weg mit den meisten Schlägen gemerkt.
+
+     Gesucht wird in die Tiefe, mit denselben zwei Grenzen wie im Regelwerk:
+     eine gefallene Figur ist vom Brett, und ein Feld wird im selben Weg nicht
+     zweimal betreten. Weicht das hier vom Regelwerk ab, spielt die KI Züge, die
+     es gar nicht gibt – test/ki.js vergleicht beide Generatoren Zug für Zug.
+
+     Der Weg steckt nicht im Zug (der ist eine Zahl aus Art, Von und Nach),
+     sondern wird beim Ausführen noch einmal gesucht. Das kostet wenig, weil
+     Kettensprünge selten sind, und hält die Zugdarstellung schmal. */
+  var chainStamp = null, chainPath = null, chainDead = null, chainCaps = null,
+      chainMark = 0, chainList = [], chainNodes = 0;
+  var KEINE_BEUTE = [];
+
+  function chainStep(s, pos, p, beute) {
+    if (++chainNodes > 4000) return;         // Notbremse gegen entartete Stellungen
+    var nb = s.geo.nb;
+    for (var d = 0; d < 6; d++) {
+      var over = nb[pos * 6 + d];
+      if (over < 0 || s.terrain[over] === 1) continue;      // nie über Wasser
+      var besetzt = s.pt[over] >= 0 && chainDead[over] !== chainMark;
+      if (!s.tree[over] && !besetzt) continue;
+
+      var land = nb[over * 6 + d];
+      if (!dryLand(s, land)) continue;
+      if (s.pt[land] >= 0 && chainDead[land] !== chainMark) continue;
+      if (chainPath[land] === chainMark) continue;
+
+      var schlaegt = besetzt && s.po[over] !== p;
+      var neu = schlaegt ? beute.concat([over]) : beute;
+      if (chainStamp[land] !== chainMark) {
+        chainStamp[land] = chainMark;
+        chainCaps[land] = neu;
+        chainList.push(land);
+      } else if (neu.length > chainCaps[land].length) {
+        chainCaps[land] = neu;
+      }
+
+      chainPath[land] = chainMark;
+      if (schlaegt) chainDead[over] = chainMark;
+      chainStep(s, land, p, neu);
+      if (schlaegt) chainDead[over] = 0;
+      chainPath[land] = 0;
+    }
+  }
+
+  /* Liefert die erreichbaren Zielfelder; chainCaps[ziel] hält dazu die
+     geschlagenen Felder. Gültig bis zum nächsten Aufruf. */
+  function chainSearch(s, from, p) {
+    var n = s.n;
+    if (!chainStamp || chainStamp.length < n) {
+      chainStamp = new Int32Array(n);
+      chainPath = new Int32Array(n);
+      chainDead = new Int32Array(n);
+      chainCaps = new Array(n);
+    }
+    chainMark++;
+    chainList.length = 0;
+    chainNodes = 0;
+    chainPath[from] = chainMark;
+    chainStep(s, from, p, KEINE_BEUTE);
+    chainPath[from] = 0;
+    return chainList;
+  }
+
+  function chainCapturesFor(s, from, to, p) {
+    chainSearch(s, from, p);
+    return (chainStamp[to] === chainMark) ? chainCaps[to] : KEINE_BEUTE;
   }
 
   /* Blickrichtungen, die für eine Richtungsfigur in Frage kommen:
@@ -210,7 +279,6 @@ var AI = (function () {
   function genMoves(s, p, out, capturesOnly) {
     var geo = s.geo, n = s.n, nb = geo.nb, i, d, j;
     out.length = 0;
-    ensureScratch(n);
 
     // Kontext: nächstes Feindziel (für sinnvolle Blickrichtungen)
     var ctx = { enemyKing: -1, enemyPiece: -1, fbuf: [] };
@@ -314,24 +382,12 @@ var AI = (function () {
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
           else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
-        if (!capturesOnly) {                            // Kettensprünge
-          visitMark++;
-          var stack = [i]; visitStamp[i] = visitMark;
-          while (stack.length) {
-            var pos = stack.pop();
-            for (d = 0; d < 6; d++) {
-              var over = nb[pos * 6 + d];
-              if (over < 0 || s.terrain[over] === 1) continue;
-              var jumpable = s.tree[over] || (s.pt[over] >= 0 && s.po[over] === p);
-              if (!jumpable) continue;
-              var land = nb[over * 6 + d];
-              if (!dryLand(s, land) || s.pt[land] >= 0) continue;
-              if (visitStamp[land] === visitMark) continue;
-              visitStamp[land] = visitMark;
-              stack.push(land);
-              out.push(mk(KIND_MOVE, i, land, KEEP));
-            }
-          }
+        // Kettensprünge: in der Ruhesuche zählen nur die, die etwas schlagen
+        var ziele = chainSearch(s, i, p);
+        for (var ci = 0; ci < ziele.length; ci++) {
+          var zl = ziele[ci];
+          if (capturesOnly && chainCaps[zl].length === 0) continue;
+          out.push(mk(KIND_CHAIN, i, zl, KEEP));
         }
 
       } else if (type === T.king) {
@@ -433,10 +489,47 @@ var AI = (function () {
 
   /* ---------------- Zug ausführen und zurücknehmen ---------------- */
 
+  /* Eine Figur vom Brett nehmen – für den Schlag, den Schuss und für jede
+     Figur, die ein Kettensprung unterwegs mitnimmt. Alles Nötige zum
+     Zurücknehmen landet in `u`; ein Kettensprung schlägt mehrere, deshalb
+     sind es Listen und keine einzelnen Felder.
+
+     Fällt ein Königs-Turm, scheidet sein Spieler aus: seine ganze Armee kommt
+     vom Brett und sein Holz wechselt den Besitzer. Innerhalb einer Kette kann
+     dadurch ein Feld schon leer sein, das später noch drankäme – deshalb prüft
+     der Aufrufer vorher, ob dort überhaupt noch etwas steht. */
+  function takeAt(s, idx, p, u) {
+    var t = s.pt[idx], o = s.po[idx];
+    if (!u.taken) u.taken = [];
+    u.taken.push(idx, t, o, s.pf[idx]);
+    s.pt[idx] = -1; s.po[idx] = -1; s.pf[idx] = 0;
+
+    if (t !== T.king) {
+      var beute = Math.ceil(COST[t] / 2);
+      u.loot += beute;
+      s.wood[p] += beute;
+      return;
+    }
+    // Königs-Turm: Spieler scheidet aus
+    var weg = [];
+    for (var i = 0; i < s.n; i++) {
+      if (s.po[i] === o) {
+        weg.push(i, s.pt[i], s.pf[i]);
+        s.pt[i] = -1; s.po[i] = -1; s.pf[i] = 0;
+      }
+    }
+    if (!u.elims) u.elims = [];
+    u.elims.push({ p: o, removed: weg, steal: s.wood[o] });
+    s.wood[p] += s.wood[o];
+    s.wood[o] = 0;
+    s.alive[o] = 0;
+    s.kingAt[o] = -1;
+  }
+
   function make(s, mv, p) {
     var kind = mvKind(mv), from = mvFrom(mv), to = mvTo(mv), extra = mvExtra(mv);
-    var u = { mv: mv, p: p, capT: -1, capO: -1, capF: 0, hadTree: 0,
-              spend: 0, oldF: -1, removed: null, steal: 0, elim: -1, zentBefore: 0,
+    var u = { mv: mv, p: p, taken: null, elims: null, hadTree: 0,
+              spend: 0, oldF: -1, zentBefore: 0,
               boatCost: 0, boatWas: null, loot: 0 };
 
     if (kind === KIND_ROTATE) { u.oldF = s.pf[from]; s.pf[from] = extra; return u; }
@@ -451,27 +544,14 @@ var AI = (function () {
     }
 
     // Geschlagene Figur einsammeln (Schuss und Schlag)
-    if (kind === KIND_CAPTURE || kind === KIND_SHOOT) {
-      u.capT = s.pt[to]; u.capO = s.po[to]; u.capF = s.pf[to];
-      s.pt[to] = -1; s.po[to] = -1; s.pf[to] = 0;
-      if (u.capT !== T.king) {
-        u.loot = Math.ceil(COST[u.capT] / 2);      // Beute
-        s.wood[p] += u.loot;
-      }
-      if (u.capT === T.king) {
-        u.elim = u.capO;
-        u.removed = [];
-        for (var i = 0; i < s.n; i++) {
-          if (s.po[i] === u.capO) {
-            u.removed.push(i, s.pt[i], s.pf[i]);
-            s.pt[i] = -1; s.po[i] = -1; s.pf[i] = 0;
-          }
-        }
-        u.steal = s.wood[u.capO];
-        s.wood[p] += u.steal;
-        s.wood[u.capO] = 0;
-        s.alive[u.capO] = 0;
-        s.kingAt[u.capO] = -1;
+    if (kind === KIND_CAPTURE || kind === KIND_SHOOT) takeAt(s, to, p, u);
+
+    /* Kettensprung: erst fällt, was übersprungen wird – auch das Landefeld wird
+       dadurch frei, falls dort eine geschlagene Figur stand. */
+    if (kind === KIND_CHAIN) {
+      var beute = chainCapturesFor(s, from, to, p);
+      for (var bi = 0; bi < beute.length; bi++) {
+        if (s.pt[beute[bi]] >= 0) takeAt(s, beute[bi], p, u);
       }
     }
 
@@ -532,23 +612,32 @@ var AI = (function () {
       if (u.spend && s.pt[from] === T.king) s.wood[p] += u.spend;
     }
 
-    if (u.elim >= 0) {
-      s.wood[p] -= u.steal;
-      s.wood[u.elim] = u.steal;
-      s.alive[u.elim] = 1;
-      for (var k = 0; k < u.removed.length; k += 3) {
-        var idx = u.removed[k];
-        s.pt[idx] = u.removed[k + 1];
-        s.po[idx] = u.elim;
-        s.pf[idx] = u.removed[k + 2];
-        if (s.pt[idx] === T.king) s.kingAt[u.elim] = idx;
+    /* Geschlagenes zurück aufs Brett – in umgekehrter Reihenfolge, damit ein
+       ausgeschiedener Spieler seine Armee wiederbekommt, bevor die Figur
+       zurückkehrt, die ihn gekostet hat. */
+    if (u.elims) {
+      for (var e = u.elims.length - 1; e >= 0; e--) {
+        var el = u.elims[e];
+        s.wood[p] -= el.steal;
+        s.wood[el.p] = el.steal;
+        s.alive[el.p] = 1;
+        for (var k = 0; k < el.removed.length; k += 3) {
+          var idx = el.removed[k];
+          s.pt[idx] = el.removed[k + 1];
+          s.po[idx] = el.p;
+          s.pf[idx] = el.removed[k + 2];
+          if (s.pt[idx] === T.king) s.kingAt[el.p] = idx;
+        }
       }
     }
     if (u.loot) s.wood[p] -= u.loot;
-    if (u.capT >= 0) {
-      s.pt[to] = u.capT; s.po[to] = u.capO; s.pf[to] = u.capF;
-      // Der geschlagene Turm stand nicht in u.removed – seine Position fehlt sonst
-      if (u.capT === T.king) s.kingAt[u.capO] = to;
+    if (u.taken) {
+      for (var t = u.taken.length - 4; t >= 0; t -= 4) {
+        var ti = u.taken[t];
+        s.pt[ti] = u.taken[t + 1]; s.po[ti] = u.taken[t + 2]; s.pf[ti] = u.taken[t + 3];
+        // Der geschlagene Turm stand nicht in der Armee-Liste – seine Position fehlt sonst
+        if (s.pt[ti] === T.king) s.kingAt[s.po[ti]] = ti;
+      }
     }
   }
 
@@ -1116,7 +1205,7 @@ var AI = (function () {
     }
     return {
       kind: 'act', fromKey: geo.keys[from], toKey: geo.keys[to],
-      action: ['move', 'capture', 'harvest', 'shoot'][kind],
+      action: ['move', 'capture', 'harvest', 'shoot', null, null, 'jump'][kind],
       facing: (extra === KEEP) ? null : extra
     };
   }
@@ -1278,7 +1367,8 @@ var AI = (function () {
   return { TYPES: TYPES, T: T, VALUE: VALUE, WOOD_VALUE: WOOD_VALUE, COST: COST,
            DIRECTIONAL: DIRECTIONAL, KIND_MOVE: KIND_MOVE, KIND_CAPTURE: KIND_CAPTURE,
            KIND_HARVEST: KIND_HARVEST, KIND_SHOOT: KIND_SHOOT, KIND_TRAIN: KIND_TRAIN,
-           KIND_ROTATE: KIND_ROTATE, KEEP: KEEP, INF: INF, WIN: WIN,
+           KIND_ROTATE: KIND_ROTATE, KIND_CHAIN: KIND_CHAIN, KEEP: KEEP, INF: INF, WIN: WIN,
+           chainCapturesFor: chainCapturesFor,
            mk: mk, mvKind: mvKind, mvFrom: mvFrom, mvTo: mvTo, mvExtra: mvExtra,
            geometry: geometry, snapshot: snapshot, landable: landable,
            nextAlive: nextAlive, hasType: hasType,

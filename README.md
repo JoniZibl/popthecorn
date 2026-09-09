@@ -64,7 +64,7 @@ Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
 | Springer | 2 Holz | 2 oder 3 Felder in zwei benachbarte Richtungen, über alles hinweg |
 | Legionär | 2 Holz | beliebig weit vor/zurück auf seiner Achse, nicht über Bäume |
 | Bogenschütze | 2 Holz | 1 Feld ohne zu schlagen, oder Schuss auf Distanz 2 |
-| Tangolin | 2 Holz | Kettensprünge über Bäume und eigene Einheiten, nie über Wasser |
+| Tangolin | 2 Holz | Kettensprünge über Bäume, eigene Einheiten und Gegner; Übersprungene fallen |
 | Zenturio | 3 Holz | beliebig weit in jede Richtung; nur einmal pro Spiel |
 | Boot | 1 Holz | kein Figur, sondern ein neutrales Objekt – macht ein Wasserfeld begehbar |
 
@@ -87,6 +87,25 @@ Das ist keine Spielerei: Auf dem Brett ist eine Figur am Handy gut zehn Bildpunk
 Was sich erst aus der Nähe unterscheidet, unterscheidet sich im Spiel gar nicht. Die kleinen
 Symbole in Seitenleiste und Regelwerk zeichnen dieselben Umrisse – wer ein Symbol antippt,
 soll die Figur auf dem Feld wiedererkennen.
+
+### Der Kettensprung des Tangolins
+
+Wen der Tangolin überspringt, den schlägt er, und danach darf er weiterspringen. Damit hängt
+nicht mehr nur am Zielfeld, was geschlagen wurde, sondern am **Weg** dorthin – und dasselbe
+Zielfeld ist oft über mehrere Wege erreichbar. Das Spiel nimmt deshalb je Zielfeld den Weg
+mit den **meisten Schlägen**; die geschlagenen Felder hängen am Zug, damit beim Ausführen
+nichts geraten werden muss. Auf dem Brett trägt so ein Sprung den roten Ring der Schlagzüge
+und, wenn er mehr als eine Figur mitnimmt, die Anzahl als kleine Zahl.
+
+Zwei Regeln halten die Suche endlich: Eine geschlagene Figur ist vom Brett – sie kann nicht
+ein zweites Mal geschlagen werden, und ihr Feld ist frei. Und ein Feld wird im selben Weg
+nicht zweimal betreten; sonst liefe der Tangolin im Kreis, solange ein Baum in Reichweite
+steht.
+
+Fällt mitten in einer Kette ein **Königs-Turm**, scheidet sein Spieler sofort aus: Seine
+ganze Armee kommt vom Brett und sein Holz wechselt den Besitzer – auch Figuren, die weiter
+hinten in derselben Kette noch drangekommen wären. Beim Ausführen wird deshalb für jedes
+Feld geprüft, ob dort überhaupt noch etwas steht.
 
 ### Boote
 
@@ -322,8 +341,9 @@ hergeben, gilt der Kartentext:
   darin genau 2 oder 3 Felder weit – vier Zielfelder je Ausrichtung.
 * **Bogenschütze** trifft auf Distanz 2 entlang der 6 geraden Richtungen und schlägt beim
   Laufen nicht („beim Springen keine Einheiten schlagen“).
-* **Tangolin** schlägt nur beim normalen 1-Feld-Zug, nicht beim Kettensprung. Seine
-  Abbildung zeigt nur die Nachbarfelder, daher folgt der Kettensprung dem Kartentext.
+* **Tangolin:** Wen er beim Kettensprung überspringt, den schlägt er – und darf danach
+  weiterspringen, wie beim Schlagen im Damespiel. Ein Zug kann so mehrere gegnerische Figuren
+  kosten. Eigene Einheiten und Bäume überspringt er, ohne ihnen etwas zu tun.
 * **Boote und Kettensprünge:** Der Tangolin landet beim Kettensprung nur an Land – die Karte
   sagt ausdrücklich, dass er nicht über Wasser springt. Sein normaler 1-Feld-Zug darf dagegen
   ein Boot nutzen.
@@ -356,6 +376,7 @@ dist/hexodus.html   erzeugte Einzeldatei (CSS und JS eingebettet)
 test/figuren.js     Zielfelder der Figuren gegen die Regelkarten
 test/boot.js        Boot-Regeln inklusive des Beispiels von der Regelkarte
 test/beute.js       Beute beim Schlagen
+test/tangolin.js    Kettensprung: schlagen, weiterspringen, Wegwahl
 test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
 test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
 test/jagd.js        KI gegen einen Gegner, der gezielt den Turm jagt
@@ -383,6 +404,7 @@ node test/kamera.js             # Kamera: Draufsicht, Perspektive, sichtbare Wä
 node test/ansicht.js            # die gezeichnete Szene, ohne Browser
 node test/boot.js               # Boot-Regeln gegen die Regelkarte
 node test/beute.js              # Beute beim Schlagen
+node test/tangolin.js           # Kettensprung des Tangolins
 node test/ki.js                 # KI-Zuggenerierung gegen das Regelwerk
 node test/simulate.js 100       # komplette Zufallspartien
 node test/kispiel.js 10         # Spielstärke der KI
@@ -417,7 +439,14 @@ mit Trefferfläche – und die Figur, um die sie liegen, lässt ihren eigenen Pf
 
 `test/ki.js` vergleicht jeden von der KI erzeugten Zug mit `moves.js` – in beide
 Richtungen, damit die Suche weder Züge erfindet noch übersieht – und prüft, dass das
-Zurücknehmen eines Zuges die Stellung bitgenau wiederherstellt.
+Zurücknehmen eines Zuges die Stellung bitgenau wiederherstellt. Beim Kettensprung wird auch
+die **Schlagfolge** verglichen: Die KI sucht den Weg in ihrer eigenen, kompakten Darstellung
+noch einmal; weicht er vom Regelwerk ab, spielt sie Züge, die es nicht gibt.
+
+`test/tangolin.js` prüft den Kettensprung gegen die Regel: Ein übersprungener Gegner fällt,
+eigene Einheiten und Bäume nicht, eine Kette nimmt mehrere mit, bei mehreren Wegen zählt der
+mit den meisten Schlägen, Wasser bleibt unüberwindlich – und fällt ein Königs-Turm mitten in
+der Kette, scheidet sein Spieler samt Armee aus.
 
 `test/figuren.js` prüft die ausgemessenen Zielfelder von Samurai, Springer und
 Bogenschütze – inklusive der Eigenschaft des Samurai, auf einer Farbklasse zu bleiben –

@@ -109,29 +109,58 @@ var Moves = (function () {
     });
   }
 
-  /* Kettensprünge des Tangolins: über Bäume und eigene Einheiten, nie über Wasser. */
+  /* Kettensprünge des Tangolins: über Bäume, eigene Einheiten und gegnerische
+     Figuren – nie über Wasser. Wer übersprungen wird, wird geschlagen, und
+     danach darf weitergesprungen werden: Ein Zug kann so mehrere Figuren
+     kosten, wie das Schlagen beim Damespiel.
+
+     Damit hängt aber nicht mehr nur am Zielfeld, was geschlagen wurde, sondern
+     am Weg dorthin – und ein Zielfeld ist oft über mehrere Wege erreichbar.
+     Gemerkt wird deshalb je Zielfeld der Weg mit den meisten Schlägen; die
+     geschlagenen Felder hängen als `captures` am Zug, damit das Regelwerk beim
+     Ausführen nicht raten muss.
+
+     Gesucht wird in die Tiefe. Zwei Dinge halten die Suche endlich: Eine schon
+     geschlagene Figur ist vom Brett – sie kann nicht ein zweites Mal
+     geschlagen werden, ihr Feld ist frei –, und ein Feld wird im selben Weg
+     nicht zweimal betreten. Ohne diese zweite Regel liefe der Tangolin im
+     Kreis, solange ein Baum in Reichweite steht. */
   function chainJumps(board, from, owner, out) {
-    var seen = {};
-    seen[H.key(from.q, from.r)] = true;
-    var queue = [{ q: from.q, r: from.r }];
-    while (queue.length) {
-      var pos = queue.shift();
+    var best = {};                       // Zielfeld → beste gefundene Schlagfolge
+    var pfad = {}, geschlagen = {};
+    pfad[H.key(from.q, from.r)] = true;
+    var knoten = 0;
+
+    function suche(pos, beute) {
+      if (++knoten > 4000) return;       // Notbremse gegen entartete Stellungen
       for (var d = 0; d < 6; d++) {
         var over = B.at(board, H.add(pos, H.DIRS[d]));
-        if (!over) continue;
-        // Übersprungen werden dürfen nur Bäume und eigene Einheiten
-        var jumpable = (over.terrain === 'grass') &&
-          (over.tree || (over.piece && over.piece.owner === owner));
-        if (!jumpable) continue;
+        if (!over || over.terrain !== 'grass') continue;   // nie über Wasser
+        var overKey = H.key(over.q, over.r);
+        var opfer = (over.piece && !geschlagen[overKey]) ? over.piece : null;
+        if (!over.tree && !opfer) continue;                // nichts zum Überspringen
+
         var land = B.at(board, H.add(pos, H.scale(H.DIRS[d], 2)));
-        // Kettensprünge enden nur an Land – der Tangolin kommt nicht über Wasser
-        if (!land || land.terrain !== 'grass' || land.tree || land.piece) continue;
-        var k = H.key(land.q, land.r);
-        if (seen[k]) continue;
-        seen[k] = true;
-        queue.push({ q: land.q, r: land.r });
-        out.push(act('jump', land));
+        if (!land || land.terrain !== 'grass' || land.tree) continue;
+        var landKey = H.key(land.q, land.r);
+        if (land.piece && !geschlagen[landKey]) continue;  // Landefeld muss frei sein
+        if (pfad[landKey]) continue;
+
+        var schlaegt = opfer && opfer.owner !== owner;
+        var neu = schlaegt ? beute.concat([overKey]) : beute;
+        if (!best[landKey] || neu.length > best[landKey].length) best[landKey] = neu;
+
+        pfad[landKey] = true;
+        if (schlaegt) geschlagen[overKey] = true;
+        suche(land, neu);
+        if (schlaegt) delete geschlagen[overKey];
+        delete pfad[landKey];
       }
+    }
+    suche(from, []);
+
+    for (var k in best) {
+      out.push(act('jump', board.cells[k], best[k].length ? { captures: best[k] } : null));
     }
   }
 
@@ -234,12 +263,21 @@ var Moves = (function () {
         break;
     }
 
-    // Doppelte Ziele entfernen (Tangolin kann ein Feld mehrfach erreichen)
+    /* Doppelte Ziele entfernen (der Tangolin erreicht ein Feld oft mehrfach).
+       Behalten wird, was mehr schlägt: Ein Kettensprung, der unterwegs Figuren
+       mitnimmt, ist nie schlechter als derselbe Sprung ohne. */
     var seen = {}, uniq = [];
     out.forEach(function (a) {
       var k = a.kind + ':' + a.q + ',' + a.r;
-      if (seen[k]) return;
-      seen[k] = true;
+      var alt = seen[k];
+      if (alt) {
+        if ((a.captures || []).length > (alt.captures || []).length) {
+          uniq[uniq.indexOf(alt)] = a;
+          seen[k] = a;
+        }
+        return;
+      }
+      seen[k] = a;
       uniq.push(a);
     });
     return uniq;

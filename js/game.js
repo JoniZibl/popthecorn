@@ -59,6 +59,7 @@ var Game = (function () {
       moveNo: 0,               // zählt Aktionen – die Oberfläche erkennt daran Neues
       lastMove: null,          // { fromKey, toKey, type, owner, kind }
       lastCapture: null,       // { key, type, owner, by }
+      lastCaptures: [],        // alle Schläge dieses Zuges (Kettensprung)
       lastHarvest: null,       // { key, owner }
       lastTrain: null,         // { key, type, owner }
       current: 0,
@@ -118,6 +119,7 @@ var Game = (function () {
   function clearEvents(state) {
     state.lastMove = null;
     state.lastCapture = null;
+    state.lastCaptures = [];
     state.lastHarvest = null;
     state.lastTrain = null;
   }
@@ -258,6 +260,9 @@ var Game = (function () {
     noteEvent(state, 'lastCapture', {
       key: H.key(cell.q, cell.r), type: victim.type, owner: victim.owner, by: attacker
     });
+    // Ein Kettensprung des Tangolins schlägt mehrere – gezeigt werden alle
+    if (!state.lastCaptures) state.lastCaptures = [];
+    state.lastCaptures.push(state.lastCapture);
     cell.piece = null;
     var vName = U.DEFS[victim.type].name;
     log(state, vName + ' von ' + state.players[victim.owner].name + ' geschlagen.', attacker);
@@ -401,6 +406,18 @@ var Game = (function () {
     }
 
     if (action.kind === 'capture') { capture(state, target, state.current); noteProgress(state); }
+
+    /* Kettensprung: Wer übersprungen wurde, fällt – vor dem Zug, damit auch ein
+       Landefeld frei wird, dessen Figur unterwegs geschlagen wurde. Fällt dabei
+       ein Königs-Turm, nimmt er die ganze Armee seines Spielers mit; dann steht
+       auf einem der folgenden Felder womöglich schon nichts mehr. */
+    if (action.kind === 'jump' && action.captures && action.captures.length) {
+      action.captures.forEach(function (k) {
+        var opfer = state.board.cells[k];
+        if (opfer && opfer.piece) capture(state, opfer, state.current);
+      });
+      noteProgress(state);
+    }
 
     if (action.kind === 'harvest') {
       target.tree = false;

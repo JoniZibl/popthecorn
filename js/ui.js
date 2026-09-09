@@ -850,15 +850,17 @@
     ui.shownEvent = state.moveNo;
     var board = state.board;
 
-    // Geschlagene Figur ein letztes Mal zeigen
-    var cap = state.lastCapture;
-    if (cap) {
+    /* Geschlagene Figuren ein letztes Mal zeigen – ein Kettensprung des
+       Tangolins nimmt mehrere mit, und jede soll man fallen sehen. */
+    (state.lastCaptures && state.lastCaptures.length
+      ? state.lastCaptures : (state.lastCapture ? [state.lastCapture] : [])
+    ).forEach(function (cap) {
       var ghost = Render.ghost(view, board, cap.key, cap.type, state.players[cap.owner].color);
       fade(ghost, [{ opacity: 1, transform: 'scale(1)' },
                    { opacity: 0, transform: 'scale(1.5)' }], 420);
       fade(Render.pulse(view, board, cap.key, 'pulse-capture'),
            [{ opacity: .9, transform: 'scale(.5)' }, { opacity: 0, transform: 'scale(1.6)' }], 460);
-    }
+    });
 
     // Ziehende Figur von ihrem alten Feld heranfahren lassen
     var mv = state.lastMove;
