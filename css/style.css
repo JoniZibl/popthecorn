@@ -183,6 +183,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .train-btn:hover:not(:disabled) { border-color: var(--accent); }
 .train-btn.is-active { border-color: var(--accent); background: #26331f; }
 .train-btn:disabled { opacity: .38; cursor: not-allowed; }
+/* schon im Spiel: nicht ausgegraut, sondern als vorhanden markiert */
+.train-btn.is-fielded { opacity: .7; border-style: dashed; }
+.train-btn.is-fielded .tc { color: var(--accent); }
 
 .dir-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
 .dir-btn {

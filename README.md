@@ -21,6 +21,11 @@ Holz kommt ausschließlich aus gefällten Bäumen und bezahlt jede neue Einheit.
 Ausgebildet wird auf freien Feldern rund um den Königs-Turm und um alle Einheiten,
 die über eine lückenlose Kette mit ihm verbunden sind.
 
+Von **jeder Figur darf höchstens eine** je Spieler auf dem Feld stehen. Erst wenn sie
+geschlagen wird, darf sie neu ausgebildet werden – der Zenturio bleibt davon ausgenommen
+und ist auf eine Ausbildung pro Partie beschränkt. Eine Armee umfasst damit höchstens
+Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
+
 ## Einheiten
 
 | Einheit | Kosten | Bewegung |
@@ -33,6 +38,9 @@ die über eine lückenlose Kette mit ihm verbunden sind.
 | Bogenschütze | 2 Holz | 1 Feld ohne zu schlagen, oder Schuss auf Distanz 2 |
 | Tangolin | 2 Holz | Kettensprünge über Bäume und eigene Einheiten, nie über Wasser |
 | Zenturio | 3 Holz | beliebig weit in jede Richtung; nur einmal pro Spiel |
+
+Verliert man den Arbeiter, lohnt sich ein Holzvorrat: Ohne Arbeiter und ohne Holz lassen
+sich keine Bäume mehr fällen – und damit nichts mehr ausbilden.
 
 ## Bedienung
 
@@ -102,8 +110,10 @@ node test/simulate.js 100   # komplette Zufallspartien
 ```
 
 `test/figuren.js` prüft die ausgemessenen Zielfelder von Samurai, Springer und
-Bogenschütze – inklusive der Eigenschaft des Samurai, auf einer Farbklasse zu bleiben.
+Bogenschütze – inklusive der Eigenschaft des Samurai, auf einer Farbklasse zu bleiben –
+sowie die Bestandsgrenze von einer Figur je Typ samt Neuausbildung nach einem Verlust.
 
 `test/simulate.js` spielt zufällige Partien komplett durch – inklusive Aufbau, Ausbildung und Ausscheiden –
 und prüft nach jedem Zug die Invarianten des Spielzustands (keine Figur im Wasser oder auf
-einem Baum, kein negatives Holz, genau ein Königs-Turm je aktivem Spieler).
+einem Baum, kein negatives Holz, genau ein Königs-Turm je aktivem Spieler, höchstens eine
+Figur je Typ und Spieler).

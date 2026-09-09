@@ -209,20 +209,40 @@ var Moves = (function () {
     return affordableUnits(state, owner).length > 0 && trainingSpots(board, owner).length > 0;
   }
 
-  /* Einheiten, die sich der Spieler gerade leisten darf. */
-  function affordableUnits(state, owner) {
+  /* Welche Figurentypen dieses Spielers stehen gerade auf dem Feld? */
+  function typesOnBoard(board, owner) {
+    var types = {};
+    board.keys.forEach(function (k) {
+      var c = board.cells[k];
+      if (c.piece && c.piece.owner === owner) types[c.piece.type] = true;
+    });
+    return types;
+  }
+
+  /* Warum eine Einheit gerade nicht ausgebildet werden kann – null heißt: sie geht.
+     Von jeder Figur darf höchstens eine je Spieler auf dem Feld stehen; der Zenturio
+     darf zusätzlich nur ein einziges Mal pro Spiel ausgebildet werden. */
+  function trainBlocker(state, owner, id) {
+    var def = Units.DEFS[id];
     var player = state.players[owner];
+    if (!def || !def.trainable) return 'nicht ausbildbar';
+    if (def.unique && player.trained[id]) return 'schon ausgebildet';
+    if (typesOnBoard(state.board, owner)[id]) return 'steht im Spiel';
+    if (def.cost > player.wood) return 'zu wenig Holz';
+    return null;
+  }
+
+  /* Einheiten, die der Spieler gerade ausbilden darf. */
+  function affordableUnits(state, owner) {
     return Units.TRAIN_ORDER.filter(function (id) {
-      var def = Units.DEFS[id];
-      if (def.cost > player.wood) return false;
-      if (def.unique && player.trained[id]) return false;
-      return true;
+      return trainBlocker(state, owner, id) === null;
     });
   }
 
   return {
     forPiece: forPiece, trainingSpots: trainingSpots,
-    hasAnyAction: hasAnyAction, affordableUnits: affordableUnits, enterable: enterable
+    hasAnyAction: hasAnyAction, affordableUnits: affordableUnits,
+    trainBlocker: trainBlocker, typesOnBoard: typesOnBoard, enterable: enterable
   };
 })();
 

@@ -10,7 +10,7 @@ var H = Hex, B = Board, M = Moves, G = Game, U = Units;
 function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
 
 function invariants(state, where) {
-  var kings = {};
+  var kings = {}, byType = {};
   state.board.keys.forEach(function (k) {
     var c = state.board.cells[k];
     if (!c.piece) return;
@@ -19,6 +19,10 @@ function invariants(state, where) {
     if (state.players[c.piece.owner].eliminated) throw new Error(where + ': Figur eines ausgeschiedenen Spielers');
     if (c.piece.type === 'king') kings[c.piece.owner] = (kings[c.piece.owner] || 0) + 1;
     if (!U.DEFS[c.piece.type]) throw new Error(where + ': unbekannter Typ ' + c.piece.type);
+    var tk = c.piece.owner + '/' + c.piece.type;
+    byType[tk] = (byType[tk] || 0) + 1;
+    if (byType[tk] > 1) throw new Error(where + ': ' + byType[tk] + '× ' + c.piece.type +
+      ' bei ' + state.players[c.piece.owner].name + ' auf dem Feld');
   });
   state.players.forEach(function (p) {
     if (p.wood < 0) throw new Error(where + ': negatives Holz bei ' + p.name);

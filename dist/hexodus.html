@@ -186,6 +186,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .train-btn:hover:not(:disabled) { border-color: var(--accent); }
 .train-btn.is-active { border-color: var(--accent); background: #26331f; }
 .train-btn:disabled { opacity: .38; cursor: not-allowed; }
+/* schon im Spiel: nicht ausgegraut, sondern als vorhanden markiert */
+.train-btn.is-fielded { opacity: .7; border-style: dashed; }
+.train-btn.is-fielded .tc { color: var(--accent); }
 
 .dir-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 8px 0; }
 .dir-btn {
@@ -403,6 +406,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
           auf dem Brett zeigt genau zwischen die beiden.</li>
         <li><strong>Bäume</strong> blockieren; nur der Arbeiter darf ihr Feld betreten und fällt sie dabei.</li>
         <li><strong>Holz</strong> stammt aus gefällten Bäumen und bezahlt jede neue Einheit.</li>
+        <li>Von <strong>jeder Figur</strong> darf höchstens eine je Spieler auf dem Feld stehen.
+          Erst wenn sie geschlagen wird, darf sie neu ausgebildet werden – der Zenturio bleibt
+          auf eine Ausbildung pro Partie beschränkt.</li>
         <li>Richtungsfiguren (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet werden;
           eine Drehung ohne Bewegung kostet den ganzen Zug.</li>
       </ul>
@@ -978,20 +984,40 @@ var Moves = (function () {
     return affordableUnits(state, owner).length > 0 && trainingSpots(board, owner).length > 0;
   }
 
-  /* Einheiten, die sich der Spieler gerade leisten darf. */
-  function affordableUnits(state, owner) {
+  /* Welche Figurentypen dieses Spielers stehen gerade auf dem Feld? */
+  function typesOnBoard(board, owner) {
+    var types = {};
+    board.keys.forEach(function (k) {
+      var c = board.cells[k];
+      if (c.piece && c.piece.owner === owner) types[c.piece.type] = true;
+    });
+    return types;
+  }
+
+  /* Warum eine Einheit gerade nicht ausgebildet werden kann – null heißt: sie geht.
+     Von jeder Figur darf höchstens eine je Spieler auf dem Feld stehen; der Zenturio
+     darf zusätzlich nur ein einziges Mal pro Spiel ausgebildet werden. */
+  function trainBlocker(state, owner, id) {
+    var def = Units.DEFS[id];
     var player = state.players[owner];
+    if (!def || !def.trainable) return 'nicht ausbildbar';
+    if (def.unique && player.trained[id]) return 'schon ausgebildet';
+    if (typesOnBoard(state.board, owner)[id]) return 'steht im Spiel';
+    if (def.cost > player.wood) return 'zu wenig Holz';
+    return null;
+  }
+
+  /* Einheiten, die der Spieler gerade ausbilden darf. */
+  function affordableUnits(state, owner) {
     return Units.TRAIN_ORDER.filter(function (id) {
-      var def = Units.DEFS[id];
-      if (def.cost > player.wood) return false;
-      if (def.unique && player.trained[id]) return false;
-      return true;
+      return trainBlocker(state, owner, id) === null;
     });
   }
 
   return {
     forPiece: forPiece, trainingSpots: trainingSpots,
-    hasAnyAction: hasAnyAction, affordableUnits: affordableUnits, enterable: enterable
+    hasAnyAction: hasAnyAction, affordableUnits: affordableUnits,
+    trainBlocker: trainBlocker, typesOnBoard: typesOnBoard, enterable: enterable
   };
 })();
 
@@ -1303,10 +1329,8 @@ var Game = (function () {
   function train(state, type, q, r) {
     if (state.phase !== 'play' || state.pending) return false;
     var def = U.DEFS[type];
-    if (!def || !def.trainable) return false;
+    if (M.trainBlocker(state, state.current, type) !== null) return false;
     var player = state.players[state.current];
-    if (player.wood < def.cost) return false;
-    if (def.unique && player.trained[type]) return false;
     var cell = B.get(state.board, q, r);
     if (!B.isFree(cell)) return false;
     var ok = M.trainingSpots(state.board, state.current).some(function (c) {
@@ -1865,21 +1889,31 @@ var Render = (function () {
     $('#players').innerHTML = html;
   }
 
+  // Kurztext auf dem Knopf: warum geht die Einheit gerade nicht?
+  var BLOCK_TEXT = {
+    'steht im Spiel': 'steht schon im Spiel',
+    'schon ausgebildet': 'nur einmal pro Spiel',
+    'zu wenig Holz': null   // Kosten bleiben sichtbar
+  };
+
   function trainMenuHtml() {
-    var player = state.players[state.current];
     var spots = M.trainingSpots(state.board, state.current).length;
     var rows = U.TRAIN_ORDER.map(function (id) {
       var def = U.DEFS[id];
-      var locked = def.unique && player.trained[id];
-      var disabled = player.wood < def.cost || locked || !spots;
-      return '<button class="train-btn' + (ui.trainType === id ? ' is-active' : '') + '"' +
+      var blocker = M.trainBlocker(state, state.current, id);
+      var label = (blocker && BLOCK_TEXT[blocker]) || (def.cost + '× \u{1F332}');
+      var disabled = blocker !== null || !spots;
+      return '<button class="train-btn' + (ui.trainType === id ? ' is-active' : '') +
+        (blocker === 'steht im Spiel' ? ' is-fielded' : '') + '"' +
         (disabled ? ' disabled' : '') + ' data-train="' + id + '" title="' + esc(def.short) + '">' +
         '<span class="tn">' + def.name + '</span>' +
-        '<span class="tc">' + (locked ? 'bereits ausgebildet' : def.cost + '× \u{1F332}') + '</span>' +
+        '<span class="tc">' + label + '</span>' +
         '</button>';
     }).join('');
     var note = !spots ? '<p class="hint warn">Kein freies Feld an deiner Einheiten-Kette.</p>' : '';
-    return '<h3>Ausbilden</h3>' + note + '<div class="train-grid">' + rows + '</div>';
+    return '<h3>Ausbilden</h3>' + note + '<div class="train-grid">' + rows + '</div>' +
+      '<p class="hint small">Von jeder Figur darf nur eine im Spiel sein. Wird sie geschlagen, ' +
+      'kannst du sie neu ausbilden – den Zenturio jedoch nur einmal pro Partie.</p>';
   }
 
   function selectedHtml() {

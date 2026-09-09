@@ -301,10 +301,8 @@ var Game = (function () {
   function train(state, type, q, r) {
     if (state.phase !== 'play' || state.pending) return false;
     var def = U.DEFS[type];
-    if (!def || !def.trainable) return false;
+    if (M.trainBlocker(state, state.current, type) !== null) return false;
     var player = state.players[state.current];
-    if (player.wood < def.cost) return false;
-    if (def.unique && player.trained[type]) return false;
     var cell = B.get(state.board, q, r);
     if (!B.isFree(cell)) return false;
     var ok = M.trainingSpots(state.board, state.current).some(function (c) {

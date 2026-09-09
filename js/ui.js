@@ -276,21 +276,31 @@
     $('#players').innerHTML = html;
   }
 
+  // Kurztext auf dem Knopf: warum geht die Einheit gerade nicht?
+  var BLOCK_TEXT = {
+    'steht im Spiel': 'steht schon im Spiel',
+    'schon ausgebildet': 'nur einmal pro Spiel',
+    'zu wenig Holz': null   // Kosten bleiben sichtbar
+  };
+
   function trainMenuHtml() {
-    var player = state.players[state.current];
     var spots = M.trainingSpots(state.board, state.current).length;
     var rows = U.TRAIN_ORDER.map(function (id) {
       var def = U.DEFS[id];
-      var locked = def.unique && player.trained[id];
-      var disabled = player.wood < def.cost || locked || !spots;
-      return '<button class="train-btn' + (ui.trainType === id ? ' is-active' : '') + '"' +
+      var blocker = M.trainBlocker(state, state.current, id);
+      var label = (blocker && BLOCK_TEXT[blocker]) || (def.cost + '× \u{1F332}');
+      var disabled = blocker !== null || !spots;
+      return '<button class="train-btn' + (ui.trainType === id ? ' is-active' : '') +
+        (blocker === 'steht im Spiel' ? ' is-fielded' : '') + '"' +
         (disabled ? ' disabled' : '') + ' data-train="' + id + '" title="' + esc(def.short) + '">' +
         '<span class="tn">' + def.name + '</span>' +
-        '<span class="tc">' + (locked ? 'bereits ausgebildet' : def.cost + '× \u{1F332}') + '</span>' +
+        '<span class="tc">' + label + '</span>' +
         '</button>';
     }).join('');
     var note = !spots ? '<p class="hint warn">Kein freies Feld an deiner Einheiten-Kette.</p>' : '';
-    return '<h3>Ausbilden</h3>' + note + '<div class="train-grid">' + rows + '</div>';
+    return '<h3>Ausbilden</h3>' + note + '<div class="train-grid">' + rows + '</div>' +
+      '<p class="hint small">Von jeder Figur darf nur eine im Spiel sein. Wird sie geschlagen, ' +
+      'kannst du sie neu ausbilden – den Zenturio jedoch nur einmal pro Partie.</p>';
   }
 
   function selectedHtml() {
