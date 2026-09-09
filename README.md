@@ -127,6 +127,20 @@ statt die Oberfläche zu blockieren.
 Gespielt wird ausschließlich über `game.js`: Die KI schlägt einen Zug vor, ausgeführt wird
 er vom Regelwerk. So kann kein KI-Zug an den Regeln vorbei.
 
+## Sichtbare Rückmeldung
+
+Damit nachvollziehbar bleibt, was gerade passiert ist – gerade gegen die KI:
+
+* **Figuren gleiten** von ihrem alten Feld heran, statt zu springen.
+* Der **letzte Zug bleibt markiert**: gestrichelt das Startfeld, weiß das Zielfeld.
+* Eine **geschlagene Figur** wird ein letztes Mal gezeigt und vergeht in einem roten Ring.
+* Beim **Baumfällen** steigt ein „+1 🌲" auf, der Holzstand in der Leiste hebt sich kurz hervor.
+* Eine **neu ausgebildete Einheit** wächst aus dem Boden.
+* Mögliche Züge **atmen** leicht, damit sie ins Auge fallen.
+
+Wer im Betriebssystem „Bewegung reduzieren" eingestellt hat, bekommt ein ruhiges Brett:
+Alle Animationen entfallen, die Markierung des letzten Zuges bleibt.
+
 ## Bedienung
 
 * **Figur anklicken** → mögliche Züge werden markiert (weiß = Zug, roter Ring = schlagen,

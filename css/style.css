@@ -123,7 +123,11 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 
 /* ---------- Spielbildschirm ---------- */
 .game { display: grid; grid-template-columns: 1fr var(--sidebar); min-height: 0; }
-.board-wrap { position: relative; min-width: 0; background: var(--bg-2); overflow: hidden; }
+.board-wrap {
+  position: relative; min-width: 0; overflow: hidden;
+  /* leichte Tiefe: das Brett liegt in einer Mulde statt auf einer Fläche */
+  background: radial-gradient(120% 90% at 50% 45%, #232a33 0%, var(--bg-2) 55%, #14171c 100%);
+}
 .board { position: absolute; inset: 0; }
 .board-svg { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
 .board-svg:active { cursor: grabbing; }
@@ -177,6 +181,15 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px;
   white-space: nowrap;
 }
+/* Holzstand hebt sich kurz hervor, wenn er sich ändert */
+@keyframes woodBump {
+  0%   { transform: scale(1); color: var(--text); }
+  35%  { transform: scale(1.35); color: var(--accent); }
+  100% { transform: scale(1); color: var(--text); }
+}
+.player-card .wood.just-changed { animation: woodBump .55s ease-out; display: inline-block; }
+
+.phase-banner { transition: opacity .2s ease; }
 .player-card .meta { grid-column: 2 / span 2; font-size: 12px; color: var(--muted); }
 
 .panel { padding: 4px 12px 12px; border-top: 1px solid var(--line); }
@@ -232,7 +245,30 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .hex-water .hex-shape { fill: var(--water); }
 .hex.is-placeable .hex-shape { fill: #b6e9a4; cursor: pointer; }
 .hex.is-placeable:hover .hex-shape { fill: #d9f7cd; }
+.hex-grass .hex-shape, .hex-water .hex-shape { transition: fill .12s ease; }
+
+/* Zugmarkierungen atmen leicht, damit sie ins Auge fallen */
+@keyframes markerBreathe {
+  0%, 100% { transform: scale(1); opacity: .85; }
+  50%      { transform: scale(1.18); opacity: 1; }
+}
+.marker-dot { animation: markerBreathe 1.6s ease-in-out infinite; transform-origin: center; }
+.mk-capture .marker-ring { animation: markerBreathe 1.3s ease-in-out infinite; transform-origin: center; }
 .hex-selected { fill: none; stroke: #fff; stroke-width: 3; pointer-events: none; }
+
+/* Der letzte Zug bleibt sichtbar – sonst weiß man nicht, was die KI getan hat */
+.last-move { fill: none; pointer-events: none; }
+.last-from { stroke: rgba(255, 255, 255, .38); stroke-width: 2.5; stroke-dasharray: 7 6; }
+.last-to { stroke: rgba(255, 255, 255, .8); stroke-width: 3; }
+
+/* Vergängliche Effekte */
+.ghost { pointer-events: none; }
+.pulse { fill: none; stroke-width: 4; pointer-events: none; }
+.pulse-capture { stroke: var(--danger); }
+.pulse-shot { stroke: #ff8080; }
+.pulse-train { stroke: var(--accent); }
+.float-text { pointer-events: none; }
+.float-text text { font-size: 17px; font-weight: 800; paint-order: stroke; stroke: rgba(0,0,0,.6); stroke-width: 3; }
 
 .tree-bg { fill: var(--grass-dark); }
 .tree-top { fill: #2f9e50; }
@@ -291,6 +327,12 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .rule-card .cost { font-size: 12px; color: var(--accent); white-space: nowrap; }
 .rule-card p { color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0 0 8px; }
 .rule-card ul { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+
+/* Wer Bewegung reduziert haben möchte, bekommt ein ruhiges Brett */
+@media (prefers-reduced-motion: reduce) {
+  .marker-dot, .mk-capture .marker-ring, .player-card .wood.just-changed { animation: none; }
+  .hex-grass .hex-shape, .hex-water .hex-shape, .phase-banner { transition: none; }
+}
 
 /* ---------- Schmale Bildschirme ---------- */
 @media (max-width: 900px) {

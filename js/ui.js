@@ -10,7 +10,8 @@
 
   var state = null;
   var view = null;
-  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, thinking: false };
+  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null,
+             thinking: false, shownEvent: 0, woodShown: null };
 
   function $(sel) { return document.querySelector(sel); }
   function esc(s) {
@@ -67,7 +68,8 @@
 
   function startGame(names, kinds) {
     state = G.create(names, kinds);
-    ui = { mode: 'idle', trainType: null, markers: [], placeable: null, thinking: false };
+    ui = { mode: 'idle', trainType: null, markers: [], placeable: null,
+           thinking: false, shownEvent: 0, woodShown: null };
     $('#screen-menu').classList.add('hidden');
     $('#screen-game').classList.remove('hidden');
     if (!view) {
@@ -275,6 +277,9 @@
   /* ---------------- Seitenleiste ---------------- */
 
   function renderPlayers() {
+    var vorher = ui.woodShown || {};
+    ui.woodShown = {};
+    state.players.forEach(function (p) { ui.woodShown[p.index] = p.wood; });
     var html = state.players.map(function (p) {
       var cls = 'player-card' + (p.index === state.current && state.phase !== 'over' ? ' is-current' : '') +
         (p.eliminated ? ' is-out' : '');
@@ -286,7 +291,8 @@
       return '<div class="' + cls + '" style="--pc:' + p.color + '">' +
         '<span class="swatch"></span>' +
         '<span class="pname">' + esc(p.name) + tag + '</span>' +
-        '<span class="wood" title="Holz">\u{1F332} ' + p.wood + '</span>' +
+        '<span class="wood' + (vorher[p.index] !== undefined && vorher[p.index] !== p.wood
+          ? ' just-changed' : '') + '" title="Holz">\u{1F332} ' + p.wood + '</span>' +
         '<span class="meta">' + extra + '</span>' +
         '</div>';
     }).join('');
@@ -467,11 +473,91 @@
 
   function refresh() {
     computeMarkers();
-    Render.draw(view, state, { markers: ui.markers, placeable: ui.placeable });
+    Render.draw(view, state, {
+      markers: ui.markers, placeable: ui.placeable, lastMove: state.lastMove
+    });
     renderPlayers();
     renderPanel();
     renderLog();
+    playEffects();
     scheduleAI();
+  }
+
+  /* ---------------- Bewegte Rückmeldung ----------------
+     Nach jedem Neuzeichnen: neue Ereignisse einmal sichtbar machen. Gezeigt wird
+     nur, was seit dem letzten Bild dazugekommen ist (moveNo). */
+
+  function reducedMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function run(node, frames, options) {
+    if (!node || !node.animate) return;
+    try { node.animate(frames, options); } catch (e) { /* ältere Browser: ohne Animation */ }
+  }
+
+  function fade(node, frames, ms) {
+    if (!node) return;
+    if (node.animate) {
+      var anim = node.animate(frames, { duration: ms, easing: 'ease-out', fill: 'forwards' });
+      anim.onfinish = function () { if (node.parentNode) node.parentNode.removeChild(node); };
+    }
+    setTimeout(function () { if (node.parentNode) node.parentNode.removeChild(node); }, ms + 60);
+  }
+
+  function playEffects() {
+    if (!state || reducedMotion()) { ui.shownEvent = state ? state.moveNo : 0; return; }
+    if (state.moveNo === ui.shownEvent) return;
+    ui.shownEvent = state.moveNo;
+    var board = state.board;
+
+    // Geschlagene Figur ein letztes Mal zeigen
+    var cap = state.lastCapture;
+    if (cap) {
+      var ghost = Render.ghost(view, board, cap.key, cap.type, state.players[cap.owner].color);
+      fade(ghost, [{ opacity: 1, transform: 'scale(1)' },
+                   { opacity: 0, transform: 'scale(1.5)' }], 420);
+      fade(Render.pulse(view, board, cap.key, 'pulse-capture'),
+           [{ opacity: .9, transform: 'scale(.5)' }, { opacity: 0, transform: 'scale(1.6)' }], 460);
+    }
+
+    // Ziehende Figur von ihrem alten Feld heranfahren lassen
+    var mv = state.lastMove;
+    if (mv && mv.kind !== 'shoot') {
+      var node = Render.pieceAt(view, mv.toKey);
+      var a = Render.cellPixel(view, board, mv.fromKey);
+      var b = Render.cellPixel(view, board, mv.toKey);
+      if (node && a && b) {
+        run(node, [
+          { transform: 'translate(' + (a.x - b.x) + 'px,' + (a.y - b.y) + 'px)' },
+          { transform: 'translate(0,0)' }
+        ], { duration: 300, easing: 'cubic-bezier(.25,.9,.3,1)' });
+      }
+    }
+
+    // Schuss: Blitz beim Schützen und beim Ziel
+    if (mv && mv.kind === 'shoot') {
+      fade(Render.pulse(view, board, mv.fromKey, 'pulse-shot'),
+           [{ opacity: .8, transform: 'scale(.4)' }, { opacity: 0, transform: 'scale(1.2)' }], 320);
+    }
+
+    // Baum gefällt: "+1" steigt auf
+    var hv = state.lastHarvest;
+    if (hv) {
+      fade(Render.floatText(view, board, hv.key, '+1 \u{1F332}', state.players[hv.owner].color),
+           [{ opacity: 1, transform: 'translateY(0)' },
+            { opacity: 0, transform: 'translateY(-26px)' }], 900);
+    }
+
+    // Neue Einheit wächst aus dem Boden
+    var tr = state.lastTrain;
+    if (tr) {
+      run(Render.pieceAt(view, tr.key),
+          [{ transform: 'scale(.2)', opacity: 0 }, { transform: 'scale(1)', opacity: 1 }],
+          { duration: 340, easing: 'cubic-bezier(.2,1.3,.4,1)' });
+      fade(Render.pulse(view, board, tr.key, 'pulse-train'),
+           [{ opacity: .8, transform: 'scale(.4)' }, { opacity: 0, transform: 'scale(1.4)' }], 480);
+    }
   }
 
   /* ---------------- Computergegner ---------------- */

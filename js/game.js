@@ -56,6 +56,11 @@ var Game = (function () {
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
       lastProgressBy: null,
       endReason: null,
+      moveNo: 0,               // zählt Aktionen – die Oberfläche erkennt daran Neues
+      lastMove: null,          // { fromKey, toKey, type, owner, kind }
+      lastCapture: null,       // { key, type, owner, by }
+      lastHarvest: null,       // { key, owner }
+      lastTrain: null,         // { key, type, owner }
       current: 0,
       pending: null,           // {kind:'rotate'|'trainFacing', key}
       awaitWorker: false,      // König gesetzt, Arbeiter fehlt noch
@@ -94,6 +99,20 @@ var Game = (function () {
       if (c.piece && c.piece.owner === owner) sum += U.DEFS[c.piece.type].cost || 0;
     });
     return sum;
+  }
+
+  /* Ereignisse für die Darstellung festhalten. */
+  function noteEvent(state, what, data) {
+    state.moveNo++;
+    data.moveNo = state.moveNo;
+    state[what] = data;
+  }
+
+  function clearEvents(state) {
+    state.lastMove = null;
+    state.lastCapture = null;
+    state.lastHarvest = null;
+    state.lastTrain = null;
   }
 
   function noteProgress(state) {
@@ -229,6 +248,9 @@ var Game = (function () {
 
   function capture(state, cell, attacker) {
     var victim = cell.piece;
+    noteEvent(state, 'lastCapture', {
+      key: H.key(cell.q, cell.r), type: victim.type, owner: victim.owner, by: attacker
+    });
     cell.piece = null;
     var vName = U.DEFS[victim.type].name;
     log(state, U.DEFS[victim.type].name + ' von ' + state.players[victim.owner].name + ' geschlagen.', attacker);
@@ -330,6 +352,11 @@ var Game = (function () {
 
     if (action.kind === 'shoot') {
       if (!target.piece) return false;
+      clearEvents(state);
+      noteEvent(state, 'lastMove', {
+        fromKey: H.key(fromCell.q, fromCell.r), toKey: H.key(target.q, target.r),
+        type: piece.type, owner: state.current, kind: 'shoot'
+      });
       log(state, player.name + ': Bogenschütze schießt.', state.current);
       capture(state, target, state.current);
       noteProgress(state);
@@ -339,6 +366,11 @@ var Game = (function () {
     }
 
     // Bootskosten und Königs-Sprung stecken beide in action.cost
+    clearEvents(state);
+    noteEvent(state, 'lastMove', {
+      fromKey: H.key(fromCell.q, fromCell.r), toKey: H.key(target.q, target.r),
+      type: piece.type, owner: state.current, kind: action.kind
+    });
     var plan = M.waterPlan(state.board, piece, fromCell, target);
     if (action.cost) {
       if (player.wood < action.cost) return false;
@@ -357,6 +389,7 @@ var Game = (function () {
     if (action.kind === 'harvest') {
       target.tree = false;
       player.wood += 1;
+      noteEvent(state, 'lastHarvest', { key: H.key(target.q, target.r), owner: state.current });
       noteProgress(state);
       log(state, player.name + ': Arbeiter fällt einen Baum (+1 Holz).', state.current);
     }
@@ -427,6 +460,8 @@ var Game = (function () {
     player.wood -= def.cost;
     player.trained[type] = (player.trained[type] || 0) + 1;
     cell.piece = { type: type, owner: state.current, facing: 0 };
+    clearEvents(state);
+    noteEvent(state, 'lastTrain', { key: H.key(q, r), type: type, owner: state.current });
     noteProgress(state);
     log(state, player.name + ' bildet einen ' + def.name + ' aus (-' + def.cost + ' Holz).', state.current);
     state.passes = 0;

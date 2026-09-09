@@ -28,7 +28,7 @@ var Render = (function () {
     var svg = el('svg', { class: 'board-svg' });
     var root = el('g', { class: 'board-root' });
     var layers = {};
-    ['terrain', 'overlay', 'trees', 'pieces', 'markers'].forEach(function (n) {
+    ['terrain', 'overlay', 'trees', 'pieces', 'markers', 'effects'].forEach(function (n) {
       layers[n] = el('g', { class: 'layer-' + n });
       root.appendChild(layers[n]);
     });
@@ -42,6 +42,8 @@ var Render = (function () {
 
   function clear(view) {
     for (var k in view.layers) {
+      // Effekte laufen aus und räumen sich selbst ab – sie überleben ein Neuzeichnen
+      if (k === 'effects') continue;
       while (view.layers[k].firstChild) view.layers[k].removeChild(view.layers[k].firstChild);
     }
   }
@@ -75,10 +77,17 @@ var Render = (function () {
     applyView(view);
   }
 
-  function treeGlyph(g) {
+  function treeGlyph(g, cell) {
+    // feste, aus den Koordinaten abgeleitete Abweichung: der Wald sieht dadurch
+    // gewachsen aus statt gestempelt, bleibt aber über Neuzeichnungen gleich
+    var seed = ((cell.q * 73856093) ^ (cell.r * 19349663)) >>> 0;
+    var scale = 0.88 + (seed % 25) / 100;
+    var tilt = ((seed >> 5) % 9) - 4;
     g.appendChild(el('circle', { class: 'tree-bg', cx: 0, cy: 0, r: SIZE * 0.5 }));
-    g.appendChild(el('path', { class: 'tree-top', d: 'M0,-15 L9,7 L-9,7 Z' }));
-    g.appendChild(el('path', { class: 'tree-top2', d: 'M0,-15 L9,7 L0,7 Z' }));
+    var top = el('g', { transform: 'rotate(' + tilt + ') scale(' + scale.toFixed(2) + ')' });
+    top.appendChild(el('path', { class: 'tree-top', d: 'M0,-15 L9,7 L-9,7 Z' }));
+    top.appendChild(el('path', { class: 'tree-top2', d: 'M0,-15 L9,7 L0,7 Z' }));
+    g.appendChild(top);
   }
 
   /* Boot: ein braunes Sechseck auf dem Wasser, neutral für alle Spieler */
@@ -154,7 +163,7 @@ var Render = (function () {
 
       if (cell.tree) {
         var tg = el('g', { class: 'tree', transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')' });
-        treeGlyph(tg);
+        treeGlyph(tg, cell);
         view.layers.trees.appendChild(tg);
       }
 
@@ -170,13 +179,17 @@ var Render = (function () {
         var owner = state.players[cell.piece.owner];
         var pg = el('g', {
           class: 'piece piece-' + cell.piece.type + (state.selected === k ? ' is-selected' : ''),
-          transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')'
+          transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')',
+          'data-key': k
         });
-        if (Units.DEFS[cell.piece.type].directional) facingArrow(pg, cell.piece, owner.color);
-        pieceGlyph(pg, cell.piece, owner.color);
+        // innere Gruppe: sie trägt die Animation, ohne das transform-Attribut zu stören
+        var inner = el('g', { class: 'piece-anim' });
+        if (Units.DEFS[cell.piece.type].directional) facingArrow(inner, cell.piece, owner.color);
+        pieceGlyph(inner, cell.piece, owner.color);
         var title = el('title');
         title.textContent = Units.DEFS[cell.piece.type].name + ' – ' + owner.name;
-        pg.appendChild(title);
+        inner.appendChild(title);
+        pg.appendChild(inner);
         view.layers.pieces.appendChild(pg);
       }
     });
@@ -188,6 +201,19 @@ var Render = (function () {
         class: 'hex-selected', points: hexPts,
         transform: 'translate(' + sp.x.toFixed(2) + ',' + sp.y.toFixed(2) + ')'
       }));
+    }
+
+    // Letzter Zug bleibt sichtbar – so ist nachvollziehbar, was die KI getan hat
+    if (ctx.lastMove) {
+      [['from', ctx.lastMove.fromKey], ['to', ctx.lastMove.toKey]].forEach(function (pair) {
+        var lc = board.cells[pair[1]];
+        if (!lc) return;
+        var lp = H.toPixel(lc, SIZE);
+        view.layers.overlay.appendChild(el('polygon', {
+          class: 'last-move last-' + pair[0], points: hexPts,
+          transform: 'translate(' + lp.x.toFixed(2) + ',' + lp.y.toFixed(2) + ')'
+        }));
+      });
     }
 
     // Markierungen für mögliche Aktionen
@@ -224,6 +250,57 @@ var Render = (function () {
     applyView(view);
   }
 
+  /* ---------------- Vergängliche Effekte ---------------- */
+
+  function cellPixel(view, board, key) {
+    var c = board.cells[key];
+    return c ? H.toPixel(c, SIZE) : null;
+  }
+
+  /* Geschlagene Figur ein letztes Mal zeigen und vergehen lassen. */
+  function ghost(view, board, key, type, color) {
+    var p = cellPixel(view, board, key);
+    if (!p || !HEADS[type]) return null;
+    var g = el('g', {
+      class: 'ghost',
+      transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')'
+    });
+    pieceGlyph(g, { type: type }, color);
+    view.layers.effects.appendChild(g);
+    return g;
+  }
+
+  /* Kurz aufsteigender Text, etwa "+1" beim Holzfällen. */
+  function floatText(view, board, key, text, color) {
+    var p = cellPixel(view, board, key);
+    if (!p) return null;
+    var g = el('g', {
+      class: 'float-text',
+      transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')'
+    });
+    var t = el('text', { x: 0, y: -6, 'text-anchor': 'middle', fill: color });
+    t.textContent = text;
+    g.appendChild(t);
+    view.layers.effects.appendChild(g);
+    return g;
+  }
+
+  /* Ring, der einmal aufblitzt – für Schüsse und geschlagene Figuren. */
+  function pulse(view, board, key, cls) {
+    var p = cellPixel(view, board, key);
+    if (!p) return null;
+    var c = el('circle', {
+      class: 'pulse ' + (cls || ''), cx: 0, cy: 0, r: SIZE * 0.5,
+      transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')'
+    });
+    view.layers.effects.appendChild(c);
+    return c;
+  }
+
+  function pieceAt(view, key) {
+    return view.layers.pieces.querySelector('[data-key="' + key + '"] .piece-anim');
+  }
+
   /* Figuren-Symbol als HTML-String – für Regelkarten und Startbildschirm */
   function pieceIcon(type, color) {
     var pts = H.cornerPoints(22, 1);
@@ -244,5 +321,6 @@ var Render = (function () {
   }
 
   return { create: create, draw: draw, fit: fit, zoomBy: zoomBy, applyView: applyView,
-           pieceIcon: pieceIcon, SIZE: SIZE };
+           pieceIcon: pieceIcon, ghost: ghost, floatText: floatText, pulse: pulse,
+           pieceAt: pieceAt, cellPixel: cellPixel, SIZE: SIZE };
 })();
