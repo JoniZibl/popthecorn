@@ -231,7 +231,8 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .piece-base { fill: #23282f; }
 .piece-head { fill: #1b2026; stroke-width: 1.4; }
 .piece.is-selected .piece-head { stroke-width: 2.4; }
-.facing { opacity: .9; }
+/* dunkler Rand, damit der Pfeil auf jedem Untergrund ablesbar bleibt */
+.facing { stroke: rgba(0, 0, 0, .55); stroke-width: 1.4; paint-order: stroke; }
 
 .marker { cursor: pointer; }
 .marker-hex { fill: transparent; }

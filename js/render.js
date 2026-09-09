@@ -88,18 +88,32 @@ var Render = (function () {
     g.appendChild(el('path', { class: 'piece-head', d: HEADS[piece.type], stroke: color }));
   }
 
-  function facingArrow(g, piece, color) {
-    // Der Springer springt in zwei benachbarte Richtungen – sein Pfeil zeigt dazwischen
-    var wedge = piece.type === 'springer';
-    var v = wedge ? H.wedgeVector(piece.facing) : H.dirVector(piece.facing);
-    var angle = wedge ? H.wedgeAngle(piece.facing) : H.dirAngle(piece.facing);
+  /* Blickrichtung als Pfeil am Feldrand – immer sichtbar, auch bei den Gegnern.
+     Der Legionär bekommt zwei Spitzen, weil er auf seiner Achse vor und zurück läuft. */
+  function arrowHead(g, vec, angle, color, style) {
+    var wedge = (style === 'wedge');
+    var reach = SIZE * (wedge ? 0.50 : 0.48);
     g.appendChild(el('path', {
       class: 'facing',
-      d: wedge ? 'M0,-7 L10,0 L0,7 L3,0 Z' : 'M0,-5 L9,0 L0,5 Z',
+      d: wedge ? 'M0,-9.5 L15,0 L0,9.5 L4.5,0 Z' : 'M0,-7.5 L13,0 L0,7.5 L3.5,0 Z',
       fill: color,
-      transform: 'translate(' + (v.x * SIZE * 0.72).toFixed(2) + ',' + (v.y * SIZE * 0.72).toFixed(2) +
+      transform: 'translate(' + (vec.x * reach).toFixed(2) + ',' + (vec.y * reach).toFixed(2) +
                  ') rotate(' + angle.toFixed(1) + ')'
     }));
+  }
+
+  function facingArrow(g, piece, color) {
+    if (piece.type === 'springer') {
+      // ein breiter Pfeil zwischen die beiden Sprungrichtungen – so bleibt er
+      // vom Achsenpfeil des Legionärs unterscheidbar
+      arrowHead(g, H.wedgeVector(piece.facing), H.wedgeAngle(piece.facing), color, 'wedge');
+      return;
+    }
+    arrowHead(g, H.dirVector(piece.facing), H.dirAngle(piece.facing), color, false);
+    if (piece.type === 'legionaer') {
+      var back = (piece.facing + 3) % 6;
+      arrowHead(g, H.dirVector(back), H.dirAngle(back), color, false);
+    }
   }
 
   var MARKER_CLASS = {

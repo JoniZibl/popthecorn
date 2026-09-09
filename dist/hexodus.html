@@ -234,7 +234,8 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .piece-base { fill: #23282f; }
 .piece-head { fill: #1b2026; stroke-width: 1.4; }
 .piece.is-selected .piece-head { stroke-width: 2.4; }
-.facing { opacity: .9; }
+/* dunkler Rand, damit der Pfeil auf jedem Untergrund ablesbar bleibt */
+.facing { stroke: rgba(0, 0, 0, .55); stroke-width: 1.4; paint-order: stroke; }
 
 .marker { cursor: pointer; }
 .marker-hex { fill: transparent; }
@@ -410,8 +411,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
         Beim Bewegen wird eine gegnerische Figur auf dem Zielfeld geschlagen.</p>
       <ul>
         <li><strong>Wasser</strong> kann nicht betreten werden – Samurai, Springer und Schüsse überqueren es.</li>
-        <li>Der <strong>Springer</strong> zielt auf einen Keil aus zwei benachbarten Richtungen; sein Pfeil
-          auf dem Brett zeigt genau zwischen die beiden.</li>
+        <li><strong>Richtungspfeile</strong> sind dauerhaft sichtbar – auch bei den Gegnern.
+          Der Springer trägt einen breiten Pfeil zwischen seinen beiden Sprungrichtungen,
+          der Legionär zwei Pfeile für seine Achse nach vorn und zurück.</li>
         <li><strong>Bäume</strong> blockieren; nur der Arbeiter darf ihr Feld betreten und fällt sie dabei.</li>
         <li><strong>Holz</strong> stammt aus gefällten Bäumen und bezahlt jede neue Einheit.</li>
         <li>Von <strong>jeder Figur</strong> darf höchstens eine je Spieler auf dem Feld stehen.
@@ -2469,18 +2471,32 @@ var Render = (function () {
     g.appendChild(el('path', { class: 'piece-head', d: HEADS[piece.type], stroke: color }));
   }
 
-  function facingArrow(g, piece, color) {
-    // Der Springer springt in zwei benachbarte Richtungen – sein Pfeil zeigt dazwischen
-    var wedge = piece.type === 'springer';
-    var v = wedge ? H.wedgeVector(piece.facing) : H.dirVector(piece.facing);
-    var angle = wedge ? H.wedgeAngle(piece.facing) : H.dirAngle(piece.facing);
+  /* Blickrichtung als Pfeil am Feldrand – immer sichtbar, auch bei den Gegnern.
+     Der Legionär bekommt zwei Spitzen, weil er auf seiner Achse vor und zurück läuft. */
+  function arrowHead(g, vec, angle, color, style) {
+    var wedge = (style === 'wedge');
+    var reach = SIZE * (wedge ? 0.50 : 0.48);
     g.appendChild(el('path', {
       class: 'facing',
-      d: wedge ? 'M0,-7 L10,0 L0,7 L3,0 Z' : 'M0,-5 L9,0 L0,5 Z',
+      d: wedge ? 'M0,-9.5 L15,0 L0,9.5 L4.5,0 Z' : 'M0,-7.5 L13,0 L0,7.5 L3.5,0 Z',
       fill: color,
-      transform: 'translate(' + (v.x * SIZE * 0.72).toFixed(2) + ',' + (v.y * SIZE * 0.72).toFixed(2) +
+      transform: 'translate(' + (vec.x * reach).toFixed(2) + ',' + (vec.y * reach).toFixed(2) +
                  ') rotate(' + angle.toFixed(1) + ')'
     }));
+  }
+
+  function facingArrow(g, piece, color) {
+    if (piece.type === 'springer') {
+      // ein breiter Pfeil zwischen die beiden Sprungrichtungen – so bleibt er
+      // vom Achsenpfeil des Legionärs unterscheidbar
+      arrowHead(g, H.wedgeVector(piece.facing), H.wedgeAngle(piece.facing), color, 'wedge');
+      return;
+    }
+    arrowHead(g, H.dirVector(piece.facing), H.dirAngle(piece.facing), color, false);
+    if (piece.type === 'legionaer') {
+      var back = (piece.facing + 3) % 6;
+      arrowHead(g, H.dirVector(back), H.dirAngle(back), color, false);
+    }
   }
 
   var MARKER_CLASS = {

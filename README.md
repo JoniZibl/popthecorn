@@ -82,6 +82,9 @@ er vom Regelwerk. So kann kein KI-Zug an den Regeln vorbei.
 * **Ausbilden** → Einheit in der Seitenleiste wählen, dann ein rosa markiertes Feld anklicken.
 * **Richtungsfiguren** (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet
   werden; eine Drehung ohne Bewegung kostet den ganzen Zug.
+* **Richtungspfeile** stehen dauerhaft an allen Figuren – auch an denen der Gegner. Der
+  Springer trägt einen breiten Pfeil zwischen seinen beiden Sprungrichtungen, der Legionär
+  zwei Pfeile für seine Achse nach vorn und zurück.
 * Brett verschieben durch Ziehen, Zoom per Mausrad, Zwei-Finger-Geste oder über die
   Schaltflächen rechts oben. Am Handy liegen die Aktionen direkt unter dem Brett.
 
