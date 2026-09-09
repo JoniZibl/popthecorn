@@ -3436,9 +3436,14 @@ var Render = (function () {
      Jede Figur bekommt einen eigenen Umriss, nicht nur andere Zacken – auf dem
      Brett ist so ein Aufsatz gut zehn Bildpunkte hoch, und was sich erst aus
      der Nähe unterscheidet, unterscheidet sich im Spiel gar nicht. Deshalb:
-     ein Turm mit Zinnen, eine Axt, eine schräge Klinge, ein Pferdekopf, ein
-     Schild, ein Bogen samt Pfeil, eine Raute – und für den Zenturio der
-     Helm mit dem Querbusch, an dem man den Zenturio bei den Römern erkannt hat.
+     ein Turm mit Zinnen, eine schräge Klinge, ein Pferdekopf, ein Schild, eine
+     Raute – und für den Zenturio der Helm mit dem Querbusch, an dem man den
+     Zenturio bei den Römern erkannt hat.
+
+     Arbeiter und Bogenschütze behalten ihre ursprünglichen Formen: das
+     schlichte Dreieck und die Spitze mit den eingezogenen Flanken. Beide
+     wurden zwischenzeitlich als Axt und als Bogen gezeichnet und auf Wunsch
+     zurückgeholt; sie sind nur an die größeren Maße angepasst.
 
      Wer eine Figur ändert, ändert sie auch in der Seitenleiste und im
      Regelwerk mit: Die kleinen Symbole zeichnen dieselben Pfade. */
@@ -3446,11 +3451,8 @@ var Render = (function () {
     // Königs-Turm: breiter Turm mit drei Zinnen – als einziger rechtwinklig
     king:      'M-9,-11 L-9,-26 L-5.5,-26 L-5.5,-22.5 L-2,-22.5 L-2,-26 ' +
                'L2,-26 L2,-22.5 L5.5,-22.5 L5.5,-26 L9,-26 L9,-11 Z',
-    // Arbeiter: Axt – Stiel mit quer sitzendem Blatt, die Schneide nach links.
-    // Er ist der Einzige, der Bäume fällt.
-    worker:    'M-2,-11 L-2,-25 L2,-25 L2,-11 Z ' +
-               'M-10,-31.5 C-5,-29.5 -1,-29 3,-29 L8,-29 L8,-23.5 L3,-23.5 ' +
-               'C-1,-23.5 -5,-23 -10,-21 Z',
+    // Arbeiter: das schlichte Dreieck von Anfang an
+    worker:    'M0,-27.8 L9.6,-11 L-9.6,-11 Z',
     // Samurai: schräge Klinge mit Stichblatt – als Einziger diagonal, wie sein Zug
     samurai:   'M-4.2,-11 L-6.8,-13.2 L5.6,-29 L8.2,-26.8 Z ' +
                'M-1.6,-12.4 L-6.6,-16.6 L-7.6,-15.4 L-2.6,-11.2 Z',
@@ -3462,11 +3464,8 @@ var Render = (function () {
     // Eine Spitze nach unten sähe zusammen mit dem Schaft aus wie ein Kelch.
     legionaer: 'M-8.5,-29 L8.5,-29 C9.7,-25 9.7,-16 8.5,-12 L-8.5,-12 ' +
                'C-9.7,-16 -9.7,-25 -8.5,-29 Z',
-    // Bogenschütze: Bogen mit aufgelegtem Pfeil
-    archer:    'M2,-30 C9,-25.5 9,-14.5 2,-10 L-0.8,-11.6 ' +
-               'C5,-15.4 5,-24.6 -0.8,-28.4 Z ' +
-               'M-4.5,-21 L4,-21 L4,-19 L-4.5,-19 Z ' +
-               'M-9.5,-20 L-4,-23.4 L-4,-16.6 Z',
+    // Bogenschütze: die eingezogene Spitze von Anfang an
+    archer:    'M-9.6,-11 L-7.2,-17 L-8.4,-21.8 L0,-27.8 L8.4,-21.8 L7.2,-17 L9.6,-11 Z',
     // Tangolin: Raute – der einzige gleichmäßige Vierecker
     tangolin:  'M0,-30 L8.5,-20.5 L0,-11 L-8.5,-20.5 Z',
     // Zenturio: Helm mit gezacktem Querbusch, an dem man ihn bei den Römern

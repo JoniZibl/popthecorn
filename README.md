@@ -71,12 +71,17 @@ Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
 ### Woran man die Figuren erkennt
 
 Jede Figur hat einen **eigenen Umriss**, nicht nur andere Zacken: Der Königs-Turm ist ein
-Turm mit Zinnen, der Arbeiter trägt die Axt, mit der er Bäume fällt, der Samurai eine
-schräge Klinge – als Einziger diagonal, wie sein Zug. Der Springer ist der Pferdekopf aus
-dem Schach, der Legionär ein Scutum, der Bogenschütze ein Bogen mit aufgelegtem Pfeil, der
-Tangolin eine Raute. Der **Zenturio** trägt den Helm mit dem gezackten Querbusch, an dem man
-den Zenturio bei den Römern erkannte, und ist die höchste und breiteste Figur im Spiel –
-er steht wie der Königs-Turm auf einem größeren Sockel.
+Turm mit Zinnen, der Samurai eine schräge Klinge – als Einziger diagonal, wie sein Zug. Der
+Springer ist der Pferdekopf aus dem Schach, der Legionär ein Scutum, der Tangolin eine Raute.
+Der **Zenturio** trägt den Helm mit dem gezackten Querbusch, an dem man den Zenturio bei den
+Römern erkannte, und ist die höchste und breiteste Figur im Spiel – er steht wie der
+Königs-Turm auf einem größeren Sockel.
+
+**Arbeiter und Bogenschütze** behalten ihre ursprünglichen Formen: das schlichte Dreieck und
+die Spitze mit den eingezogenen Flanken. Beide waren zwischenzeitlich als Axt und als Bogen
+gezeichnet und sind auf Wunsch zurückgeholt, nur an die größeren Maße angepasst. Sie sind
+damit die beiden Umrisse, die einander am nächsten kommen – zusammen mit der Raute des
+Tangolins laufen alle drei nach oben spitz zu.
 
 Das ist keine Spielerei: Auf dem Brett ist eine Figur am Handy gut zehn Bildpunkte hoch.
 Was sich erst aus der Nähe unterscheidet, unterscheidet sich im Spiel gar nicht. Die kleinen
