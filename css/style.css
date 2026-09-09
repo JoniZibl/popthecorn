@@ -299,13 +299,10 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 /* Uferkante: dunkler Saum am tiefer liegenden Wasser */
 .water-rim { fill: none; stroke: rgba(0, 0, 0, .22); stroke-width: 3; }
 
-/* Zugmarkierungen atmen leicht, damit sie ins Auge fallen */
-@keyframes markerBreathe {
-  0%, 100% { transform: scale(1); opacity: .85; }
-  50%      { transform: scale(1.18); opacity: 1; }
-}
-.marker-dot { animation: markerBreathe 1.6s ease-in-out infinite; transform-origin: center; }
-.mk-capture .marker-ring { animation: markerBreathe 1.3s ease-in-out infinite; transform-origin: center; }
+/* Zugmarkierungen stehen still. Sie haben einmal geatmet, damit sie ins Auge
+   fallen – dabei sah man aber nie genau, wo der Punkt sitzt, auf den man
+   zielen soll. Auffallen sollen sie durch Farbe und Rand, nicht durch
+   Bewegung. */
 .hex-selected { fill: none; stroke: #fff; stroke-width: 3; pointer-events: none; }
 
 /* Versorgungskette: Verbindung vom Turm zu jeder Einheit, an der ausgebildet
@@ -374,7 +371,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 
 .marker { cursor: pointer; }
 .marker-hex { fill: transparent; }
-.marker-dot { fill: #f2fff0; opacity: .85; stroke: #2c3a26; stroke-width: 1; }
+.marker-dot { fill: #f2fff0; stroke: #23301e; stroke-width: 1.4; }
 .marker-ring { fill: rgba(227, 93, 93, .28); stroke: var(--danger); stroke-width: 3; }
 .marker-icon { stroke: #ff6b6b; stroke-width: 4; stroke-linecap: round; fill: none; }
 .marker-icon-fill { fill: var(--warn); }
@@ -417,7 +414,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 
 /* Wer Bewegung reduziert haben möchte, bekommt ein ruhiges Brett */
 @media (prefers-reduced-motion: reduce) {
-  .marker-dot, .mk-capture .marker-ring, .player-card .wood.just-changed { animation: none; }
+  .player-card .wood.just-changed { animation: none; }
   .cam-readout { transition: none; }
   .hex-grass .hex-shape, .hex-water .hex-shape, .phase-banner { transition: none; }
 }

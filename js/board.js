@@ -60,6 +60,35 @@ var Board = (function () {
     return { q: q, r: r, terrain: terrain, tree: false, boat: false, piece: null };
   }
 
+  /* Wasserrand: Nach dem Legen der Plättchen bekommt das Brett ringsum zwei
+     Reihen Wasser. Es hört damit nicht an einer geraden Kante auf, sondern
+     liegt als Insel im Meer. Gespielt wird darauf wie auf jedem Wasser – ohne
+     Boot betritt es niemand, und zu holen gibt es dort nichts.
+
+     Erst wird die ganze Reihe gesammelt und dann gesetzt: Wer die neuen Felder
+     sofort einträgt, findet sie im selben Durchlauf wieder als Nachbarn und
+     wächst statt einer Reihe gleich ins Uferlose. */
+  var RAND_RINGE = 2;
+
+  function addWaterRim(cells, ringe) {
+    for (var r = 0; r < ringe; r++) {
+      var neu = [];
+      Object.keys(cells).forEach(function (k) {
+        H.neighbors(cells[k]).forEach(function (nb) {
+          if (!cells[H.key(nb.q, nb.r)]) neu.push(nb);
+        });
+      });
+      neu.forEach(function (c) {
+        var k = H.key(c.q, c.r);
+        if (cells[k]) return;
+        cells[k] = createCell(c.q, c.r, 'water');
+        // Welcher Ring: Das Einpassen zeigt den ersten noch ganz und lässt den
+        // zweiten über den Rand hinauslaufen, damit die Insel groß bleibt.
+        cells[k].rim = r + 1;
+      });
+    }
+  }
+
   function generate(tileCount) {
     var centers = layoutTiles(tileCount);
     var cells = {};
@@ -71,6 +100,7 @@ var Board = (function () {
         cells[H.key(cell.q, cell.r)] = createCell(cell.q, cell.r, isWater ? 'water' : 'grass');
       });
     });
+    addWaterRim(cells, RAND_RINGE);
     return {
       cells: cells,
       tiles: centers,

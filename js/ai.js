@@ -93,7 +93,17 @@ var AI = (function () {
       var dq = qs[i] - qs[j], dr = rs[i] - rs[j];
       dist[i * n + j] = (Math.abs(dq) + Math.abs(dr) + Math.abs(dq + dr)) / 2;
     }
-    board.__geo = { n: n, keys: keys, idx: idx, nb: nb, diag: diag,
+    /* Nur die Landfelder, einmal vorgemerkt. Die Bewertung läuft an jedem Blatt
+       einmal übers Brett, und auf Wasser steht nie ein Baum und nie eine Figur.
+       Seit das Brett einen Wasserrand hat, ist gut die Hälfte aller Felder
+       Wasser – sie jedes Mal mitzuzählen wäre die Hälfte der Arbeit umsonst. */
+    var landList = [];
+    for (i = 0; i < n; i++) {
+      if (board.cells[keys[i]].terrain !== 'water') landList.push(i);
+    }
+    var land = new Int32Array(landList);
+
+    board.__geo = { n: n, keys: keys, idx: idx, nb: nb, diag: diag, land: land,
                     far2: far2, far3: far3, dist: dist, qs: qs, rs: rs };
     return board.__geo;
   }
@@ -646,21 +656,26 @@ var AI = (function () {
      Für jeden Spieler: auf welchen Feldern könnte er schlagen? Felder mit eigenen
      Figuren zählen mit – so ergibt sich zugleich, wer wen deckt. */
 
+  /* Beweglichkeit zählt nur Landfelder: Aufs Wasser kommt nur, wer ein Boot
+     kauft. Seit das Brett von einem Wasserrand umgeben ist, bekäme sonst jede
+     Figur an der Küste einen Bonus dafür, dass neben ihr das Meer liegt.
+     Die Angriffskarte selbst schließt Wasser weiter ein – dort kann eine Figur
+     im Boot stehen, und die ist schlagbar. */
   function addAttacks(s, i, atk, base, mob, p) {
     var type = s.pt[i], geo = s.geo, nb = geo.nb, d, j, cur, count = 0;
 
     if (type === T.worker || type === T.tangolin) {
-      for (d = 0; d < 6; d++) { j = nb[i * 6 + d]; if (landable(s, j)) { atk[base + j]++; count++; } }
+      for (d = 0; d < 6; d++) { j = nb[i * 6 + d]; if (landable(s, j)) { atk[base + j]++; if (s.terrain[j] === 0) count++; } }
 
     } else if (type === T.samurai) {
-      for (d = 0; d < 6; d++) { j = geo.diag[i * 6 + d]; if (landable(s, j)) { atk[base + j]++; count++; } }
+      for (d = 0; d < 6; d++) { j = geo.diag[i * 6 + d]; if (landable(s, j)) { atk[base + j]++; if (s.terrain[j] === 0) count++; } }
 
     } else if (type === T.springer) {
       var w = s.pf[i] % 6;
       for (var a = 0; a < 2; a++) {
         var dd = (w + a) % 6;
-        j = geo.far2[i * 6 + dd]; if (landable(s, j)) { atk[base + j]++; count++; }
-        j = geo.far3[i * 6 + dd]; if (landable(s, j)) { atk[base + j]++; count++; }
+        j = geo.far2[i * 6 + dd]; if (landable(s, j)) { atk[base + j]++; if (s.terrain[j] === 0) count++; }
+        j = geo.far3[i * 6 + dd]; if (landable(s, j)) { atk[base + j]++; if (s.terrain[j] === 0) count++; }
       }
 
     } else if (type === T.legionaer || type === T.zenturio) {
@@ -671,17 +686,17 @@ var AI = (function () {
         for (;;) {
           cur = nb[cur * 6 + dir];
           if (cur < 0 || s.terrain[cur] === 1 || s.tree[cur]) break;
-          atk[base + cur]++; count++;
+          atk[base + cur]++; if (s.terrain[cur] === 0) count++;
           if (s.pt[cur] >= 0) break;
         }
       }
 
     } else if (type === T.archer) {
-      for (d = 0; d < 6; d++) { j = geo.far2[i * 6 + d]; if (j >= 0) { atk[base + j]++; count++; } }
+      for (d = 0; d < 6; d++) { j = geo.far2[i * 6 + d]; if (j >= 0) { atk[base + j]++; if (s.terrain[j] === 0) count++; } }
 
     } else if (type === T.king) {
       if (s.wood[p] >= 1) {
-        for (d = 0; d < 6; d++) { j = nb[i * 6 + d]; if (landable(s, j)) { atk[base + j]++; count++; } }
+        for (d = 0; d < 6; d++) { j = nb[i * 6 + d]; if (landable(s, j)) { atk[base + j]++; if (s.terrain[j] === 0) count++; } }
       }
     }
     mob[p] += count;
@@ -707,9 +722,13 @@ var AI = (function () {
     var parts = ctx.explain ? (ctx.parts = []) : null;
     function part(pl, name, v) { if (parts && v) parts.push({ p: pl, name: name, v: Math.round(v) }); }
 
-    // Ein einziger Durchlauf über das Brett – danach nur noch kurze Listen
+    /* Ein einziger Durchlauf über die Landfelder – danach nur noch kurze Listen.
+       Auf Wasser steht weder Baum noch Figur; der Wasserrand des Bretts bleibt
+       hier also außen vor. */
+    var landIdx = geo.land, nland = landIdx.length;
     var nocc = 0, ntree = 0;
-    for (i = 0; i < n; i++) {
+    for (k = 0; k < nland; k++) {
+      i = landIdx[k];
       if (s.tree[i]) trees[ntree++] = i;
       var o = s.po[i];
       if (o >= 0 && s.alive[o]) {

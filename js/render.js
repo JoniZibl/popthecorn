@@ -182,12 +182,19 @@ var Render = (function () {
   /* ---------------- Kamera und Ausschnitt ---------------- */
 
   /* Umriss des Bretts im Bild – die Ecken aller Felder, projiziert.
-     Oben kommt Platz für die stehenden Figuren dazu. */
+     Oben kommt Platz für die stehenden Figuren dazu.
+
+     Der äußere Ring des Wasserrandes zählt nicht mit: Gespielt wird auf der
+     Insel, und würde das Brett bis zur letzten Welle eingepasst, bliebe vom
+     Land am Handy wenig übrig. Der innere Ring bleibt drin, damit rundum
+     Wasser zu sehen ist; der äußere läuft über den Bildrand hinaus und ist
+     beim Herauszoomen da. */
   function projectedBounds(view, board) {
     var cam = view.cam;
     var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     board.keys.forEach(function (k) {
       var cell = board.cells[k];
+      if (cell.rim > 1) return;
       var p = H.toPixel(cell, SIZE);
       for (var i = 0; i < 6; i++) {
         for (var s = 0; s < 2; s++) {

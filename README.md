@@ -7,7 +7,9 @@ Reine HTML/CSS/JavaScript-Umsetzung ohne Build-Schritt und ohne Abhängigkeiten:
 ## Spielablauf
 
 1. **Spielfeld** – Aus zufällig aneinandergelegten 7er-Hexagon-Plättchen entsteht das Brett
-   (10 / 20 / 25 Plättchen bei 2 / 3 / 4 Spielern). Jedes Plättchen enthält Gras- und Wasserfelder.
+   (10 / 20 / 25 Plättchen bei 2 / 3 / 4 Spielern). Jedes Plättchen enthält Gras- und
+   Wasserfelder. Ringsum legt sich ein **zwei Felder dicker Wasserrand**: Das Brett hört
+   damit nicht an einer geraden Kante auf, sondern liegt als Insel im Meer.
 2. **Bäume platzieren** – Alle Spieler setzen reihum je einen Baum, bis alle verteilt sind
    (30 / 45 / 60 Bäume, gleichmäßig aufgeteilt). Wer keine Lust auf 30 Klicks hat, nutzt
    *„Restliche Bäume zufällig setzen“*.
@@ -197,7 +199,9 @@ Damit nachvollziehbar bleibt, was gerade passiert ist – gerade gegen die KI:
 * Beim **Baumfällen** steigt ein „+1 🌲" **genau über dem gefällten Baum** auf, der Holzstand
   in der Leiste hebt sich kurz hervor.
 * Eine **neu ausgebildete Einheit** wächst aus dem Boden.
-* Mögliche Züge **atmen** leicht, damit sie ins Auge fallen.
+* Mögliche Züge stehen **still**. Sie haben einmal geatmet, damit sie ins Auge fallen –
+  dabei sah man aber nie genau, wo der Punkt sitzt, auf den man zielen soll. Auffallen
+  sollen sie durch Farbe und Rand, nicht durch Bewegung.
 
 Alle Effekte sitzen in einer äußeren Gruppe, die nur die Position trägt; animiert wird eine
 innere Gruppe. Ohne diese Trennung überschreibt die CSS-Transformation der Animation das
@@ -211,6 +215,30 @@ stabil. Dieselbe Streuung bestimmt Größe und Neigung der Bäume.
 
 Wer im Betriebssystem „Bewegung reduzieren" eingestellt hat, bekommt ein ruhiges Brett:
 Alle Animationen entfallen, die Markierung des letzten Zuges bleibt.
+
+## Die Insel
+
+Nach dem Legen der Plättchen bekommt das Brett ringsum **zwei Reihen Wasser**. Gespielt wird
+darauf wie auf jedem Wasser – ohne Boot betritt es niemand, und zu holen gibt es dort nichts;
+es rahmt das Spielfeld und macht aus dem Brett eine Insel.
+
+Beim Erzeugen wird erst die ganze Reihe gesammelt und dann gesetzt. Wer die neuen Felder
+sofort einträgt, findet sie im selben Durchlauf als Nachbarn wieder und wächst statt einer
+Reihe gleich ins Uferlose.
+
+Der Rand kostet Platz und Rechenzeit, beides ist eingepreist:
+
+* **Eingepasst** wird die Insel samt **innerem** Wasserring. Der äußere läuft über den
+  Bildrand hinaus – bis zur letzten Welle eingepasst bliebe vom Land am Handy wenig übrig,
+  und Wasser ist rundum trotzdem zu sehen.
+* Die **Bewertung der KI** läuft an jedem Blatt einmal übers Brett. Seit dem Rand ist gut die
+  Hälfte aller Felder Wasser, und auf Wasser steht nie ein Baum und nie eine Figur – die
+  Suche geht deshalb über eine vorgemerkte Liste der Landfelder statt über alle. Die
+  Suchtiefe bleibt dadurch, wo sie war (4,8 bei *stark*).
+* **Beweglichkeit** zählt nur noch Landfelder. Aufs Wasser kommt nur, wer ein Boot kauft –
+  sonst bekäme jede Figur an der Küste einen Bonus dafür, dass neben ihr das Meer liegt. Die
+  Angriffskarte schließt Wasser weiter ein: Dort kann eine Figur im Boot stehen, und die ist
+  schlagbar.
 
 ## Das Brett in drei Dimensionen
 
@@ -364,7 +392,7 @@ index.html          Startbildschirm, Spielbildschirm, Regelwerk-Overlay
 css/style.css       gesamtes Layout und die Optik des Bretts
 js/hex.js           Hex-Geometrie (axiale Koordinaten, flat-top Layout)
 js/units.js         Einheiten-Definitionen samt Regeltexten
-js/board.js         Spielfeld-Erzeugung aus 7er-Plättchen
+js/board.js         Spielfeld-Erzeugung aus 7er-Plättchen samt Wasserrand
 js/moves.js         Regelwerk: legale Züge, Schüsse, Ausbildungsfelder
 js/game.js          Spielzustand, Aufbauphasen, Zugabwicklung, Ausscheiden
 js/ai.js            Computergegner: Suche, Bewertung, Aufbaustrategie
