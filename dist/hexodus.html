@@ -1484,7 +1484,11 @@ var AI = (function () {
   DANGER[T.tangolin] = 15;  THREAT_RANGE[T.tangolin] = 1;   SPEED[T.tangolin] = 2;
   DANGER[T.zenturio] = 26;  THREAT_RANGE[T.zenturio] = 4;   SPEED[T.zenturio] = 5;
 
-  var WOOD_VALUE = 95;          // ein Holz ist beinahe eine halbe Figur wert
+  /* Holz ist genau das wert, was es einkauft: die Figuren kosten 1–3 Holz und
+     sind 260–780 wert, also rund 210 je Holz. Ist Holz billiger bewertet, wirkt
+     jedes Ausbilden wie geschenkter Wert – die Suche jagt dann am Horizont
+     Ausbildungszüge statt echten Vorteilen nach. */
+  var WOOD_VALUE = 210;
   var COST = [0, 1, 1, 2, 2, 2, 2, 3];
   var DIRECTIONAL = [false, false, false, true, true, false, false, false];
 
@@ -1966,6 +1970,10 @@ var AI = (function () {
     var occ = ctx.occ, trees = ctx.trees, workerAt = ctx.workerAt;
     atk.fill(0); mob.fill(0); sc.fill(0); workerAt.fill(-1);
 
+    // Nur für die Analyse: Anteile der einzelnen Terme mitschreiben
+    var parts = ctx.explain ? (ctx.parts = []) : null;
+    function part(pl, name, v) { if (parts && v) parts.push({ p: pl, name: name, v: Math.round(v) }); }
+
     // Ein einziger Durchlauf über das Brett – danach nur noch kurze Listen
     var nocc = 0, ntree = 0;
     for (i = 0; i < n; i++) {
@@ -1990,13 +1998,14 @@ var AI = (function () {
       var def = atk[own * n + i];
 
       if (t === T.king) {
-        if (att > 0) sc[own] -= 9000;                     // Turm im Schlagbereich
+        if (att > 0) { sc[own] -= 9000; part(own, 'Turm angegriffen', -9000); }
       } else {
         sc[own] += VALUE[t];
+        part(own, 'Material ' + TYPES[t], VALUE[t]);
         if (att > 0) {
-          if (def === 0) sc[own] -= VALUE[t] * 0.50;      // hängt frei
-          else if (att > def) sc[own] -= VALUE[t] * 0.28; // überzählig angegriffen
-          else sc[own] -= VALUE[t] * 0.06;                // gedeckt, aber unter Druck
+          var pen = def === 0 ? VALUE[t] * 0.50 : (att > def ? VALUE[t] * 0.28 : VALUE[t] * 0.06);
+          sc[own] -= pen;
+          part(own, 'Deckung ' + TYPES[t], -pen);
         }
       }
     }
@@ -2004,11 +2013,14 @@ var AI = (function () {
     for (p = 0; p < np; p++) {
       if (!s.alive[p]) continue;
       sc[p] += s.wood[p] * WOOD_VALUE + mob[p] * 3;
+      part(p, 'Holz', s.wood[p] * WOOD_VALUE);
+      part(p, 'Beweglichkeit', mob[p] * 3);
 
       // Wirtschaft: ohne Arbeiter und ohne Holz ist die Partie wirtschaftlich vorbei
       var wk = workerAt[p];
       if (wk < 0) {
         sc[p] -= (s.wood[p] === 0) ? 1500 : 260;
+        part(p, 'kein Arbeiter', -((s.wood[p] === 0) ? 1500 : 260));
       } else if (ntree) {
         var bestTree = 99, near = 0, row = wk * n;
         for (k = 0; k < ntree; k++) {
@@ -2016,7 +2028,9 @@ var AI = (function () {
           if (dt < bestTree) bestTree = dt;
           if (dt <= 3) near++;
         }
-        sc[p] += Math.max(0, 110 - 26 * bestTree) + (near < 6 ? near : 6) * 10;
+        var eco = Math.max(0, 110 - 26 * bestTree) + (near < 6 ? near : 6) * 10;
+        sc[p] += eco;
+        part(p, 'Wirtschaft', eco);
       }
 
       var king = s.kingAt[p];
@@ -2054,21 +2068,26 @@ var AI = (function () {
       else if (escapes === 0) danger *= 1.8;
       else if (escapes === 1) danger *= 1.3;
       sc[p] -= danger;
+      part(p, 'Turmdruck', -danger);
 
       if (!mobile) {
         // Ein bewegungsunfähiger Turm mit Feind im Anmarsch ist fast verloren –
         // das muss teurer sein als jede Figur, die man für das Holz bekäme.
-        sc[p] -= 140;
-        if (soonest <= 2) sc[p] -= 750;
-        if (soonest <= 1) sc[p] -= 950;
+        var imm = 140 + (soonest <= 2 ? 750 : 0) + (soonest <= 1 ? 950 : 0);
+        sc[p] -= imm;
+        part(p, 'Turm ohne Holz', -imm);
       } else {
         sc[p] += (escapes < 3 ? escapes : 3) * 26;
+        part(p, 'Fluchtfelder', (escapes < 3 ? escapes : 3) * 26);
       }
       sc[p] += (guards < 3 ? guards : 3) * 18;
+      part(p, 'Turmdeckung', (guards < 3 ? guards : 3) * 18);
 
       // Kann überhaupt ausgebildet werden?
       clusterSpots(s, p, evalSpots);
-      sc[p] += evalSpots.length ? 20 + (evalSpots.length < 4 ? evalSpots.length : 4) * 7 : -90;
+      var tr = evalSpots.length ? 20 + (evalSpots.length < 4 ? evalSpots.length : 4) * 7 : -90;
+      sc[p] += tr;
+      part(p, 'Ausbildungsfelder', tr);
     }
 
     var bestOther = -INF;

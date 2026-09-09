@@ -56,7 +56,11 @@ Die KI ist keine Zugliste, sondern eine Suche mit Stellungsbewertung:
   Zug-Anwenden und -Zurücknehmen, ohne das Brett zu kopieren.
 * **Bewertung** – Materialwerte, Holz als Währung, und darüber hinaus:
   * **Wirtschaft:** Nähe des Arbeiters zu Bäumen; wer weder Arbeiter noch Holz besitzt,
-    bekommt einen schweren Abzug – seine Partie ist wirtschaftlich vorbei.
+    bekommt einen schweren Abzug – seine Partie ist wirtschaftlich vorbei. Holz zählt
+    genau so viel, wie es einkauft (rund 210 je Holz). Das ist wichtiger, als es klingt:
+    War Holz billiger bewertet, sprang die Bewertung bei jedem Ausbildungszug um mehrere
+    hundert Punkte nach oben, und die Suche jagte am Horizont diesem geschenkten Wert
+    nach, statt echte Vorteile zu finden – tiefere Suche brachte dadurch gar nichts mehr.
   * **Königssicherheit:** Für jede Feindfigur wird geschätzt, in wie vielen Zügen sie den
     Turm erreichen kann – aus Entfernung, Schlagweite und Tempo der Figur. Der Abzug wächst
     steil, je näher der Angriff rückt, damit die KI ausweicht, solange der Gegner noch drei
@@ -71,7 +75,9 @@ Die KI ist keine Zugliste, sondern eine Suche mit Stellungsbewertung:
   stellt später ihren Turm mitten hinein, mit Abstand zu den Gegnern und Platz zum Ausbilden.
 
 Die Stufen unterscheiden sich in Rechenzeit und Suchtiefe: *leicht* rechnet 0,15 s und
-wählt gelegentlich einen nur fast optimalen Zug, *normal* 0,6 s, *stark* 1,6 s. *normal*
+kommt auf Suchtiefe 2, *normal* 0,45 s und Tiefe 4, *stark* 2 s und Tiefe 7. Gemessen in
+kompletten Partien schlägt *stark* die Stufe *normal* mit 7:0 und *normal* die Stufe
+*leicht* deutlich. *normal*
 und *stark* spielen immer den besten gefundenen Zug. Wo überhaupt gewürfelt wird, werden
 die Wurzelzüge mit vollem Suchfenster bewertet – Alpha-Beta liefert sonst nur obere
 Schranken, und ein scheinbar harmloser Zug könnte in Wahrheit den Turm kosten. Die Zeit
