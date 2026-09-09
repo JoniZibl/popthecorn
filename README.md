@@ -57,8 +57,11 @@ Die KI ist keine Zugliste, sondern eine Suche mit Stellungsbewertung:
 * **Bewertung** – Materialwerte, Holz als Währung, und darüber hinaus:
   * **Wirtschaft:** Nähe des Arbeiters zu Bäumen; wer weder Arbeiter noch Holz besitzt,
     bekommt einen schweren Abzug – seine Partie ist wirtschaftlich vorbei.
-  * **Königssicherheit:** Fluchtfelder, Deckung durch eigene Figuren, Feinde in Reichweite;
-    ein Turm im Schlagbereich ist praktisch verloren.
+  * **Königssicherheit:** Für jede Feindfigur wird geschätzt, in wie vielen Zügen sie den
+    Turm erreichen kann – aus Entfernung, Schlagweite und Tempo der Figur. Der Abzug wächst
+    steil, je näher der Angriff rückt, damit die KI ausweicht, solange der Gegner noch drei
+    Felder entfernt ist. Wer **kein Holz** hat, kann seinen Turm nicht einen Schritt bewegen;
+    das kostet bei herannahendem Gegner mehr als jede Figur, die man für das Holz bekäme.
   * **Deckung wie im Schach:** Für jede Figur werden Angreifer und Verteidiger gezählt.
     Eine ungedeckt angegriffene Figur kostet die Hälfte ihres Wertes, eine überzählig
     angegriffene knapp ein Drittel. Dadurch stellt die KI Figuren gegenseitig in Deckung
@@ -68,7 +71,10 @@ Die KI ist keine Zugliste, sondern eine Suche mit Stellungsbewertung:
   stellt später ihren Turm mitten hinein, mit Abstand zu den Gegnern und Platz zum Ausbilden.
 
 Die Stufen unterscheiden sich in Rechenzeit und Suchtiefe: *leicht* rechnet 0,15 s und
-wählt gelegentlich einen nur fast optimalen Zug, *normal* 0,6 s, *stark* 1,6 s. Die Zeit
+wählt gelegentlich einen nur fast optimalen Zug, *normal* 0,6 s, *stark* 1,6 s. *normal*
+und *stark* spielen immer den besten gefundenen Zug. Wo überhaupt gewürfelt wird, werden
+die Wurzelzüge mit vollem Suchfenster bewertet – Alpha-Beta liefert sonst nur obere
+Schranken, und ein scheinbar harmloser Zug könnte in Wahrheit den Turm kosten. Die Zeit
 ist ein hartes Limit – auf einem langsamen Gerät sucht die KI einfach weniger tief,
 statt die Oberfläche zu blockieren.
 
@@ -129,6 +135,8 @@ dist/hexodus.html   erzeugte Einzeldatei (CSS und JS eingebettet)
 test/figuren.js     Zielfelder der Figuren gegen die Regelkarten
 test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
 test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
+test/jagd.js        KI gegen einen Gegner, der gezielt den Turm jagt
+test/blunder.js     lässt die KI ihren Turm im Schlagbereich stehen?
 test/simulate.js    Regelwerks-Simulation (Node, ohne Browser)
 ```
 
@@ -149,7 +157,14 @@ node test/ki.js                 # KI-Zuggenerierung gegen das Regelwerk
 node test/simulate.js 100       # komplette Zufallspartien
 node test/kispiel.js 10         # Spielstärke der KI
 node test/kispiel.js 8 stark normal   # eigene Paarung
+node test/jagd.js 10 normal     # hält der Turm einem gezielten Angriff stand?
+node test/blunder.js 6 normal   # stellt die KI ihren Turm ins Schlagfeld?
 ```
+
+`test/jagd.js` ist der schärfste Test der KI: Der Gegner läuft stur mit allem auf ihren
+Königs-Turm zu und schlägt ihn, sobald er kann. Genau daran scheitert eine KI, die den
+Angriff erst bemerkt, wenn er schon vor der Tür steht. Der Test schlägt fehl, sobald die
+KI auch nur eine Partie durch einen verlorenen Turm abgibt.
 
 `test/ki.js` vergleicht jeden von der KI erzeugten Zug mit `moves.js` – in beide
 Richtungen, damit die Suche weder Züge erfindet noch übersieht – und prüft, dass das

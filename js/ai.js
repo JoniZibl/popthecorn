@@ -30,6 +30,18 @@ var AI = (function () {
   VALUE[T.tangolin] = 430;
   VALUE[T.zenturio] = 780;
 
+  /* Wie gefährlich ist eine Figur für einen Königs-Turm, aus welcher Entfernung
+     kann sie zuschlagen und wie viele Felder schafft sie pro Zug? */
+  var DANGER = [], THREAT_RANGE = [], SPEED = [];
+  DANGER[T.king] = 5;       THREAT_RANGE[T.king] = 1;       SPEED[T.king] = 1;
+  DANGER[T.worker] = 11;    THREAT_RANGE[T.worker] = 1;     SPEED[T.worker] = 1;
+  DANGER[T.samurai] = 13;   THREAT_RANGE[T.samurai] = 2;    SPEED[T.samurai] = 2;
+  DANGER[T.springer] = 15;  THREAT_RANGE[T.springer] = 3;   SPEED[T.springer] = 3;
+  DANGER[T.legionaer] = 17; THREAT_RANGE[T.legionaer] = 3;  SPEED[T.legionaer] = 4;
+  DANGER[T.archer] = 17;    THREAT_RANGE[T.archer] = 2;     SPEED[T.archer] = 1;
+  DANGER[T.tangolin] = 15;  THREAT_RANGE[T.tangolin] = 1;   SPEED[T.tangolin] = 2;
+  DANGER[T.zenturio] = 26;  THREAT_RANGE[T.zenturio] = 4;   SPEED[T.zenturio] = 5;
+
   var WOOD_VALUE = 95;          // ein Holz ist beinahe eine halbe Figur wert
   var COST = [0, 1, 1, 2, 2, 2, 2, 3];
   var DIRECTIONAL = [false, false, false, true, true, false, false, false];
@@ -568,8 +580,9 @@ var AI = (function () {
       var king = s.kingAt[p];
       if (king < 0) continue;
 
-      // Königssicherheit: Fluchtfelder, Deckung, Feindnähe
-      var escapes = 0, guards = atk[p * n + king], foesNear = 0, krow = king * n;
+      // Ohne Holz kann der Turm nicht einen einzigen Schritt ausweichen
+      var mobile = s.wood[p] >= 1;
+      var escapes = 0, guards = atk[p * n + king], krow = king * n;
       for (var d = 0; d < 6; d++) {
         var j = geo.nb[king * 6 + d];
         if (j < 0 || !landable(s, j) || s.pt[j] >= 0) continue;
@@ -577,14 +590,39 @@ var AI = (function () {
         for (var q2 = 0; q2 < np; q2++) if (q2 !== p && s.alive[q2]) hostile += atk[q2 * n + j];
         if (!hostile) escapes++;
       }
+
+      /* Abgestufter Druck: Wie viele Züge braucht jede Feindfigur, bis sie den
+         Turm schlagen kann? Je näher, desto steiler der Abzug – so weicht die KI
+         schon aus, wenn der Gegner noch drei Felder entfernt ist. */
+      var danger = 0, soonest = 99;
       for (k = 0; k < nocc; k++) {
-        var c = occ[k];
-        if (s.po[c] !== p && dist[krow + c] <= 2) foesNear++;
+        var fc = occ[k];
+        if (s.po[fc] === p) continue;
+        var ft = s.pt[fc];
+        var need = dist[krow + fc] - THREAT_RANGE[ft];
+        if (need < 0) need = 0;
+        var turns = Math.ceil(need / SPEED[ft]);
+        if (turns < 1) turns = 1;
+        if (turns > 3) continue;
+        if (turns < soonest) soonest = turns;
+        var f = 4 - turns;
+        danger += DANGER[ft] * f * f * 0.5;
       }
-      if (s.wood[p] === 0) sc[p] -= 80;                   // kann nicht ausweichen
-      else sc[p] += (escapes < 3 ? escapes : 3) * 28;
-      sc[p] += (guards < 3 ? guards : 3) * 24;
-      sc[p] -= (foesNear < 4 ? foesNear : 4) * 55;
+      if (!mobile) danger *= 2.5;
+      else if (escapes === 0) danger *= 1.8;
+      else if (escapes === 1) danger *= 1.3;
+      sc[p] -= danger;
+
+      if (!mobile) {
+        // Ein bewegungsunfähiger Turm mit Feind im Anmarsch ist fast verloren –
+        // das muss teurer sein als jede Figur, die man für das Holz bekäme.
+        sc[p] -= 140;
+        if (soonest <= 2) sc[p] -= 750;
+        if (soonest <= 1) sc[p] -= 950;
+      } else {
+        sc[p] += (escapes < 3 ? escapes : 3) * 26;
+      }
+      sc[p] += (guards < 3 ? guards : 3) * 18;
 
       // Kann überhaupt ausgebildet werden?
       clusterSpots(s, p, evalSpots);
@@ -714,9 +752,14 @@ var AI = (function () {
     };
   }
 
+  /* slack: wie viel schlechter ein Zug sein darf, damit die KI ihn noch in
+     Betracht zieht (nur für die leichte Stufe, damit sie nicht immer gleich
+     spielt). Sobald slack gesetzt ist, wird die Wurzel mit vollem Fenster
+     durchsucht – sonst wären die Werte nur obere Schranken und ein scheinbar
+     harmloser Zug könnte in Wahrheit den Turm kosten. */
   var LEVELS = {
     leicht: { limit: 150, maxDepth: 2, slack: 260 },
-    normal: { limit: 600, maxDepth: 5, slack: 40 },
+    normal: { limit: 600, maxDepth: 5, slack: 0 },
     stark:  { limit: 1600, maxDepth: 9, slack: 0 }
   };
 
@@ -737,8 +780,9 @@ var AI = (function () {
       var localBest = -INF, localMove = rootMoves[0], vals = [];
       for (var i = 0; i < rootMoves.length; i++) {
         var u = make(s, rootMoves[i], me);
-        var val = alphabeta(s, nextAlive(s, me), depth - 1,
-                            localBest === -INF ? -INF : localBest, INF, ctx, 1);
+        // Mit slack brauchen alle Wurzelzüge echte Werte, nicht nur Schranken
+        var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
+        var val = alphabeta(s, nextAlive(s, me), depth - 1, alpha, INF, ctx, 1);
         unmake(s, u);
         if (ctx.stop) break;
         vals.push({ mv: rootMoves[i], val: val });
@@ -751,9 +795,12 @@ var AI = (function () {
       if (ctx.stop || bestScore >= WIN - 1000 || bestScore <= -WIN + 1000) break;
     }
 
-    // Auf niedriger Stufe darf es auch mal ein fast so guter Zug sein
+    // Auf niedriger Stufe darf es auch mal ein fast so guter Zug sein – aber
+    // niemals einer, der den eigenen Turm verschenkt.
     if (cfg.slack && scored && scored.length > 1) {
-      var pool = scored.filter(function (e) { return e.val >= bestScore - cfg.slack; });
+      var floor = bestScore - cfg.slack;
+      if (floor < -WIN + 100000) floor = -WIN + 100000;
+      var pool = scored.filter(function (e) { return e.val >= floor; });
       if (pool.length) best = pool[Math.floor(Math.random() * pool.length)].mv;
     }
 
