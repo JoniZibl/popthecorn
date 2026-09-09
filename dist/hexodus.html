@@ -108,6 +108,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .hint.small { font-size: 12px; }
 .hint.warn { color: var(--warn); }
 .hint.accent { color: var(--accent); }
+.accent { color: var(--accent); }
 
 .units { grid-column: 1; }
 .unit-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-width: 720px; }
@@ -355,6 +356,20 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .piece.is-selected .piece-head { stroke-width: 2.4; }
 /* dunkler Rand, damit der Pfeil auf jedem Untergrund ablesbar bleibt */
 .facing { stroke: rgba(0, 0, 0, .5); stroke-width: 1.4; paint-order: stroke; opacity: .95; }
+
+/* Richtungswähler: sechs Pfeile rund um die Figur, die ausgerichtet wird.
+   Der Pfeil, in den sie schon blickt, steht voll da – die übrigen zurück-
+   haltender, damit auf einen Blick klar ist, wie sie gerade steht. */
+.facing-pick { cursor: pointer; }
+.pick-hit { fill: transparent; }
+.pick-arrow {
+  stroke: rgba(0, 0, 0, .55); stroke-width: 1.6; paint-order: stroke;
+  opacity: .62; transition: opacity .12s ease;
+}
+.facing-pick:hover .pick-arrow { opacity: 1; }
+.facing-pick.is-current .pick-arrow {
+  opacity: 1; stroke: rgba(255, 255, 255, .9); stroke-width: 2.2;
+}
 
 .marker { cursor: pointer; }
 .marker-hex { fill: transparent; }
@@ -667,6 +682,10 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
           auf eine Ausbildung pro Partie beschränkt.</li>
         <li>Richtungsfiguren (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet werden;
           eine Drehung ohne Bewegung kostet den ganzen Zug.</li>
+        <li><strong>Richtung wählen:</strong> Wartet das Spiel auf eine Richtung – nach dem Zug einer
+          Richtungsfigur oder nach ihrer Ausbildung –, liegen sechs Pfeile rund um die Figur, jeder
+          dort, wohin er zeigt. Einen antippen genügt. Der hervorgehobene Pfeil ist die jetzige
+          Richtung; ihn anzutippen beendet den Zug, ohne zu drehen.</li>
       </ul>
     </section>
 
@@ -3851,7 +3870,11 @@ var Render = (function () {
       });
       // innere Gruppe: sie trägt die Animation, ohne das transform-Attribut zu stören
       var inner = el('g', { class: 'piece-anim' });
-      if (Units.DEFS[cell.piece.type].directional) {
+      // Steht der Richtungswähler um diese Figur, zeigt schon sein
+      // hervorgehobener Pfeil, wohin sie blickt – zwei Pfeilsätze übereinander
+      // wären nur Gewirr.
+      var waehlt = ctx.facing && ctx.facing.key === item.k;
+      if (Units.DEFS[cell.piece.type].directional && !waehlt) {
         facingArrow(inner, cam, o, cx, cy, z, cell.piece, owner.color);
       }
       pieceGlyph(inner, cam, o, cx, cy, z, cell.piece, owner.color, o.k);
@@ -3916,6 +3939,59 @@ var Render = (function () {
     view.layers.markers.appendChild(g);
   }
 
+  /* Richtungswähler: sechs Pfeile rund um die Figur, die gerade ausgerichtet
+     wird. Sie liegen dort, wohin sie zeigen – wer die Figur nach Nordost
+     drehen will, tippt nordöstlich neben sie. Gezeigt wird das nur, solange
+     das Spiel ohnehin auf die Richtung wartet; dann gibt es keine Zugfelder,
+     mit denen die Pfeile sich um die Klicks streiten könnten. */
+  function facingPicker(view, state, ctx) {
+    var f = ctx.facing;
+    if (!f) return;
+    var cell = state.board.cells[f.key];
+    if (!cell) return;
+    var cam = view.cam;
+    var p = H.toPixel(cell, SIZE), z = surfaceZ(cell) + 1.2;
+    var wedge = f.type === 'springer';
+    /* Der Pfeil liegt dort, wohin er zeigt: mitten im Nachbarfeld (Abstand
+       zweier Feldmitten = Größe · √3). Beim Springer zeigt die Richtung
+       zwischen zwei Nachbarn hindurch; sein Pfeil liegt entsprechend auf der
+       gemeinsamen Kante. Näher an der Figur überdeckte der nördliche Pfeil
+       ihren Aufsteller – und ein Ziel, das man nicht sieht, tippt man nicht. */
+    var R = SIZE * (wedge ? 1.5 : 1.732);
+
+    for (var d = 0; d < 6; d++) {
+      var v = wedge ? H.wedgeVector(d) : H.dirVector(d);
+      var cx = p.x + v.x * R, cy = p.y + v.y * R;
+      var o = S.project(cam, cx, cy, z);
+      var g = el('g', {
+        class: 'facing-pick' + (d === f.current ? ' is-current' : ''),
+        transform: 'translate(' + o.x.toFixed(2) + ',' + o.y.toFixed(2) + ')',
+        'data-facing': d
+      });
+      /* Großzügige Trefferfläche: Am Handy ist ein Feld bei eingepasstem Brett
+         keine 40 Punkte breit, der Pfeil darin nur halb so groß. Getroffen
+         werden soll aber der Pfeil, nicht das Pixel. */
+      g.appendChild(el('polygon', {
+        class: 'pick-hit', points: pts(cam, disc(cx, cy, z, SIZE * 0.8, 10), o)
+      }));
+      var px = -v.y, py = v.x, L = 16, W = 13, B = 7;
+      g.appendChild(el('polygon', {
+        class: 'pick-arrow', fill: f.color,
+        points: pts(cam, [
+          [cx + v.x * L, cy + v.y * L, z],
+          [cx - v.x * B + px * W, cy - v.y * B + py * W, z],
+          [cx - v.x * B * 0.2, cy - v.y * B * 0.2, z],
+          [cx - v.x * B - px * W, cy - v.y * B - py * W, z]
+        ], o)
+      }));
+      var t = el('title');
+      t.textContent = (wedge ? H.wedgeName(d) : H.DIR_NAMES[d]) +
+        (d === f.current ? ' (aktuell – antippen beendet den Zug)' : '');
+      g.appendChild(t);
+      view.layers.markers.appendChild(g);
+    }
+  }
+
   function draw(view, state, ctx) {
     // gemerkt, damit das Brett beim Drehen ohne Zutun der Oberfläche neu entsteht
     view.last = { state: state, ctx: ctx };
@@ -3954,6 +4030,7 @@ var Render = (function () {
     }
 
     (ctx.markers || []).forEach(function (m) { drawMarker(view, state, m); });
+    facingPicker(view, state, ctx);
 
     applyView(view);
   }
@@ -4075,7 +4152,7 @@ var Render = (function () {
 
   var state = null;
   var view = null;
-  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null,
+  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null,
              thinking: false, shownEvent: 0, woodShown: null,
              sheetOpen: false, sheetAuto: false, sheetMove: null };
 
@@ -4134,7 +4211,7 @@ var Render = (function () {
 
   function startGame(names, kinds) {
     state = G.create(names, kinds);
-    ui = { mode: 'idle', trainType: null, markers: [], placeable: null,
+    ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null,
            thinking: false, shownEvent: 0, woodShown: null,
            sheetOpen: false, sheetAuto: false, sheetMove: null };
     $('#screen-menu').classList.add('hidden');
@@ -4313,18 +4390,20 @@ var Render = (function () {
       schliesseUeberlagerungen();
       // Zielfeld schon hier merken: durch das Pointer-Capture landet das
       // pointerup-Event sonst auf dem SVG statt auf dem Hexfeld.
-      var node = e.target.closest ? e.target.closest('[data-key]') : null;
+      var node = e.target.closest ? e.target.closest('[data-key],[data-facing]') : null;
       pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
       svg.setPointerCapture(e.pointerId);
 
       if (count() === 1) {
         // Umschalttaste, rechte oder mittlere Maustaste: drehen statt schieben
         var turning = e.shiftKey || e.button === 1 || e.button === 2;
+        var ziel = (node && !turning) ? node : null;
         drag = {
           id: e.pointerId, x: e.clientX, y: e.clientY,
           vx: view.view.x, vy: view.view.y, turn: turning,
           yaw: view.cam.yaw, pitch: view.cam.pitch,
-          key: (node && !turning) ? node.getAttribute('data-key') : null
+          key: ziel ? ziel.getAttribute('data-key') : null,
+          facing: ziel ? ziel.getAttribute('data-facing') : null
         };
         moved = false;
       } else if (count() === 2) {
@@ -4397,9 +4476,11 @@ var Render = (function () {
 
       var wasDrag = drag && drag.id === e.pointerId;
       var hit = wasDrag ? drag.key : null;
+      var richtung = wasDrag ? drag.facing : null;
       if (wasDrag) drag = null;
       if (count() > 0 || !wasDrag || moved) return;
-      if (hit) handleCellClick(hit);
+      if (richtung !== null && richtung !== undefined) handleFacingClick(+richtung);
+      else if (hit) handleCellClick(hit);
       else deselect();
     }
     svg.addEventListener('pointerup', release);
@@ -4502,6 +4583,16 @@ var Render = (function () {
     deselect();
   }
 
+  /* Ein Tipp auf einen der Pfeile richtet die Figur aus und beendet den Zug –
+     auch der Pfeil, in den sie ohnehin schon blickt: Dann bleibt sie stehen,
+     wie sie steht. So braucht es für „so lassen“ keinen eigenen Knopf. */
+  function handleFacingClick(dir) {
+    if (ui.thinking || aiLevel()) return;
+    if (!state || !state.pending || !state.selected) return;
+    G.rotate(state, state.selected, dir);
+    refresh();
+  }
+
   function deselect() {
     if (state && !state.pending) {
       state.selected = null;
@@ -4524,7 +4615,9 @@ var Render = (function () {
   // Verlangt die Stellung eine Eingabe, die nur die Schublade bietet?
   function brauchtSchublade() {
     if (!state) return false;
-    if (state.phase === 'over' || state.pending) return true;
+    if (state.phase === 'over') return true;
+    // Die Richtung wird am Brett gewählt; nur ohne Pfeile braucht es die Liste
+    if (state.pending) return !ui.facing;
     if (state.phase !== 'play') return false;
     var p = state.players[state.current];
     return !p.ai && !p.eliminated && !M.hasAnyAction(state, state.current);
@@ -4597,6 +4690,18 @@ var Render = (function () {
   function computeMarkers() {
     ui.markers = [];
     ui.placeable = null;
+    ui.facing = null;
+
+    /* Wartet das Spiel auf eine Richtung, wird sie direkt am Brett gewählt:
+       sechs Pfeile rund um die Figur. Zugfelder gibt es in diesem Zustand
+       keine, die Pfeile stehen also allein. */
+    if (state.pending && state.selected) {
+      var pc = state.board.cells[state.selected];
+      if (pc && pc.piece && U.DEFS[pc.piece.type].directional) {
+        ui.facing = { key: state.selected, type: pc.piece.type,
+                      current: pc.piece.facing, color: state.players[state.current].color };
+      }
+    }
 
     if (state.phase === 'trees') {
       ui.placeable = {};
@@ -4702,8 +4807,9 @@ var Render = (function () {
     }
     if (state.pending) {
       html += '<p class="hint accent">' + (state.pending.kind === 'trainFacing'
-        ? 'Wähle die Richtung der neuen Einheit.'
-        : 'Optional: neue Richtung wählen – oder Zug beenden.') + '</p>';
+        ? 'Tippe am Brett den Pfeil an, in dessen Richtung die neue Einheit blicken soll.'
+        : 'Tippe am Brett einen Pfeil an. Der hervorgehobene ist die jetzige Richtung – ' +
+          'ihn anzutippen beendet den Zug, ohne zu drehen.') + '</p>';
     } else if (def.directional) {
       html += '<p class="hint">Drehen kostet einen ganzen Zug.</p>';
     }
@@ -4776,7 +4882,8 @@ var Render = (function () {
 
     // Spielphase
     banner.innerHTML = 'Runde ' + state.turn + ' · <strong style="color:' + p.color + '">' +
-      esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood;
+      esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood +
+      (state.pending && ui.facing ? ' · <span class="accent">Richtung antippen</span>' : '');
 
     if (p.ai) {
       panel.innerHTML = '<h3>' + esc(p.name) + '</h3>' +
@@ -4842,6 +4949,7 @@ var Render = (function () {
       ? M.supplyChain(state.board, state.current) : null;
     Render.draw(view, state, {
       markers: ui.markers, placeable: ui.placeable, lastMove: state.lastMove,
+      facing: ui.facing,
       chain: chain, chainColor: state.players[state.current].color
     });
     renderPlayers();

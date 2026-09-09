@@ -249,6 +249,14 @@ mitwandert, oder wenn ein Finger liegen bleibt und nur der andere wegzieht.
 * **Ausbilden** → Einheit in der Seitenleiste wählen, dann ein rosa markiertes Feld anklicken.
 * **Richtungsfiguren** (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet
   werden; eine Drehung ohne Bewegung kostet den ganzen Zug.
+* **Die Richtung wählst du am Brett.** Wartet das Spiel darauf – nach dem Zug einer
+  Richtungsfigur oder nach ihrer Ausbildung –, liegen sechs Pfeile rund um die Figur: jeder
+  dort, wohin er zeigt, beim Springer auf der Kante zwischen den beiden Feldern seines Keils.
+  Ein Tipp genügt. Der hervorgehobene Pfeil ist die jetzige Richtung; ihn anzutippen beendet
+  den Zug, ohne zu drehen – so braucht „so lassen“ keinen eigenen Knopf. Die Liste in der
+  Seitenleiste bleibt für die Drehung, die als ganzer Zug zählt: Dort liegen auf denselben
+  Nachbarfeldern die Zugfelder, und Pfeile darüber würden sich mit ihnen um jeden Klick
+  streiten.
 * **Richtungspfeile** stehen dauerhaft an allen Figuren – auch an denen der Gegner. Der
   Springer trägt einen breiten Pfeil zwischen seinen beiden Sprungrichtungen, der Legionär
   zwei Pfeile für seine Achse nach vorn und zurück.
@@ -398,7 +406,9 @@ Nachbarn.
 `test/ansicht.js` lässt `render.js` in einem winzigen DOM-Gerüst zeichnen – ohne Browser –
 und prüft das Ergebnis aus vier Blickwinkeln: jedes Feld wird gezeichnet und bleibt
 anklickbar, keine Koordinate ist `NaN`, gemalt wird von hinten nach vorn, aus der Draufsicht
-ist keine Seitenwand zu sehen und aus der Schrägsicht schon.
+ist keine Seitenwand zu sehen und aus der Schrägsicht schon. Geprüft wird außerdem der
+Richtungswähler: sechs Pfeile, jede Richtung genau einmal, die jetzige hervorgehoben, jeder
+mit Trefferfläche – und die Figur, um die sie liegen, lässt ihren eigenen Pfeil weg.
 
 `test/ki.js` vergleicht jeden von der KI erzeugten Zug mit `moves.js` – in beide
 Richtungen, damit die Suche weder Züge erfindet noch übersieht – und prüft, dass das

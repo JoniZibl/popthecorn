@@ -467,7 +467,11 @@ var Render = (function () {
       });
       // innere Gruppe: sie trägt die Animation, ohne das transform-Attribut zu stören
       var inner = el('g', { class: 'piece-anim' });
-      if (Units.DEFS[cell.piece.type].directional) {
+      // Steht der Richtungswähler um diese Figur, zeigt schon sein
+      // hervorgehobener Pfeil, wohin sie blickt – zwei Pfeilsätze übereinander
+      // wären nur Gewirr.
+      var waehlt = ctx.facing && ctx.facing.key === item.k;
+      if (Units.DEFS[cell.piece.type].directional && !waehlt) {
         facingArrow(inner, cam, o, cx, cy, z, cell.piece, owner.color);
       }
       pieceGlyph(inner, cam, o, cx, cy, z, cell.piece, owner.color, o.k);
@@ -532,6 +536,59 @@ var Render = (function () {
     view.layers.markers.appendChild(g);
   }
 
+  /* Richtungswähler: sechs Pfeile rund um die Figur, die gerade ausgerichtet
+     wird. Sie liegen dort, wohin sie zeigen – wer die Figur nach Nordost
+     drehen will, tippt nordöstlich neben sie. Gezeigt wird das nur, solange
+     das Spiel ohnehin auf die Richtung wartet; dann gibt es keine Zugfelder,
+     mit denen die Pfeile sich um die Klicks streiten könnten. */
+  function facingPicker(view, state, ctx) {
+    var f = ctx.facing;
+    if (!f) return;
+    var cell = state.board.cells[f.key];
+    if (!cell) return;
+    var cam = view.cam;
+    var p = H.toPixel(cell, SIZE), z = surfaceZ(cell) + 1.2;
+    var wedge = f.type === 'springer';
+    /* Der Pfeil liegt dort, wohin er zeigt: mitten im Nachbarfeld (Abstand
+       zweier Feldmitten = Größe · √3). Beim Springer zeigt die Richtung
+       zwischen zwei Nachbarn hindurch; sein Pfeil liegt entsprechend auf der
+       gemeinsamen Kante. Näher an der Figur überdeckte der nördliche Pfeil
+       ihren Aufsteller – und ein Ziel, das man nicht sieht, tippt man nicht. */
+    var R = SIZE * (wedge ? 1.5 : 1.732);
+
+    for (var d = 0; d < 6; d++) {
+      var v = wedge ? H.wedgeVector(d) : H.dirVector(d);
+      var cx = p.x + v.x * R, cy = p.y + v.y * R;
+      var o = S.project(cam, cx, cy, z);
+      var g = el('g', {
+        class: 'facing-pick' + (d === f.current ? ' is-current' : ''),
+        transform: 'translate(' + o.x.toFixed(2) + ',' + o.y.toFixed(2) + ')',
+        'data-facing': d
+      });
+      /* Großzügige Trefferfläche: Am Handy ist ein Feld bei eingepasstem Brett
+         keine 40 Punkte breit, der Pfeil darin nur halb so groß. Getroffen
+         werden soll aber der Pfeil, nicht das Pixel. */
+      g.appendChild(el('polygon', {
+        class: 'pick-hit', points: pts(cam, disc(cx, cy, z, SIZE * 0.8, 10), o)
+      }));
+      var px = -v.y, py = v.x, L = 16, W = 13, B = 7;
+      g.appendChild(el('polygon', {
+        class: 'pick-arrow', fill: f.color,
+        points: pts(cam, [
+          [cx + v.x * L, cy + v.y * L, z],
+          [cx - v.x * B + px * W, cy - v.y * B + py * W, z],
+          [cx - v.x * B * 0.2, cy - v.y * B * 0.2, z],
+          [cx - v.x * B - px * W, cy - v.y * B - py * W, z]
+        ], o)
+      }));
+      var t = el('title');
+      t.textContent = (wedge ? H.wedgeName(d) : H.DIR_NAMES[d]) +
+        (d === f.current ? ' (aktuell – antippen beendet den Zug)' : '');
+      g.appendChild(t);
+      view.layers.markers.appendChild(g);
+    }
+  }
+
   function draw(view, state, ctx) {
     // gemerkt, damit das Brett beim Drehen ohne Zutun der Oberfläche neu entsteht
     view.last = { state: state, ctx: ctx };
@@ -570,6 +627,7 @@ var Render = (function () {
     }
 
     (ctx.markers || []).forEach(function (m) { drawMarker(view, state, m); });
+    facingPicker(view, state, ctx);
 
     applyView(view);
   }

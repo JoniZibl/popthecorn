@@ -195,6 +195,41 @@ state.board.keys.forEach(function (k) {
 });
 ok(abweichung === 0, 'von oben liegt jedes Landfeld exakt auf seinem alten Platz');
 
+console.log('\nRichtungswähler rund um die Figur');
+/* Wartet das Spiel auf eine Richtung, liegen sechs Pfeile auf dem Brett –
+   einer je Richtung, der aktuelle hervorgehoben. Sie tragen ihre Richtung im
+   Knoten, denn daran hängt die Oberfläche den Klick auf. */
+var richtungsFeld = landfrei[0];
+Scene.set(view.cam, Render.TILT, 25);
+Render.draw(view, state, {
+  markers: [], placeable: null, lastMove: null, chain: null,
+  facing: { key: richtungsFeld, type: 'springer', current: 4, color: '#3b82f6' }
+});
+var picks = view.layers.markers.children.filter(function (g) {
+  return (g.attrs['class'] || '').indexOf('facing-pick') === 0;
+});
+ok(picks.length === 6, 'sechs Pfeile, einer je Richtung (' + picks.length + ')');
+var kennungen = picks.map(function (g) { return g.getAttribute('data-facing'); }).sort();
+ok(kennungen.join(',') === '0,1,2,3,4,5', 'jede Richtung genau einmal');
+var hervorgehoben = picks.filter(function (g) {
+  return (g.attrs['class'] || '').indexOf('is-current') > 0;
+});
+ok(hervorgehoben.length === 1 && hervorgehoben[0].getAttribute('data-facing') === '4',
+   'die jetzige Richtung ist hervorgehoben');
+var trefferflaechen = 0;
+picks.forEach(function (g) {
+  g.children.forEach(function (c) { if (c.attrs['class'] === 'pick-hit') trefferflaechen++; });
+});
+ok(trefferflaechen === 6, 'jeder Pfeil hat eine Trefferfläche');
+zahlenPruefen(view, 'Richtungswähler');
+
+// Die Figur selbst zeigt ihren eigenen Pfeil nicht mehr, solange gewählt wird
+var eigene = 0;
+alleKnoten(view.layers.scene).forEach(function (n) {
+  if ((n.attrs['class'] || '') === 'facing') eigene++;
+});
+ok(eigene === 2, 'nur die Figuren ohne Wähler tragen ihren eigenen Pfeil (' + eigene + ')');
+
 console.log('\nEffekte finden ihr Feld');
 Scene.set(view.cam, Render.TILT, 40);
 Render.draw(view, state, kontext);

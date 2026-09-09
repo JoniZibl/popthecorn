@@ -105,6 +105,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .hint.small { font-size: 12px; }
 .hint.warn { color: var(--warn); }
 .hint.accent { color: var(--accent); }
+.accent { color: var(--accent); }
 
 .units { grid-column: 1; }
 .unit-strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; max-width: 720px; }
@@ -352,6 +353,20 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .piece.is-selected .piece-head { stroke-width: 2.4; }
 /* dunkler Rand, damit der Pfeil auf jedem Untergrund ablesbar bleibt */
 .facing { stroke: rgba(0, 0, 0, .5); stroke-width: 1.4; paint-order: stroke; opacity: .95; }
+
+/* Richtungswähler: sechs Pfeile rund um die Figur, die ausgerichtet wird.
+   Der Pfeil, in den sie schon blickt, steht voll da – die übrigen zurück-
+   haltender, damit auf einen Blick klar ist, wie sie gerade steht. */
+.facing-pick { cursor: pointer; }
+.pick-hit { fill: transparent; }
+.pick-arrow {
+  stroke: rgba(0, 0, 0, .55); stroke-width: 1.6; paint-order: stroke;
+  opacity: .62; transition: opacity .12s ease;
+}
+.facing-pick:hover .pick-arrow { opacity: 1; }
+.facing-pick.is-current .pick-arrow {
+  opacity: 1; stroke: rgba(255, 255, 255, .9); stroke-width: 2.2;
+}
 
 .marker { cursor: pointer; }
 .marker-hex { fill: transparent; }

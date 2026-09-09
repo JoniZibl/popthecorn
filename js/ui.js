@@ -10,7 +10,7 @@
 
   var state = null;
   var view = null;
-  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null,
+  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null,
              thinking: false, shownEvent: 0, woodShown: null,
              sheetOpen: false, sheetAuto: false, sheetMove: null };
 
@@ -69,7 +69,7 @@
 
   function startGame(names, kinds) {
     state = G.create(names, kinds);
-    ui = { mode: 'idle', trainType: null, markers: [], placeable: null,
+    ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null,
            thinking: false, shownEvent: 0, woodShown: null,
            sheetOpen: false, sheetAuto: false, sheetMove: null };
     $('#screen-menu').classList.add('hidden');
@@ -248,18 +248,20 @@
       schliesseUeberlagerungen();
       // Zielfeld schon hier merken: durch das Pointer-Capture landet das
       // pointerup-Event sonst auf dem SVG statt auf dem Hexfeld.
-      var node = e.target.closest ? e.target.closest('[data-key]') : null;
+      var node = e.target.closest ? e.target.closest('[data-key],[data-facing]') : null;
       pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
       svg.setPointerCapture(e.pointerId);
 
       if (count() === 1) {
         // Umschalttaste, rechte oder mittlere Maustaste: drehen statt schieben
         var turning = e.shiftKey || e.button === 1 || e.button === 2;
+        var ziel = (node && !turning) ? node : null;
         drag = {
           id: e.pointerId, x: e.clientX, y: e.clientY,
           vx: view.view.x, vy: view.view.y, turn: turning,
           yaw: view.cam.yaw, pitch: view.cam.pitch,
-          key: (node && !turning) ? node.getAttribute('data-key') : null
+          key: ziel ? ziel.getAttribute('data-key') : null,
+          facing: ziel ? ziel.getAttribute('data-facing') : null
         };
         moved = false;
       } else if (count() === 2) {
@@ -332,9 +334,11 @@
 
       var wasDrag = drag && drag.id === e.pointerId;
       var hit = wasDrag ? drag.key : null;
+      var richtung = wasDrag ? drag.facing : null;
       if (wasDrag) drag = null;
       if (count() > 0 || !wasDrag || moved) return;
-      if (hit) handleCellClick(hit);
+      if (richtung !== null && richtung !== undefined) handleFacingClick(+richtung);
+      else if (hit) handleCellClick(hit);
       else deselect();
     }
     svg.addEventListener('pointerup', release);
@@ -437,6 +441,16 @@
     deselect();
   }
 
+  /* Ein Tipp auf einen der Pfeile richtet die Figur aus und beendet den Zug –
+     auch der Pfeil, in den sie ohnehin schon blickt: Dann bleibt sie stehen,
+     wie sie steht. So braucht es für „so lassen“ keinen eigenen Knopf. */
+  function handleFacingClick(dir) {
+    if (ui.thinking || aiLevel()) return;
+    if (!state || !state.pending || !state.selected) return;
+    G.rotate(state, state.selected, dir);
+    refresh();
+  }
+
   function deselect() {
     if (state && !state.pending) {
       state.selected = null;
@@ -459,7 +473,9 @@
   // Verlangt die Stellung eine Eingabe, die nur die Schublade bietet?
   function brauchtSchublade() {
     if (!state) return false;
-    if (state.phase === 'over' || state.pending) return true;
+    if (state.phase === 'over') return true;
+    // Die Richtung wird am Brett gewählt; nur ohne Pfeile braucht es die Liste
+    if (state.pending) return !ui.facing;
     if (state.phase !== 'play') return false;
     var p = state.players[state.current];
     return !p.ai && !p.eliminated && !M.hasAnyAction(state, state.current);
@@ -532,6 +548,18 @@
   function computeMarkers() {
     ui.markers = [];
     ui.placeable = null;
+    ui.facing = null;
+
+    /* Wartet das Spiel auf eine Richtung, wird sie direkt am Brett gewählt:
+       sechs Pfeile rund um die Figur. Zugfelder gibt es in diesem Zustand
+       keine, die Pfeile stehen also allein. */
+    if (state.pending && state.selected) {
+      var pc = state.board.cells[state.selected];
+      if (pc && pc.piece && U.DEFS[pc.piece.type].directional) {
+        ui.facing = { key: state.selected, type: pc.piece.type,
+                      current: pc.piece.facing, color: state.players[state.current].color };
+      }
+    }
 
     if (state.phase === 'trees') {
       ui.placeable = {};
@@ -637,8 +665,9 @@
     }
     if (state.pending) {
       html += '<p class="hint accent">' + (state.pending.kind === 'trainFacing'
-        ? 'Wähle die Richtung der neuen Einheit.'
-        : 'Optional: neue Richtung wählen – oder Zug beenden.') + '</p>';
+        ? 'Tippe am Brett den Pfeil an, in dessen Richtung die neue Einheit blicken soll.'
+        : 'Tippe am Brett einen Pfeil an. Der hervorgehobene ist die jetzige Richtung – ' +
+          'ihn anzutippen beendet den Zug, ohne zu drehen.') + '</p>';
     } else if (def.directional) {
       html += '<p class="hint">Drehen kostet einen ganzen Zug.</p>';
     }
@@ -711,7 +740,8 @@
 
     // Spielphase
     banner.innerHTML = 'Runde ' + state.turn + ' · <strong style="color:' + p.color + '">' +
-      esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood;
+      esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood +
+      (state.pending && ui.facing ? ' · <span class="accent">Richtung antippen</span>' : '');
 
     if (p.ai) {
       panel.innerHTML = '<h3>' + esc(p.name) + '</h3>' +
@@ -777,6 +807,7 @@
       ? M.supplyChain(state.board, state.current) : null;
     Render.draw(view, state, {
       markers: ui.markers, placeable: ui.placeable, lastMove: state.lastMove,
+      facing: ui.facing,
       chain: chain, chainColor: state.players[state.current].color
     });
     renderPlayers();
