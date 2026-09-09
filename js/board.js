@@ -56,7 +56,8 @@ var Board = (function () {
   }
 
   function createCell(q, r, terrain) {
-    return { q: q, r: r, terrain: terrain, tree: false, piece: null };
+    // boat: nur auf Wasserfeldern – ein neutrales Boot, das jeder nutzen darf
+    return { q: q, r: r, terrain: terrain, tree: false, boat: false, piece: null };
   }
 
   function generate(tileCount) {

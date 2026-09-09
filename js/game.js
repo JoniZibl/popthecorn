@@ -335,10 +335,18 @@ var Game = (function () {
       return true;
     }
 
+    // Bootskosten und Königs-Sprung stecken beide in action.cost
+    var plan = M.waterPlan(state.board, piece, fromCell, target);
     if (action.cost) {
       if (player.wood < action.cost) return false;
       player.wood -= action.cost;
-      log(state, player.name + ' zahlt ' + action.cost + ' Holz für den Königs-Sprung.', state.current);
+      if (piece.type === 'king' && action.cost > plan.cost) {
+        log(state, player.name + ' zahlt 1 Holz für den Königs-Sprung.', state.current);
+      }
+      if (plan.cost > 0) {
+        log(state, player.name + ' kauft ' + plan.cost + (plan.cost === 1 ? ' Boot' : ' Boote') +
+            ' (-' + plan.cost + ' Holz).', state.current);
+      }
     }
 
     if (action.kind === 'capture') { capture(state, target, state.current); noteProgress(state); }
@@ -349,6 +357,13 @@ var Game = (function () {
       noteProgress(state);
       log(state, player.name + ': Arbeiter fällt einen Baum (+1 Holz).', state.current);
     }
+
+    /* Boote umsetzen: aufgenommene Boote fahren mit, an jedem Übergang vom
+       Wasser an Land bleibt eines liegen, und wer auf dem Wasser endet, sitzt
+       in seinem Boot. */
+    plan.takes.forEach(function (c) { c.boat = false; });
+    plan.drops.forEach(function (c) { c.boat = true; });
+    if (plan.endOnWater) target.boat = true;
 
     // Figur versetzen (falls sie das Spiel noch nicht beendet hat)
     if (state.phase === 'play') {

@@ -87,6 +87,22 @@ var Units = (function () {
         'Beim Kettensprung schlägt er keine Einheiten.'
       ]
     },
+    boat: {
+      id: 'boat', name: 'Boot', cost: 1, trainable: false, directional: false, object: true,
+      short: 'Neutrales Boot – macht ein Wasserfeld begehbar.',
+      text: 'Das Boot ist ein neutrales Objekt und kann von allen Spielern gleichermaßen ' +
+            'genutzt werden. Jeder Spieler kann beliebig viele Boote kaufen. Um ein Boot zu ' +
+            'setzen, muss die Figur während ihres regulären Spielzugs von Land auf das Wasser ' +
+            'ziehen. Das kostet 1 Holz. Das Boot wird direkt unter die Figur gelegt und bleibt ' +
+            'dort, solange sie sich auf dem Wasser befindet.',
+      bullets: [
+        'Mit Boot bewegt sich eine Figur auf dem Wasser genauso wie an Land.',
+        'Verlässt die Figur das Wasser, bleibt das Boot auf dem letzten Wasserfeld zurück ' +
+          'und darf später von jedem Spieler genutzt werden.',
+        'Für einen neuen Einstieg an anderer Stelle muss ein neues Boot gekauft werden.',
+        'Wer über mehrere Wasserabschnitte zieht, zahlt für jeden Abschnitt ein Boot.'
+      ]
+    },
     zenturio: {
       id: 'zenturio', name: 'Zenturio', cost: 3, trainable: true, directional: false, unique: true,
       short: 'Läuft beliebig weit in jede Richtung. Nur einmal pro Spiel.',

@@ -104,7 +104,7 @@ var AI = (function () {
     var geo = geometry(state.board), n = geo.n, np = state.players.length;
     var s = {
       geo: geo, n: n, np: np,
-      terrain: new Uint8Array(n), tree: new Uint8Array(n),
+      terrain: new Uint8Array(n), tree: new Uint8Array(n), boat: new Uint8Array(n),
       pt: new Int8Array(n), po: new Int8Array(n), pf: new Int8Array(n),
       wood: new Int32Array(np), alive: new Uint8Array(np), zent: new Uint8Array(np),
       kingAt: new Int16Array(np)
@@ -114,6 +114,7 @@ var AI = (function () {
       var c = state.board.cells[geo.keys[i]];
       s.terrain[i] = c.terrain === 'water' ? 1 : 0;
       s.tree[i] = c.tree ? 1 : 0;
+      s.boat[i] = c.boat ? 1 : 0;
       if (c.piece) {
         s.pt[i] = T[c.piece.type];
         s.po[i] = c.piece.owner;
@@ -129,7 +130,21 @@ var AI = (function () {
     return s;
   }
 
-  function landable(s, i) { return i >= 0 && s.terrain[i] === 0 && s.tree[i] === 0; }
+  /* Feld, auf dem eine Figur stehen kann. Wasser gehört dazu – es kostet aber
+     ein Boot, siehe stepCost. */
+  function landable(s, i) { return i >= 0 && s.tree[i] === 0; }
+
+  /* Land ohne Boot – für Kettensprünge und Ausbildungsfelder */
+  function dryLand(s, i) { return i >= 0 && s.terrain[i] === 0 && s.tree[i] === 0; }
+
+  /* Was kostet der Schritt von `from` nach `to`? -1 heißt: nicht möglich. */
+  function stepCost(s, from, to, wood) {
+    if (!landable(s, to)) return -1;
+    if (s.terrain[to] === 0) return 0;
+    if (from >= 0 && s.terrain[from] === 1) return 0;   // Boot fährt mit
+    if (s.boat[to]) return 0;
+    return wood >= 1 ? 1 : -1;
+  }
 
   function nextAlive(s, p) {
     for (var k = 1; k <= s.np; k++) {
@@ -218,8 +233,9 @@ var AI = (function () {
       if (type === T.worker) {
         for (d = 0; d < 6; d++) {
           j = nb[i * 6 + d];
-          if (j < 0 || s.terrain[j] === 1) continue;
+          if (j < 0) continue;
           if (s.tree[j]) { if (!capturesOnly) out.push(mk(KIND_HARVEST, i, j, KEEP)); continue; }
+          if (stepCost(s, i, j, s.wood[p]) < 0) continue;
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
           else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
@@ -227,7 +243,7 @@ var AI = (function () {
       } else if (type === T.samurai) {
         for (d = 0; d < 6; d++) {
           j = geo.diag[i * 6 + d];
-          if (!landable(s, j)) continue;
+          if (stepCost(s, i, j, s.wood[p]) < 0) continue;
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
           else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
@@ -239,7 +255,7 @@ var AI = (function () {
           var dd2 = (w + a) % 6;
           for (var b = 0; b < 2; b++) {
             j = (b === 0) ? geo.far2[i * 6 + dd2] : geo.far3[i * 6 + dd2];
-            if (!landable(s, j)) continue;
+            if (stepCost(s, i, j, s.wood[p]) < 0) continue;
             if (s.pt[j] < 0) {
               if (!capturesOnly) pushFacings(out, KIND_MOVE, i, j, fac);
             } else if (s.po[j] !== p) {
@@ -255,9 +271,18 @@ var AI = (function () {
                                          : [s.pf[i] % 6, (s.pf[i] + 3) % 6];
         for (var q = 0; q < dirs.length; q++) {
           var dir = dirs[q], cur = i;
+          var carrying = s.terrain[i] === 1, cost = 0;
           for (;;) {
             cur = nb[cur * 6 + dir];
-            if (cur < 0 || s.terrain[cur] === 1 || s.tree[cur]) break;
+            if (cur < 0 || s.tree[cur]) break;
+            if (s.terrain[cur] === 1) {
+              if (!carrying) {
+                if (!s.boat[cur]) { if (cost + 1 > s.wood[p]) break; cost++; }
+                carrying = true;
+              }
+            } else {
+              carrying = false;
+            }
             if (s.pt[cur] >= 0) {
               if (s.po[cur] !== p) {
                 if (fac2) pushFacings(out, KIND_CAPTURE, i, cur, fac2);
@@ -279,13 +304,13 @@ var AI = (function () {
         }
         if (!capturesOnly) for (d = 0; d < 6; d++) {    // Laufen ohne zu schlagen
           j = nb[i * 6 + d];
-          if (landable(s, j) && s.pt[j] < 0) out.push(mk(KIND_MOVE, i, j, KEEP));
+          if (stepCost(s, i, j, s.wood[p]) >= 0 && s.pt[j] < 0) out.push(mk(KIND_MOVE, i, j, KEEP));
         }
 
       } else if (type === T.tangolin) {
         for (d = 0; d < 6; d++) {
           j = nb[i * 6 + d];
-          if (!landable(s, j)) continue;
+          if (stepCost(s, i, j, s.wood[p]) < 0) continue;
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
           else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
@@ -300,7 +325,7 @@ var AI = (function () {
               var jumpable = s.tree[over] || (s.pt[over] >= 0 && s.po[over] === p);
               if (!jumpable) continue;
               var land = nb[over * 6 + d];
-              if (!landable(s, land) || s.pt[land] >= 0) continue;
+              if (!dryLand(s, land) || s.pt[land] >= 0) continue;
               if (visitStamp[land] === visitMark) continue;
               visitStamp[land] = visitMark;
               stack.push(land);
@@ -313,7 +338,8 @@ var AI = (function () {
         if (s.wood[p] >= 1) {
           for (d = 0; d < 6; d++) {
             j = nb[i * 6 + d];
-            if (!landable(s, j)) continue;
+            var kc = stepCost(s, i, j, s.wood[p] - 1);
+            if (kc < 0 || kc + 1 > s.wood[p]) continue;
             if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
             else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
           }
@@ -364,7 +390,7 @@ var AI = (function () {
         var j = nb[cur * 6 + d];
         if (j < 0) continue;
         if (s.po[j] === p) { if (!seen[j]) { seen[j] = 1; stack.push(j); } continue; }
-        if (s.pt[j] < 0 && s.terrain[j] === 0 && s.tree[j] === 0 && !seenSpot[j]) {
+        if (s.pt[j] < 0 && dryLand(s, j) && !seenSpot[j]) {
           seenSpot[j] = 1; spots.push(j);
         }
       }
@@ -372,12 +398,46 @@ var AI = (function () {
     return spots;
   }
 
+  /* ---------------- Bootsbewegung ---------------- */
+
+  /* Felder, die die Figur unterwegs tatsächlich betritt. */
+  function pathIndices(s, type, from, to) {
+    if (type !== T.legionaer && type !== T.zenturio) return [to];
+    var nb = s.geo.nb;
+    for (var d = 0; d < 6; d++) {
+      var cur = from, path = [];
+      for (var k = 0; k < 24; k++) {
+        cur = nb[cur * 6 + d];
+        if (cur < 0) break;
+        path.push(cur);
+        if (cur === to) return path;
+      }
+    }
+    return [to];
+  }
+
+  /* Wie das Regelwerk: Kosten, aufgenommene und zurückgelassene Boote. */
+  function planFor(s, type, from, to) {
+    var path = pathIndices(s, type, from, to);
+    var carrying = (from >= 0 && s.terrain[from] === 1), cost = 0;
+    var takes = [], drops = [], prev = from;
+    for (var i = 0; i < path.length; i++) {
+      var c = path[i];
+      if (s.terrain[c] === 1) {
+        if (!carrying) { if (s.boat[c]) takes.push(c); else cost++; carrying = true; }
+      } else if (carrying) { drops.push(prev); carrying = false; }
+      prev = c;
+    }
+    return { cost: cost, takes: takes, drops: drops, endOnWater: carrying };
+  }
+
   /* ---------------- Zug ausführen und zurücknehmen ---------------- */
 
   function make(s, mv, p) {
     var kind = mvKind(mv), from = mvFrom(mv), to = mvTo(mv), extra = mvExtra(mv);
     var u = { mv: mv, p: p, capT: -1, capO: -1, capF: 0, hadTree: 0,
-              spend: 0, oldF: -1, removed: null, steal: 0, elim: -1, zentBefore: 0 };
+              spend: 0, oldF: -1, removed: null, steal: 0, elim: -1, zentBefore: 0,
+              boatCost: 0, boatWas: null };
 
     if (kind === KIND_ROTATE) { u.oldF = s.pf[from]; s.pf[from] = extra; return u; }
 
@@ -416,6 +476,23 @@ var AI = (function () {
     if (kind === KIND_HARVEST) { u.hadTree = 1; s.tree[to] = 0; s.wood[p] += 1; }
     if (s.pt[from] === T.king) { u.spend = 1; s.wood[p] -= 1; }
 
+    // Boote: bezahlen, mitnehmen, zurücklassen
+    var plan = planFor(s, s.pt[from], from, to);
+    if (plan.cost || plan.takes.length || plan.drops.length || plan.endOnWater) {
+      var was = [];
+      function setBoat(idx, val) {
+        if (s.boat[idx] === val) return;
+        was.push(idx, s.boat[idx]);
+        s.boat[idx] = val;
+      }
+      plan.takes.forEach(function (c) { setBoat(c, 0); });
+      plan.drops.forEach(function (c) { setBoat(c, 1); });
+      if (plan.endOnWater) setBoat(to, 1);
+      u.boatWas = was.length ? was : null;
+      u.boatCost = plan.cost;
+      s.wood[p] -= plan.cost;
+    }
+
     // Figur versetzen
     var mt = s.pt[from], mf = s.pf[from];
     u.oldF = mf;
@@ -439,6 +516,10 @@ var AI = (function () {
     }
 
     if (kind !== KIND_SHOOT) {
+      if (u.boatWas) {
+        for (var b = u.boatWas.length - 2; b >= 0; b -= 2) s.boat[u.boatWas[b]] = u.boatWas[b + 1];
+      }
+      if (u.boatCost) s.wood[p] += u.boatCost;
       var mt = s.pt[to], mf = s.pf[to];
       s.pt[to] = -1; s.po[to] = -1; s.pf[to] = 0;
       s.pt[from] = mt; s.po[from] = p; s.pf[from] = u.oldF;

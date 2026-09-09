@@ -239,6 +239,13 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .tree-top2 { fill: #268342; }
 .tree { pointer-events: none; }
 
+.boat { pointer-events: none; }
+.boat-hull { fill: #8a5a35; stroke: #63401f; stroke-width: 2; }
+.boat-deck { fill: #a97148; }
+
+.cost-badge circle { fill: #1b2026; stroke: var(--warn); stroke-width: 1.5; }
+.cost-badge text { fill: var(--warn); font-size: 11px; font-weight: 700; }
+
 .piece { pointer-events: none; }
 .piece-shadow { fill: rgba(0, 0, 0, .3); }
 .piece-base { fill: #23282f; }

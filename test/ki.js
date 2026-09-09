@@ -128,7 +128,8 @@ console.log('Zuggenerierung: ' + checked + ' Stellungen/Spieler aus ' + position
 /* --- make/unmake muss die Stellung exakt wiederherstellen --- */
 function fingerprint(s) {
   return [s.pt.join(','), s.po.join(','), s.pf.join(','), s.tree.join(','),
-          s.wood.join(','), s.alive.join(','), s.zent.join(','), s.kingAt.join(',')].join('#');
+          s.boat.join(','), s.wood.join(','), s.alive.join(','),
+          s.zent.join(','), s.kingAt.join(',')].join('#');
 }
 
 var undoFails = 0, undoChecked = 0;

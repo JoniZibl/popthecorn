@@ -510,7 +510,7 @@
   /* ---------------- Regelwerk-Overlay ---------------- */
 
   function buildRules() {
-    var cards = ['king'].concat(U.TRAIN_ORDER).map(function (id) {
+    var cards = ['king'].concat(U.TRAIN_ORDER).concat(['boat']).map(function (id) {
       var def = U.DEFS[id];
       var cost = def.cost === null ? 'Startfigur'
         : Array(def.cost + 1).join('\u{1F332} ') + '(' + def.cost + '× Holz)';
@@ -526,12 +526,13 @@
     // Figuren-Übersicht auf dem Startbildschirm
     var strip = document.getElementById('unit-strip');
     if (strip) {
-      strip.innerHTML = ['king'].concat(U.TRAIN_ORDER).map(function (id, i) {
+      strip.innerHTML = ['king'].concat(U.TRAIN_ORDER).concat(['boat']).map(function (id, i) {
         var def = U.DEFS[id];
         return '<figure class="unit-chip">' +
           Render.pieceIcon(id, G.COLORS[i % G.COLORS.length].hex) +
           '<figcaption><strong>' + def.name + '</strong>' +
-          '<span>' + (def.cost === null ? 'Startfigur' : def.cost + '× Holz') + '</span>' +
+          '<span>' + (def.cost === null ? 'Startfigur' : def.cost + '× Holz') +
+          (def.object ? ' · Objekt' : '') + '</span>' +
           '</figcaption></figure>';
       }).join('');
     }

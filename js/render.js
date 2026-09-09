@@ -81,6 +81,20 @@ var Render = (function () {
     g.appendChild(el('path', { class: 'tree-top2', d: 'M0,-15 L9,7 L0,7 Z' }));
   }
 
+  /* Boot: ein braunes Sechseck auf dem Wasser, neutral für alle Spieler */
+  function boatGlyph(g) {
+    var pts = H.corners(SIZE * 0.46).map(function (pt) {
+      return pt[0].toFixed(2) + ',' + pt[1].toFixed(2);
+    }).join(' ');
+    g.appendChild(el('polygon', { class: 'boat-hull', points: pts }));
+    g.appendChild(el('polygon', {
+      class: 'boat-deck',
+      points: H.corners(SIZE * 0.3).map(function (pt) {
+        return pt[0].toFixed(2) + ',' + (pt[1] - 2).toFixed(2);
+      }).join(' ')
+    }));
+  }
+
   function pieceGlyph(g, piece, color) {
     g.appendChild(el('ellipse', { class: 'piece-shadow', cx: 0, cy: 12, rx: 12, ry: 4.5 }));
     g.appendChild(el('path', { class: 'piece-base', d: 'M-10,11 L-7,4 L7,4 L10,11 Z' }));
@@ -144,6 +158,14 @@ var Render = (function () {
         view.layers.trees.appendChild(tg);
       }
 
+      if (cell.boat) {
+        var bg = el('g', { class: 'boat', transform: 'translate(' + p.x.toFixed(2) + ',' + p.y.toFixed(2) + ')' });
+        boatGlyph(bg);
+        var bt = el('title'); bt.textContent = 'Boot – von allen Spielern nutzbar';
+        bg.appendChild(bt);
+        view.layers.trees.appendChild(bg);
+      }
+
       if (cell.piece) {
         var owner = state.players[cell.piece.owner];
         var pg = el('g', {
@@ -188,6 +210,14 @@ var Render = (function () {
       } else {
         g.appendChild(el('circle', { class: 'marker-dot', cx: 0, cy: 0, r: m.kind === 'jump' ? 9 : 7 }));
       }
+      if (m.cost) {                       // was der Zug an Holz kostet
+        var badge = el('g', { class: 'cost-badge', transform: 'translate(0,' + (SIZE * 0.55) + ')' });
+        badge.appendChild(el('circle', { cx: 0, cy: 0, r: 9 }));
+        var txt = el('text', { x: 0, y: 3.5, 'text-anchor': 'middle' });
+        txt.textContent = '-' + m.cost;
+        badge.appendChild(txt);
+        g.appendChild(badge);
+      }
       view.layers.markers.appendChild(g);
     });
 
@@ -197,6 +227,13 @@ var Render = (function () {
   /* Figuren-Symbol als HTML-String – für Regelkarten und Startbildschirm */
   function pieceIcon(type, color) {
     var pts = H.cornerPoints(22, 1);
+    if (type === 'boat') {                    // Objekt, keine Figur: nur der Rumpf
+      return '<svg class="piece-icon" viewBox="-26 -26 52 52" aria-hidden="true">' +
+        '<polygon class="icon-hex" points="' + pts + '"/>' +
+        '<polygon class="boat-hull" points="' + H.cornerPoints(12, 1) + '"/>' +
+        '<polygon class="boat-deck" points="' + H.cornerPoints(7.5, 1) + '"/>' +
+        '</svg>';
+    }
     return '<svg class="piece-icon" viewBox="-26 -26 52 52" aria-hidden="true">' +
       '<polygon class="icon-hex" points="' + pts + '"/>' +
       '<ellipse class="piece-shadow" cx="0" cy="12" rx="10" ry="3.5"/>' +

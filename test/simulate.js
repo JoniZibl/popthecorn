@@ -14,7 +14,10 @@ function invariants(state, where) {
   state.board.keys.forEach(function (k) {
     var c = state.board.cells[k];
     if (!c.piece) return;
-    if (c.terrain === 'water') throw new Error(where + ': Figur steht im Wasser (' + k + ')');
+    // Auf dem Wasser darf nur stehen, wer ein Boot unter sich hat
+    if (c.terrain === 'water' && !c.boat) {
+      throw new Error(where + ': Figur steht ohne Boot im Wasser (' + k + ')');
+    }
     if (c.tree) throw new Error(where + ': Figur steht auf einem Baum (' + k + ')');
     if (state.players[c.piece.owner].eliminated) throw new Error(where + ': Figur eines ausgeschiedenen Spielers');
     if (c.piece.type === 'king') kings[c.piece.owner] = (kings[c.piece.owner] || 0) + 1;
@@ -23,6 +26,13 @@ function invariants(state, where) {
     byType[tk] = (byType[tk] || 0) + 1;
     if (byType[tk] > 1) throw new Error(where + ': ' + byType[tk] + '× ' + c.piece.type +
       ' bei ' + state.players[c.piece.owner].name + ' auf dem Feld');
+  });
+  // Boote gibt es nur auf dem Wasser
+  state.board.keys.forEach(function (k) {
+    var c = state.board.cells[k];
+    if (c.boat && c.terrain !== 'water') {
+      throw new Error(where + ': Boot auf Land (' + k + ')');
+    }
   });
   state.players.forEach(function (p) {
     if (p.wood < 0) throw new Error(where + ': negatives Holz bei ' + p.name);

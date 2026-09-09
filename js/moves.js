@@ -5,9 +5,72 @@ var Moves = (function () {
   var H = (typeof Hex !== 'undefined') ? Hex : require('./hex.js');
   var B = (typeof Board !== 'undefined') ? Board : require('./board.js');
 
+  function isWater(cell) { return !!cell && cell.terrain === 'water'; }
+
   function enterable(cell) {
-    // Feld, auf dem eine Figur überhaupt stehen kann
-    return !!cell && cell.terrain === 'grass' && !cell.tree;
+    // Feld, auf dem eine Figur überhaupt stehen kann (Wasser nur mit Boot)
+    return !!cell && !cell.tree && (cell.terrain === 'grass' || cell.terrain === 'water');
+  }
+
+  /* Was kostet der Schritt von `from` nach `to`? -1 heißt: nicht möglich.
+     Wasser ist nur mit Boot begehbar: entweder fährt das Boot der Figur mit,
+     oder es liegt schon eines da, oder es wird für 1 Holz gekauft. */
+  function stepCost(from, to, wood) {
+    if (!enterable(to)) return -1;
+    if (to.terrain !== 'water') return 0;
+    if (isWater(from)) return 0;
+    if (to.boat) return 0;
+    return wood >= 1 ? 1 : -1;
+  }
+
+  /* Richtung von `from` nach `to`, falls beide auf einer Geraden liegen. */
+  function directionOf(from, to) {
+    for (var d = 0; d < 6; d++) {
+      var cur = { q: from.q, r: from.r };
+      for (var k = 0; k < 24; k++) {
+        cur = H.add(cur, H.DIRS[d]);
+        if (cur.q === to.q && cur.r === to.r) return d;
+      }
+    }
+    return -1;
+  }
+
+  /* Felder, die eine Figur auf ihrem Weg tatsächlich betritt. Nur Legionär und
+     Zenturio laufen durch Zwischenfelder; alles andere springt oder tritt einmal. */
+  function pathCells(board, piece, from, to) {
+    if (piece.type !== 'legionaer' && piece.type !== 'zenturio') return [to];
+    var d = directionOf(from, to);
+    if (d < 0) return [to];
+    var path = [], cur = { q: from.q, r: from.r };
+    for (var k = 0; k < 24; k++) {
+      cur = H.add(cur, H.DIRS[d]);
+      var c = B.at(board, cur);
+      if (!c) break;
+      path.push(c);
+      if (c.q === to.q && c.r === to.r) break;
+    }
+    return path.length ? path : [to];
+  }
+
+  /* Bootsbewegung eines ganzen Zuges: was kostet er, welche Boote werden
+     aufgenommen, wo bleiben sie liegen? */
+  function waterPlan(board, piece, from, to) {
+    var path = pathCells(board, piece, from, to);
+    var carrying = isWater(from), cost = 0, takes = [], drops = [], prev = from;
+    for (var i = 0; i < path.length; i++) {
+      var c = path[i];
+      if (isWater(c)) {
+        if (!carrying) {
+          if (c.boat) takes.push(c); else cost++;
+          carrying = true;
+        }
+      } else if (carrying) {
+        drops.push(prev);            // Boot bleibt am letzten Wasserfeld zurück
+        carrying = false;
+      }
+      prev = c;
+    }
+    return { cost: cost, takes: takes, drops: drops, endOnWater: carrying };
   }
 
   function act(kind, cell, extra) {
@@ -16,19 +79,32 @@ var Moves = (function () {
     return a;
   }
 
-  /* Gleitende Bewegung (Legionär, Zenturio): läuft, bis etwas im Weg ist. */
-  function slide(board, from, dirs, owner, out) {
+  /* Gleitende Bewegung (Legionär, Zenturio): läuft, bis etwas im Weg ist.
+     Wasser kostet ein Boot je Abschnitt, den die Figur von Land aus betritt. */
+  function slide(board, from, dirs, owner, wood, out) {
     dirs.forEach(function (d) {
       var cur = { q: from.q, r: from.r };
+      var carrying = isWater(from), cost = 0;
       for (;;) {
         cur = H.add(cur, H.DIRS[d]);
         var cell = B.at(board, cur);
-        if (!cell || cell.terrain === 'water' || cell.tree) break;
+        if (!cell || cell.tree) break;
+        if (cell.terrain === 'water') {
+          if (!carrying) {
+            if (!cell.boat) {
+              if (cost + 1 > wood) break;      // kein Holz mehr für ein Boot
+              cost++;
+            }
+            carrying = true;
+          }
+        } else {
+          carrying = false;                     // Boot bleibt zurück
+        }
         if (cell.piece) {
-          if (cell.piece.owner !== owner) out.push(act('capture', cell));
+          if (cell.piece.owner !== owner) out.push(act('capture', cell, cost ? { cost: cost } : null));
           break;
         }
-        out.push(act('move', cell));
+        out.push(act('move', cell, cost ? { cost: cost } : null));
       }
     });
   }
@@ -48,7 +124,8 @@ var Moves = (function () {
           (over.tree || (over.piece && over.piece.owner === owner));
         if (!jumpable) continue;
         var land = B.at(board, H.add(pos, H.scale(H.DIRS[d], 2)));
-        if (!enterable(land) || land.piece) continue;
+        // Kettensprünge enden nur an Land – der Tangolin kommt nicht über Wasser
+        if (!land || land.terrain !== 'grass' || land.tree || land.piece) continue;
         var k = H.key(land.q, land.r);
         if (seen[k]) continue;
         seen[k] = true;
@@ -59,12 +136,14 @@ var Moves = (function () {
   }
 
   /* Sprung auf ein festes Zielfeld – Bäume, Wasser und Figuren dazwischen
-     spielen keine Rolle (Samurai, Springer). */
-  function leapTo(board, from, vec, owner, out) {
+     spielen keine Rolle (Samurai, Springer). Landen auf Wasser braucht ein Boot. */
+  function leapTo(board, from, vec, owner, wood, out) {
     var target = B.at(board, H.add(from, vec));
-    if (!enterable(target)) return;
-    if (!target.piece) out.push(act('move', target));
-    else if (target.piece.owner !== owner) out.push(act('capture', target));
+    var c = stepCost(from, target, wood);
+    if (c < 0) return;
+    var extra = c ? { cost: c } : null;
+    if (!target.piece) out.push(act('move', target, extra));
+    else if (target.piece.owner !== owner) out.push(act('capture', target, extra));
   }
 
   /* Alle legalen Aktionen der Figur auf `cell`. `wood` = Holzvorrat des Besitzers. */
@@ -79,40 +158,45 @@ var Moves = (function () {
       case 'worker':
         for (d = 0; d < 6; d++) {
           target = B.at(board, H.add(cell, H.DIRS[d]));
-          if (!target || target.terrain === 'water') continue;
+          if (!target) continue;
           if (target.tree) { out.push(act('harvest', target)); continue; }
-          if (!target.piece) out.push(act('move', target));
-          else if (target.piece.owner !== owner) out.push(act('capture', target));
+          var wc = stepCost(cell, target, wood);
+          if (wc < 0) continue;
+          var wx = wc ? { cost: wc } : null;
+          if (!target.piece) out.push(act('move', target, wx));
+          else if (target.piece.owner !== owner) out.push(act('capture', target, wx));
         }
         break;
 
       case 'samurai':
         // Die 6 Hex-Diagonalen: dadurch bleibt er auf einem Drittel des Bretts
-        H.DIAGS.forEach(function (v) { leapTo(board, cell, v, owner, out); });
+        H.DIAGS.forEach(function (v) { leapTo(board, cell, v, owner, wood, out); });
         break;
 
       case 'springer':
         // Zwei benachbarte Richtungen, jeweils genau 2 oder 3 Felder weit
-        H.wedgeDirs(piece.facing).forEach(function (d) {
+        H.wedgeDirs(piece.facing).forEach(function (dd) {
           [2, 3].forEach(function (n) {
-            leapTo(board, cell, H.scale(H.DIRS[d], n), owner, out);
+            leapTo(board, cell, H.scale(H.DIRS[dd], n), owner, wood, out);
           });
         });
         break;
 
       case 'legionaer':
-        slide(board, cell, [piece.facing, (piece.facing + 3) % 6], owner, out);
+        slide(board, cell, [piece.facing, (piece.facing + 3) % 6], owner, wood, out);
         break;
 
       case 'zenturio':
-        slide(board, cell, [0, 1, 2, 3, 4, 5], owner, out);
+        slide(board, cell, [0, 1, 2, 3, 4, 5], owner, wood, out);
         break;
 
       case 'archer':
         // Laufen: 1 Feld, ohne zu schlagen
         for (d = 0; d < 6; d++) {
           target = B.at(board, H.add(cell, H.DIRS[d]));
-          if (enterable(target) && !target.piece) out.push(act('move', target));
+          var ac = stepCost(cell, target, wood);
+          if (ac < 0 || target.piece) continue;
+          out.push(act('move', target, ac ? { cost: ac } : null));
         }
         // Schießen: Distanz 2 auf einer der 6 Geraden, über Bäume und Wasser hinweg
         for (d = 0; d < 6; d++) {
@@ -126,9 +210,11 @@ var Moves = (function () {
       case 'tangolin':
         for (d = 0; d < 6; d++) {
           target = B.at(board, H.add(cell, H.DIRS[d]));
-          if (!enterable(target)) continue;
-          if (!target.piece) out.push(act('move', target));
-          else if (target.piece.owner !== owner) out.push(act('capture', target));
+          var tc = stepCost(cell, target, wood);
+          if (tc < 0) continue;
+          var tx = tc ? { cost: tc } : null;
+          if (!target.piece) out.push(act('move', target, tx));
+          else if (target.piece.owner !== owner) out.push(act('capture', target, tx));
         }
         chainJumps(board, cell, owner, out);
         break;
@@ -137,9 +223,12 @@ var Moves = (function () {
         if (wood >= 1) {
           for (d = 0; d < 6; d++) {
             target = B.at(board, H.add(cell, H.DIRS[d]));
-            if (!enterable(target)) continue;
-            if (!target.piece) out.push(act('move', target, { cost: 1 }));
-            else if (target.piece.owner !== owner) out.push(act('capture', target, { cost: 1 }));
+            var kc = stepCost(cell, target, wood - 1);
+            if (kc < 0) continue;
+            var total = kc + 1;                 // 1 Holz für den Sprung, dazu das Boot
+            if (total > wood) continue;
+            if (!target.piece) out.push(act('move', target, { cost: total }));
+            else if (target.piece.owner !== owner) out.push(act('capture', target, { cost: total }));
           }
         }
         break;
@@ -241,6 +330,7 @@ var Moves = (function () {
 
   return {
     forPiece: forPiece, trainingSpots: trainingSpots,
+    waterPlan: waterPlan, stepCost: stepCost, isWater: isWater, pathCells: pathCells,
     hasAnyAction: hasAnyAction, affordableUnits: affordableUnits,
     trainBlocker: trainBlocker, typesOnBoard: typesOnBoard, enterable: enterable
   };

@@ -52,6 +52,19 @@ Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
 | Bogenschütze | 2 Holz | 1 Feld ohne zu schlagen, oder Schuss auf Distanz 2 |
 | Tangolin | 2 Holz | Kettensprünge über Bäume und eigene Einheiten, nie über Wasser |
 | Zenturio | 3 Holz | beliebig weit in jede Richtung; nur einmal pro Spiel |
+| Boot | 1 Holz | kein Figur, sondern ein neutrales Objekt – macht ein Wasserfeld begehbar |
+
+### Boote
+
+Wasser betritt nur, wer ein **Boot** hat. Zieht eine Figur im regulären Zug von Land aufs
+Wasser, kostet das **1 Holz**; das Boot liegt dann unter ihr. Auf dem Wasser bewegt sie sich
+danach wie an Land. Verlässt sie das Wasser, bleibt das Boot auf dem letzten Wasserfeld
+zurück – und darf später von **jedem** Spieler genutzt werden, auch vom Gegner. Für einen
+neuen Einstieg an anderer Stelle braucht es ein neues Boot.
+
+Wer in einem Zug über mehrere Wasserabschnitte läuft, zahlt für jeden Abschnitt ein Boot:
+Ein Zenturio, der zwei durch Land getrennte Wasserstreifen quert, gibt 2 Holz aus und lässt
+zwei Boote zurück. Die Kosten stehen als kleine Zahl am Zielfeld.
 
 Verliert man den Arbeiter, lohnt sich ein Holzvorrat: Ohne Arbeiter und ohne Holz lassen
 sich keine Bäume mehr fällen – und damit nichts mehr ausbilden.
@@ -130,6 +143,12 @@ hergeben, gilt der Kartentext:
   Laufen nicht („beim Springen keine Einheiten schlagen“).
 * **Tangolin** schlägt nur beim normalen 1-Feld-Zug, nicht beim Kettensprung. Seine
   Abbildung zeigt nur die Nachbarfelder, daher folgt der Kettensprung dem Kartentext.
+* **Boote und Kettensprünge:** Der Tangolin landet beim Kettensprung nur an Land – die Karte
+  sagt ausdrücklich, dass er nicht über Wasser springt. Sein normaler 1-Feld-Zug darf dagegen
+  ein Boot nutzen.
+* **Boote und Sprünge:** Samurai und Springer dürfen auf einem Wasserfeld landen, wenn sie ein
+  Boot kaufen oder dort schon eines liegt. Springen sie nur darüber hinweg, kostet es nichts.
+* **Ausgebildet** wird ausschließlich auf Landfeldern.
 * **Drehen** gilt als Zug, darf aber im Anschluss an eine Bewegung kostenlos erfolgen –
   so ergibt „laufen und/oder drehen“ aus dem Regeltext einen sinnvollen Zug.
 * **Wasser** kann nie betreten werden; Samurai, Springer und Schüsse überqueren es.
@@ -153,6 +172,7 @@ js/ui.js            Steuerung, Seitenleiste, Regelwerk
 build.js            baut alles zu einer einzigen HTML-Datei zusammen
 dist/hexodus.html   erzeugte Einzeldatei (CSS und JS eingebettet)
 test/figuren.js     Zielfelder der Figuren gegen die Regelkarten
+test/boot.js        Boot-Regeln inklusive des Beispiels von der Regelkarte
 test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
 test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
 test/jagd.js        KI gegen einen Gegner, der gezielt den Turm jagt
@@ -174,6 +194,7 @@ Verschicken, Hochladen oder Öffnen ohne lokalen Server.
 
 ```
 node test/figuren.js            # Zielfelder der Figuren gegen die Regelkarten
+node test/boot.js               # Boot-Regeln gegen die Regelkarte
 node test/ki.js                 # KI-Zuggenerierung gegen das Regelwerk
 node test/simulate.js 100       # komplette Zufallspartien
 node test/kispiel.js 10         # Spielstärke der KI
