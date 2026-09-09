@@ -158,7 +158,12 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   border-left: 1px solid var(--line); background: var(--bg);
   display: flex; flex-direction: column; min-height: 0; overflow: auto;
 }
-.players { padding: 12px; display: flex; flex-direction: column; gap: 7px; }
+.players {
+  padding: 12px; display: flex; flex-direction: column; gap: 7px;
+  /* darf nicht schrumpfen: der Holzstand beider Seiten muss lesbar bleiben */
+  flex: 0 0 auto;
+  position: sticky; top: 0; z-index: 3; background: var(--bg);
+}
 .player-card {
   display: grid; grid-template-columns: 14px 1fr auto; gap: 4px 9px; align-items: center;
   background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--pc);
@@ -168,7 +173,10 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .player-card.is-out { opacity: .42; }
 .player-card .swatch { width: 12px; height: 12px; border-radius: 3px; background: var(--pc); }
 .player-card .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.player-card .wood { font-variant-numeric: tabular-nums; font-weight: 700; }
+.player-card .wood {
+  font-variant-numeric: tabular-nums; font-weight: 700; font-size: 15px;
+  white-space: nowrap;
+}
 .player-card .meta { grid-column: 2 / span 2; font-size: 12px; color: var(--muted); }
 
 .panel { padding: 4px 12px 12px; border-top: 1px solid var(--line); }
@@ -207,7 +215,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .dir-btn:hover { border-color: var(--accent); }
 .dir-btn.is-active { border-color: var(--accent); background: #26331f; }
 
-.log { padding: 10px 12px 22px; border-top: 1px solid var(--line); margin-top: auto; }
+.log { padding: 10px 12px 22px; border-top: 1px solid var(--line); margin-top: auto; flex: 0 0 auto; }
 .log h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
 #log-list { list-style: none; margin: 0; padding: 0; max-height: 210px; overflow: auto; font-size: 13px; }
 #log-list li { display: flex; gap: 8px; align-items: baseline; padding: 4px 0; color: var(--muted); border-bottom: 1px solid #262c35; }
@@ -281,9 +289,13 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .game { grid-template-columns: 1fr; grid-template-rows: minmax(280px, 50vh) 1fr; }
   .sidebar { border-left: 0; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
 
-  /* Aktionen direkt unter das Brett, Spielerleiste als Streifen */
+  /* Spielerstand zuerst – Holz beider Seiten muss ohne Scrollen sichtbar sein */
+  .players {
+    order: 0; flex: 0 0 auto; flex-direction: row; overflow-x: auto; overflow-y: hidden;
+    gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--line);
+  }
+  .player-card { align-self: stretch; }
   .panel { order: 1; border-top: 0; padding-top: 10px; }
-  .players { order: 2; flex-direction: row; overflow-x: auto; gap: 8px; padding: 10px 12px; }
   .players::-webkit-scrollbar { display: none; }
   .player-card { flex: 0 0 auto; min-width: 150px; }
   .log { order: 3; }
