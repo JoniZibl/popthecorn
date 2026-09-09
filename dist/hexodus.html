@@ -103,14 +103,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   vertical-align: middle;
 }
 .thinking { color: var(--accent); }
-.forest { color: var(--muted); }
-/* Schlussrunde: die auffälligste Information auf dem Schirm */
-.countdown {
-  color: var(--warn); font-weight: 700;
-  animation: countdownPulse 1.4s ease-in-out infinite;
-}
-@keyframes countdownPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
-@media (prefers-reduced-motion: reduce) { .countdown { animation: none; } }
+
 .hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 8px 0; }
 .hint.small { font-size: 12px; }
 .hint.warn { color: var(--warn); }
@@ -507,14 +500,6 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
     </section>
 
     <section class="rule-block">
-      <h3>Die Rodung als Uhr</h3>
-      <p>Bäume wachsen nicht nach. Fällt der <strong>letzte Baum</strong>, kann niemand mehr
-        Holz gewinnen – dann läuft eine <strong>Schlussrunde von 10 Zügen</strong>, danach
-        gewinnt das größere Vermögen.</p>
-      <p>Daraus wird eine echte Entscheidung: <em>Fälle ich den letzten Baum?</em> Wer vorn
-        liegt, friert damit seinen Vorsprung ein. Wer zurückliegt, sollte ihn stehen lassen
-        und angreifen – auch wenn er das Holz gut gebrauchen könnte.</p>
-
       <h3>Beute</h3>
       <p>Wer eine Figur schlägt, erhält die <strong>Hälfte ihrer Ausbildungskosten</strong> als
         Holz zurück (aufgerundet: 1 für die meisten Figuren, 2 für den Zenturio). Kämpfen ist
@@ -1330,8 +1315,6 @@ var Game = (function () {
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
       lastProgressBy: null,
       endReason: null,
-      forest: 0,               // Bäume auf dem Feld
-      finalCountdown: null,    // läuft, sobald der letzte Baum gefallen ist
       moveNo: 0,               // zählt Aktionen – die Oberfläche erkennt daran Neues
       lastMove: null,          // { fromKey, toKey, type, owner, kind }
       lastCapture: null,       // { key, type, owner, by }
@@ -1350,14 +1333,6 @@ var Game = (function () {
 
   var STALL_LIMIT = 50;      // Züge ohne Fortschritt, dann wird gewertet
   var REPEAT_LIMIT = 3;      // dieselbe Stellung dreimal, dann wird gewertet
-  var FINAL_TURNS = 10;      // Züge nach dem letzten Baum bis zur Wertung
-
-  function countTrees(state) {
-    var n = 0;
-    state.board.keys.forEach(function (k) { if (state.board.cells[k].tree) n++; });
-    return n;
-  }
-
   /* Beute: Wer eine Figur schlägt, bekommt die Hälfte ihrer Ausbildungskosten
      als Holz zurück (aufgerundet). Beim Königs-Turm wechselt ohnehin der ganze
      Vorrat den Besitzer. */
@@ -1521,7 +1496,6 @@ var Game = (function () {
       state.phase = 'play';
       state.current = state.players.length - 1;
       state.turn = 1;
-      state.forest = countTrees(state);
       log(state, 'Das Spiel beginnt – ' + state.players[state.current].name + ' ist am Zug.', state.current);
     } else {
       state.current++;
@@ -1614,18 +1588,6 @@ var Game = (function () {
   /* Nach jedem Zug prüfen, ob die Partie festgefahren ist. */
   function checkStalemate(state) {
     if (state.phase !== 'play') return false;
-
-    /* Rodungs-Uhr: Sobald der letzte Baum gefallen ist, kann niemand mehr Holz
-       gewinnen. Statt die Partie auslaufen zu lassen, läuft eine Schlussrunde –
-       und die Entscheidung, ob man den letzten Baum fällt, wird selbst zum Zug. */
-    state.forest = countTrees(state);
-    if (state.forest === 0 && state.finalCountdown === null) {
-      state.finalCountdown = FINAL_TURNS;
-      log(state, 'Der letzte Baum ist gefallen – noch ' + FINAL_TURNS + ' Züge bis zur Wertung.');
-    } else if (state.finalCountdown !== null) {
-      state.finalCountdown--;
-      if (state.finalCountdown <= 0) return adjudicate(state, 'Der Wald ist gerodet');
-    }
 
     state.sinceProgress++;
     var key = positionKey(state);
@@ -1835,8 +1797,8 @@ var Game = (function () {
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
-    countTrees: countTrees, plunder: plunder,
-    STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT, FINAL_TURNS: FINAL_TURNS
+    plunder: plunder,
+    STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT
   };
 })();
 
@@ -1954,14 +1916,13 @@ var AI = (function () {
       terrain: new Uint8Array(n), tree: new Uint8Array(n), boat: new Uint8Array(n),
       pt: new Int8Array(n), po: new Int8Array(n), pf: new Int8Array(n),
       wood: new Int32Array(np), alive: new Uint8Array(np), zent: new Uint8Array(np),
-      kingAt: new Int16Array(np), treeCount: 0
+      kingAt: new Int16Array(np)
     };
     s.pt.fill(-1); s.po.fill(-1); s.kingAt.fill(-1);
     for (var i = 0; i < n; i++) {
       var c = state.board.cells[geo.keys[i]];
       s.terrain[i] = c.terrain === 'water' ? 1 : 0;
       s.tree[i] = c.tree ? 1 : 0;
-      if (c.tree) s.treeCount++;
       s.boat[i] = c.boat ? 1 : 0;
       if (c.piece) {
         s.pt[i] = T[c.piece.type];
@@ -2325,7 +2286,7 @@ var AI = (function () {
 
     if (kind === KIND_SHOOT) return u;                 // Bogenschütze bleibt stehen
 
-    if (kind === KIND_HARVEST) { u.hadTree = 1; s.tree[to] = 0; s.treeCount--; s.wood[p] += 1; }
+    if (kind === KIND_HARVEST) { u.hadTree = 1; s.tree[to] = 0; s.wood[p] += 1; }
     if (s.pt[from] === T.king) { u.spend = 1; s.wood[p] -= 1; }
 
     // Boote: bezahlen, mitnehmen, zurücklassen
@@ -2376,7 +2337,7 @@ var AI = (function () {
       s.pt[to] = -1; s.po[to] = -1; s.pf[to] = 0;
       s.pt[from] = mt; s.po[from] = p; s.pf[from] = u.oldF;
       if (mt === T.king) s.kingAt[p] = from;
-      if (u.hadTree) { s.tree[to] = 1; s.treeCount++; s.wood[p] -= 1; }
+      if (u.hadTree) { s.tree[to] = 1; s.wood[p] -= 1; }
       if (u.spend && s.pt[from] === T.king) s.wood[p] += u.spend;
     }
 
@@ -2609,29 +2570,7 @@ var AI = (function () {
 
     var bestOther = -INF;
     for (p = 0; p < np; p++) if (p !== me && s.alive[p] && sc[p] > bestOther) bestOther = sc[p];
-    var score = sc[me] - bestOther;
-
-    /* Rodungs-Uhr: Steht kein Baum mehr, entscheidet in wenigen Zügen das
-       Vermögen – und niemand kann es noch aufholen, weil es kein Holz mehr gibt.
-       Die Schlussrunde ist länger als die Suchtiefe; ohne diesen Term würde die
-       KI den letzten Baum fällen, ohne die Folge zu sehen. */
-    if (s.treeCount === 0) {
-      var mineW = wealthOf(s, me), bestW = -1e9;
-      for (p = 0; p < np; p++) {
-        if (p === me || !s.alive[p]) continue;
-        var w = wealthOf(s, p);
-        if (w > bestW) bestW = w;
-      }
-      if (bestW > -1e9) {
-        /* Gewicht bewusst hoch: Steht der Wald nicht mehr, ist das Vermögen
-           kein Stellungsvorteil mehr, sondern die Partie selbst. Wer zurückliegt,
-           darf den letzten Baum deshalb gar nicht erst fällen. */
-        var diff = (mineW - bestW) * 2500;
-        if (diff > 20000) diff = 20000; else if (diff < -20000) diff = -20000;
-        score += diff;
-      }
-    }
-    return score;
+    return sc[me] - bestOther;
   }
 
   /* ---------------- Wertung bei festgefahrener Partie ----------------
@@ -2643,19 +2582,6 @@ var AI = (function () {
     return (typeof Game !== 'undefined' && Game.STALL_LIMIT) || 50;
   }
 
-  function finalTurns() {
-    return (typeof Game !== 'undefined' && Game.FINAL_TURNS) || 10;
-  }
-
-  /* Rodungs-Uhr im Suchbaum: Unendlich, solange der Wald steht. Fällt der letzte
-     Baum, beginnt die Schlussrunde und zählt je Zug herunter. Dadurch sieht die
-     Suche, dass das Fällen des letzten Baums die Partie beendet – und wählt es
-     nur, wenn sie die Wertung gewinnt. */
-  function nextFinal(s, finalLeft, ctx) {
-    if (s.treeCount > 0) return Infinity;
-    if (finalLeft === Infinity) return ctx.finalTurns;
-    return finalLeft - 1;
-  }
 
   function wealthOf(s, p) {
     var sum = s.wood[p];
@@ -2760,10 +2686,9 @@ var AI = (function () {
     return ctx.stop;
   }
 
-  function quiesce(s, player, alpha, beta, ctx, qd, finalLeft) {
+  function quiesce(s, player, alpha, beta, ctx, qd) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me;
-    if (finalLeft !== undefined && finalLeft <= 0) return adjudicationScore(s, me);
     if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + qd;
     var others = 0;
     for (var p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
@@ -2783,8 +2708,7 @@ var AI = (function () {
     var best = stand;
     for (var i = 0; i < moves.length; i++) {
       var u = make(s, moves[i], player);
-      var val = quiesce(s, nextAlive(s, player), alpha, beta, ctx, qd + 1,
-                        finalLeft === undefined ? undefined : nextFinal(s, finalLeft, ctx));
+      var val = quiesce(s, nextAlive(s, player), alpha, beta, ctx, qd + 1);
       unmake(s, u);
       if (ctx.stop) return best;
       if (isMe) {
@@ -2799,24 +2723,23 @@ var AI = (function () {
     return best;
   }
 
-  function alphabeta(s, player, depth, alpha, beta, ctx, ply, stall, finalLeft) {
+  function alphabeta(s, player, depth, alpha, beta, ctx, ply, stall) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me, p;
     if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + ply;
     var others = 0;
     for (p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
     if (!others) return WIN - ply;
-    // Festgefahren oder Wald gerodet: das Regelwerk wertet aus
-    if (stall >= ctx.stallLimit || finalLeft <= 0) return adjudicationScore(s, me);
-    if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0, finalLeft);
+    // Festgefahren: das Regelwerk wertet aus, danach ist die Partie vorbei
+    if (stall >= ctx.stallLimit) return adjudicationScore(s, me);
+    if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0);
 
     var moves = ctx.pool[ply] || (ctx.pool[ply] = []);
     genMoves(s, player, moves, false);
     if (!moves.length) {                                  // aussetzen
       var nx = nextAlive(s, player);
       if (nx === player) return evaluate(s, me, ctx);
-      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1,
-                       nextFinal(s, finalLeft, ctx));
+      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1);
     }
     orderMoves(s, moves, ctx, 0);
 
@@ -2826,7 +2749,7 @@ var AI = (function () {
       var mv = moves[i];
       var u = make(s, mv, player);
       var val = alphabeta(s, nextAlive(s, player), depth - 1, alpha, beta, ctx, ply + 1,
-                          isProgress(mv) ? 0 : stall + 1, nextFinal(s, finalLeft, ctx));
+                          isProgress(mv) ? 0 : stall + 1);
       unmake(s, u);
       if (ctx.stop) return (best === INF || best === -INF) ? val : best;
       if (isMe) {
@@ -2879,11 +2802,8 @@ var AI = (function () {
     var s = snapshot(state);
     var ctx = makeContext(s, me, cfg.limit, cfg.aggression);
     ctx.stallLimit = stallLimit();
-    ctx.finalTurns = finalTurns();
 
     var stall0 = state.sinceProgress || 0;
-    var final0 = (state.finalCountdown === null || state.finalCountdown === undefined)
-      ? Infinity : state.finalCountdown;
     var history = state.history || {};
     var repeatLimit = (typeof Game !== 'undefined' && Game.REPEAT_LIMIT) || 3;
 
@@ -2932,7 +2852,7 @@ var AI = (function () {
         } else {
           var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
           val = alphabeta(s, nxt, depth - 1, alpha, INF, ctx, 1,
-                          isProgress(mv) ? 0 : stall0 + 1, nextFinal(s, final0, ctx));
+                          isProgress(mv) ? 0 : stall0 + 1);
         }
         unmake(s, u);
 
@@ -3942,18 +3862,9 @@ var Render = (function () {
       return;
     }
 
-    // Spielphase – dazu der Stand des Waldes bzw. die Schlussrunde
-    var wald = state.finalCountdown !== null
-      ? '<span class="countdown">Wald gerodet · noch ' + state.finalCountdown +
-        (state.finalCountdown === 1 ? ' Zug' : ' Züge') + '</span>'
-      : (function () {
-          // live zählen: state.forest stammt vom Ende des letzten Zuges
-          var n = G.countTrees(state);
-          return '<span class="forest">\u{1F332} ' + n +
-                 (n === 1 ? ' Baum' : ' Bäume') + ' übrig</span>';
-        })();
+    // Spielphase
     banner.innerHTML = 'Runde ' + state.turn + ' · <strong style="color:' + p.color + '">' +
-      esc(p.name) + '</strong> · \u{1F332} ' + p.wood + ' · ' + wald;
+      esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood;
 
     if (p.ai) {
       panel.innerHTML = '<h3>' + esc(p.name) + '</h3>' +

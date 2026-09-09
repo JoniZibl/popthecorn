@@ -100,14 +100,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   vertical-align: middle;
 }
 .thinking { color: var(--accent); }
-.forest { color: var(--muted); }
-/* Schlussrunde: die auffälligste Information auf dem Schirm */
-.countdown {
-  color: var(--warn); font-weight: 700;
-  animation: countdownPulse 1.4s ease-in-out infinite;
-}
-@keyframes countdownPulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
-@media (prefers-reduced-motion: reduce) { .countdown { animation: none; } }
+
 .hint { color: var(--muted); font-size: 13px; line-height: 1.5; margin: 8px 0; }
 .hint.small { font-size: 12px; }
 .hint.warn { color: var(--warn); }

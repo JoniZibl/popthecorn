@@ -107,14 +107,13 @@ var AI = (function () {
       terrain: new Uint8Array(n), tree: new Uint8Array(n), boat: new Uint8Array(n),
       pt: new Int8Array(n), po: new Int8Array(n), pf: new Int8Array(n),
       wood: new Int32Array(np), alive: new Uint8Array(np), zent: new Uint8Array(np),
-      kingAt: new Int16Array(np), treeCount: 0
+      kingAt: new Int16Array(np)
     };
     s.pt.fill(-1); s.po.fill(-1); s.kingAt.fill(-1);
     for (var i = 0; i < n; i++) {
       var c = state.board.cells[geo.keys[i]];
       s.terrain[i] = c.terrain === 'water' ? 1 : 0;
       s.tree[i] = c.tree ? 1 : 0;
-      if (c.tree) s.treeCount++;
       s.boat[i] = c.boat ? 1 : 0;
       if (c.piece) {
         s.pt[i] = T[c.piece.type];
@@ -478,7 +477,7 @@ var AI = (function () {
 
     if (kind === KIND_SHOOT) return u;                 // Bogenschütze bleibt stehen
 
-    if (kind === KIND_HARVEST) { u.hadTree = 1; s.tree[to] = 0; s.treeCount--; s.wood[p] += 1; }
+    if (kind === KIND_HARVEST) { u.hadTree = 1; s.tree[to] = 0; s.wood[p] += 1; }
     if (s.pt[from] === T.king) { u.spend = 1; s.wood[p] -= 1; }
 
     // Boote: bezahlen, mitnehmen, zurücklassen
@@ -529,7 +528,7 @@ var AI = (function () {
       s.pt[to] = -1; s.po[to] = -1; s.pf[to] = 0;
       s.pt[from] = mt; s.po[from] = p; s.pf[from] = u.oldF;
       if (mt === T.king) s.kingAt[p] = from;
-      if (u.hadTree) { s.tree[to] = 1; s.treeCount++; s.wood[p] -= 1; }
+      if (u.hadTree) { s.tree[to] = 1; s.wood[p] -= 1; }
       if (u.spend && s.pt[from] === T.king) s.wood[p] += u.spend;
     }
 
@@ -762,29 +761,7 @@ var AI = (function () {
 
     var bestOther = -INF;
     for (p = 0; p < np; p++) if (p !== me && s.alive[p] && sc[p] > bestOther) bestOther = sc[p];
-    var score = sc[me] - bestOther;
-
-    /* Rodungs-Uhr: Steht kein Baum mehr, entscheidet in wenigen Zügen das
-       Vermögen – und niemand kann es noch aufholen, weil es kein Holz mehr gibt.
-       Die Schlussrunde ist länger als die Suchtiefe; ohne diesen Term würde die
-       KI den letzten Baum fällen, ohne die Folge zu sehen. */
-    if (s.treeCount === 0) {
-      var mineW = wealthOf(s, me), bestW = -1e9;
-      for (p = 0; p < np; p++) {
-        if (p === me || !s.alive[p]) continue;
-        var w = wealthOf(s, p);
-        if (w > bestW) bestW = w;
-      }
-      if (bestW > -1e9) {
-        /* Gewicht bewusst hoch: Steht der Wald nicht mehr, ist das Vermögen
-           kein Stellungsvorteil mehr, sondern die Partie selbst. Wer zurückliegt,
-           darf den letzten Baum deshalb gar nicht erst fällen. */
-        var diff = (mineW - bestW) * 2500;
-        if (diff > 20000) diff = 20000; else if (diff < -20000) diff = -20000;
-        score += diff;
-      }
-    }
-    return score;
+    return sc[me] - bestOther;
   }
 
   /* ---------------- Wertung bei festgefahrener Partie ----------------
@@ -796,19 +773,6 @@ var AI = (function () {
     return (typeof Game !== 'undefined' && Game.STALL_LIMIT) || 50;
   }
 
-  function finalTurns() {
-    return (typeof Game !== 'undefined' && Game.FINAL_TURNS) || 10;
-  }
-
-  /* Rodungs-Uhr im Suchbaum: Unendlich, solange der Wald steht. Fällt der letzte
-     Baum, beginnt die Schlussrunde und zählt je Zug herunter. Dadurch sieht die
-     Suche, dass das Fällen des letzten Baums die Partie beendet – und wählt es
-     nur, wenn sie die Wertung gewinnt. */
-  function nextFinal(s, finalLeft, ctx) {
-    if (s.treeCount > 0) return Infinity;
-    if (finalLeft === Infinity) return ctx.finalTurns;
-    return finalLeft - 1;
-  }
 
   function wealthOf(s, p) {
     var sum = s.wood[p];
@@ -913,10 +877,9 @@ var AI = (function () {
     return ctx.stop;
   }
 
-  function quiesce(s, player, alpha, beta, ctx, qd, finalLeft) {
+  function quiesce(s, player, alpha, beta, ctx, qd) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me;
-    if (finalLeft !== undefined && finalLeft <= 0) return adjudicationScore(s, me);
     if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + qd;
     var others = 0;
     for (var p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
@@ -936,8 +899,7 @@ var AI = (function () {
     var best = stand;
     for (var i = 0; i < moves.length; i++) {
       var u = make(s, moves[i], player);
-      var val = quiesce(s, nextAlive(s, player), alpha, beta, ctx, qd + 1,
-                        finalLeft === undefined ? undefined : nextFinal(s, finalLeft, ctx));
+      var val = quiesce(s, nextAlive(s, player), alpha, beta, ctx, qd + 1);
       unmake(s, u);
       if (ctx.stop) return best;
       if (isMe) {
@@ -952,24 +914,23 @@ var AI = (function () {
     return best;
   }
 
-  function alphabeta(s, player, depth, alpha, beta, ctx, ply, stall, finalLeft) {
+  function alphabeta(s, player, depth, alpha, beta, ctx, ply, stall) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me, p;
     if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + ply;
     var others = 0;
     for (p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
     if (!others) return WIN - ply;
-    // Festgefahren oder Wald gerodet: das Regelwerk wertet aus
-    if (stall >= ctx.stallLimit || finalLeft <= 0) return adjudicationScore(s, me);
-    if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0, finalLeft);
+    // Festgefahren: das Regelwerk wertet aus, danach ist die Partie vorbei
+    if (stall >= ctx.stallLimit) return adjudicationScore(s, me);
+    if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0);
 
     var moves = ctx.pool[ply] || (ctx.pool[ply] = []);
     genMoves(s, player, moves, false);
     if (!moves.length) {                                  // aussetzen
       var nx = nextAlive(s, player);
       if (nx === player) return evaluate(s, me, ctx);
-      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1,
-                       nextFinal(s, finalLeft, ctx));
+      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1);
     }
     orderMoves(s, moves, ctx, 0);
 
@@ -979,7 +940,7 @@ var AI = (function () {
       var mv = moves[i];
       var u = make(s, mv, player);
       var val = alphabeta(s, nextAlive(s, player), depth - 1, alpha, beta, ctx, ply + 1,
-                          isProgress(mv) ? 0 : stall + 1, nextFinal(s, finalLeft, ctx));
+                          isProgress(mv) ? 0 : stall + 1);
       unmake(s, u);
       if (ctx.stop) return (best === INF || best === -INF) ? val : best;
       if (isMe) {
@@ -1032,11 +993,8 @@ var AI = (function () {
     var s = snapshot(state);
     var ctx = makeContext(s, me, cfg.limit, cfg.aggression);
     ctx.stallLimit = stallLimit();
-    ctx.finalTurns = finalTurns();
 
     var stall0 = state.sinceProgress || 0;
-    var final0 = (state.finalCountdown === null || state.finalCountdown === undefined)
-      ? Infinity : state.finalCountdown;
     var history = state.history || {};
     var repeatLimit = (typeof Game !== 'undefined' && Game.REPEAT_LIMIT) || 3;
 
@@ -1085,7 +1043,7 @@ var AI = (function () {
         } else {
           var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
           val = alphabeta(s, nxt, depth - 1, alpha, INF, ctx, 1,
-                          isProgress(mv) ? 0 : stall0 + 1, nextFinal(s, final0, ctx));
+                          isProgress(mv) ? 0 : stall0 + 1);
         }
         unmake(s, u);
 
