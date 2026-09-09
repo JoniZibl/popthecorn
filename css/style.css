@@ -191,6 +191,8 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
 }
 .dir-btn span { font-size: 10px; color: var(--muted); }
+.dir-arrow { width: 17px; height: 17px; fill: currentColor; }
+.dir-grid.is-wedge .dir-btn span { font-size: 9px; letter-spacing: -.02em; }
 .dir-btn:hover { border-color: var(--accent); }
 .dir-btn.is-active { border-color: var(--accent); background: #26331f; }
 

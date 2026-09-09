@@ -29,24 +29,24 @@ var Units = (function () {
     },
     samurai: {
       id: 'samurai', name: 'Samurai', cost: 1, trainable: true, directional: false,
-      short: 'Springt exakt 2 Felder geradeaus – über alles hinweg.',
+      short: 'Springt auf eine der 6 Diagonalen – über alles hinweg.',
       text: 'Der Samurai ist eine taktische Figur, die niemals alle Felder auf dem Spielfeld berühren ' +
             'kann. Wähle seinen Startpunkt und seine Bewegungen sorgfältig, um seine Effektivität zu ' +
             'maximieren.',
       bullets: [
-        'Springt genau 2 Felder in einer der 6 Richtungen.',
+        'Springt auf eines der 6 diagonalen Felder – die Ecken um sein Feld herum.',
         'Der Samurai kann über Wasser und über Bäume springen.',
-        'Durch den Doppelschritt erreicht er nur ein Viertel aller Felder.'
+        'Auf den Diagonalen bleibt er sein Leben lang auf einem Drittel aller Felder.'
       ]
     },
     springer: {
       id: 'springer', name: 'Springer', cost: 2, trainable: true, directional: true,
-      short: 'Springt 2 Felder – nur in seine gewählte Richtung.',
+      short: 'Springt 2 oder 3 Felder weit – in zwei benachbarte Richtungen.',
       text: 'Wenn der Springer ausgebildet wird, kannst du eine Richtung wählen. Der Springer kann ' +
             'ausschließlich in die gewählte Richtung springen. Er hat die Möglichkeit, sich zu Beginn ' +
             'seines Zuges zu springen und/oder zu drehen, um eine neue Richtung einzunehmen.',
       bullets: [
-        'Springt 2 Felder in seine Blickrichtung.',
+        'Seine Richtung umfasst zwei benachbarte Richtungen – in beiden springt er genau 2 oder 3 Felder weit.',
         'Der Springer kann über Bäume und über Wasser springen.',
         'Nachdem er sich bewegt hat, kann er in der darauffolgenden Runde in die neue, zuvor gewählte Richtung weiterlaufen.'
       ]

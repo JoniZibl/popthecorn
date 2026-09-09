@@ -194,6 +194,8 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
 }
 .dir-btn span { font-size: 10px; color: var(--muted); }
+.dir-arrow { width: 17px; height: 17px; fill: currentColor; }
+.dir-grid.is-wedge .dir-btn span { font-size: 9px; letter-spacing: -.02em; }
 .dir-btn:hover { border-color: var(--accent); }
 .dir-btn.is-active { border-color: var(--accent); background: #26331f; }
 
@@ -397,6 +399,8 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
         Beim Bewegen wird eine gegnerische Figur auf dem Zielfeld geschlagen.</p>
       <ul>
         <li><strong>Wasser</strong> kann nicht betreten werden – Samurai, Springer und Schüsse überqueren es.</li>
+        <li>Der <strong>Springer</strong> zielt auf einen Keil aus zwei benachbarten Richtungen; sein Pfeil
+          auf dem Brett zeigt genau zwischen die beiden.</li>
         <li><strong>Bäume</strong> blockieren; nur der Arbeiter darf ihr Feld betreten und fällt sie dabei.</li>
         <li><strong>Holz</strong> stammt aus gefällten Bäumen und bezahlt jede neue Einheit.</li>
         <li>Richtungsfiguren (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet werden;
@@ -474,6 +478,38 @@ var Hex = (function () {
     return Math.atan2(v.y, v.x) * 180 / Math.PI;
   }
 
+  /* Die 6 Hex-Diagonalen: Summe zweier benachbarter Richtungen.
+     Ein Zug entlang einer Diagonale hält (q - r) mod 3 konstant – wer sich nur so
+     bewegt, erreicht nur ein Drittel aller Felder (Samurai). */
+  var DIAGS = DIRS.map(function (d, i) {
+    var n = DIRS[(i + 1) % 6];
+    return [d[0] + n[0], d[1] + n[1]];
+  });
+
+  /* Keil aus zwei benachbarten Richtungen (Springer): Richtung d und d+1.
+     Der Pfeil zeigt auf die Winkelhalbierende zwischen beiden. */
+  function wedgeDirs(d) { return [d % 6, (d + 1) % 6]; }
+
+  function wedgeVector(d) {
+    var a = dirVector(d % 6), b = dirVector((d + 1) % 6);
+    var x = a.x + b.x, y = a.y + b.y;
+    var len = Math.sqrt(x * x + y * y) || 1;
+    return { x: x / len, y: y / len };
+  }
+
+  function wedgeAngle(d) {
+    var v = wedgeVector(d);
+    return Math.atan2(v.y, v.x) * 180 / Math.PI;
+  }
+
+  function wedgeName(d) {
+    return DIR_NAMES[d % 6] + ' + ' + DIR_NAMES[(d + 1) % 6];
+  }
+
+  function wedgeShort(d) {
+    return DIR_SHORT[d % 6] + '+' + DIR_SHORT[(d + 1) % 6];
+  }
+
   // Zellen eines 7er-Plättchens um ein Zentrum
   function tileCells(center) {
     var cells = [{ q: center[0], r: center[1] }];
@@ -484,7 +520,9 @@ var Hex = (function () {
   }
 
   return {
-    DIRS: DIRS, DIR_NAMES: DIR_NAMES, DIR_SHORT: DIR_SHORT, TILE_DIRS: TILE_DIRS,
+    DIRS: DIRS, DIAGS: DIAGS, DIR_NAMES: DIR_NAMES, DIR_SHORT: DIR_SHORT, TILE_DIRS: TILE_DIRS,
+    wedgeDirs: wedgeDirs, wedgeVector: wedgeVector, wedgeAngle: wedgeAngle,
+    wedgeName: wedgeName, wedgeShort: wedgeShort,
     key: key, parseKey: parseKey, add: add, scale: scale, equals: equals,
     distance: distance, neighbors: neighbors, toPixel: toPixel,
     corners: corners, cornerPoints: cornerPoints, dirVector: dirVector,
@@ -528,24 +566,24 @@ var Units = (function () {
     },
     samurai: {
       id: 'samurai', name: 'Samurai', cost: 1, trainable: true, directional: false,
-      short: 'Springt exakt 2 Felder geradeaus – über alles hinweg.',
+      short: 'Springt auf eine der 6 Diagonalen – über alles hinweg.',
       text: 'Der Samurai ist eine taktische Figur, die niemals alle Felder auf dem Spielfeld berühren ' +
             'kann. Wähle seinen Startpunkt und seine Bewegungen sorgfältig, um seine Effektivität zu ' +
             'maximieren.',
       bullets: [
-        'Springt genau 2 Felder in einer der 6 Richtungen.',
+        'Springt auf eines der 6 diagonalen Felder – die Ecken um sein Feld herum.',
         'Der Samurai kann über Wasser und über Bäume springen.',
-        'Durch den Doppelschritt erreicht er nur ein Viertel aller Felder.'
+        'Auf den Diagonalen bleibt er sein Leben lang auf einem Drittel aller Felder.'
       ]
     },
     springer: {
       id: 'springer', name: 'Springer', cost: 2, trainable: true, directional: true,
-      short: 'Springt 2 Felder – nur in seine gewählte Richtung.',
+      short: 'Springt 2 oder 3 Felder weit – in zwei benachbarte Richtungen.',
       text: 'Wenn der Springer ausgebildet wird, kannst du eine Richtung wählen. Der Springer kann ' +
             'ausschließlich in die gewählte Richtung springen. Er hat die Möglichkeit, sich zu Beginn ' +
             'seines Zuges zu springen und/oder zu drehen, um eine neue Richtung einzunehmen.',
       bullets: [
-        'Springt 2 Felder in seine Blickrichtung.',
+        'Seine Richtung umfasst zwei benachbarte Richtungen – in beiden springt er genau 2 oder 3 Felder weit.',
         'Der Springer kann über Bäume und über Wasser springen.',
         'Nachdem er sich bewegt hat, kann er in der darauffolgenden Runde in die neue, zuvor gewählte Richtung weiterlaufen.'
       ]
@@ -789,14 +827,13 @@ var Moves = (function () {
     }
   }
 
-  /* Doppelsprung über alles hinweg (Samurai, Springer). */
-  function leap(board, from, dirs, owner, out) {
-    dirs.forEach(function (d) {
-      var target = B.at(board, H.add(from, H.scale(H.DIRS[d], 2)));
-      if (!enterable(target)) return;
-      if (!target.piece) out.push(act('move', target));
-      else if (target.piece.owner !== owner) out.push(act('capture', target));
-    });
+  /* Sprung auf ein festes Zielfeld – Bäume, Wasser und Figuren dazwischen
+     spielen keine Rolle (Samurai, Springer). */
+  function leapTo(board, from, vec, owner, out) {
+    var target = B.at(board, H.add(from, vec));
+    if (!enterable(target)) return;
+    if (!target.piece) out.push(act('move', target));
+    else if (target.piece.owner !== owner) out.push(act('capture', target));
   }
 
   /* Alle legalen Aktionen der Figur auf `cell`. `wood` = Holzvorrat des Besitzers. */
@@ -819,11 +856,17 @@ var Moves = (function () {
         break;
 
       case 'samurai':
-        leap(board, cell, [0, 1, 2, 3, 4, 5], owner, out);
+        // Die 6 Hex-Diagonalen: dadurch bleibt er auf einem Drittel des Bretts
+        H.DIAGS.forEach(function (v) { leapTo(board, cell, v, owner, out); });
         break;
 
       case 'springer':
-        leap(board, cell, [piece.facing], owner, out);
+        // Zwei benachbarte Richtungen, jeweils genau 2 oder 3 Felder weit
+        H.wedgeDirs(piece.facing).forEach(function (d) {
+          [2, 3].forEach(function (n) {
+            leapTo(board, cell, H.scale(H.DIRS[d], n), owner, out);
+          });
+        });
         break;
 
       case 'legionaer':
@@ -1250,7 +1293,8 @@ var Game = (function () {
     }
     cell.piece.facing = dir;
     log(state, state.players[state.current].name + ': ' + U.DEFS[cell.piece.type].name +
-      ' richtet sich nach ' + H.DIR_NAMES[dir] + ' aus.', state.current);
+      ' richtet sich nach ' +
+      (cell.piece.type === 'springer' ? H.wedgeName(dir) : H.DIR_NAMES[dir]) + ' aus.', state.current);
     state.passes = 0;
     finishTurn(state, null);
     return true;
@@ -1433,15 +1477,17 @@ var Render = (function () {
   }
 
   function facingArrow(g, piece, color) {
-    var v = H.dirVector(piece.facing);
-    var arrow = el('path', {
+    // Der Springer springt in zwei benachbarte Richtungen – sein Pfeil zeigt dazwischen
+    var wedge = piece.type === 'springer';
+    var v = wedge ? H.wedgeVector(piece.facing) : H.dirVector(piece.facing);
+    var angle = wedge ? H.wedgeAngle(piece.facing) : H.dirAngle(piece.facing);
+    g.appendChild(el('path', {
       class: 'facing',
-      d: 'M0,-5 L9,0 L0,5 Z',
+      d: wedge ? 'M0,-7 L10,0 L0,7 L3,0 Z' : 'M0,-5 L9,0 L0,5 Z',
       fill: color,
       transform: 'translate(' + (v.x * SIZE * 0.72).toFixed(2) + ',' + (v.y * SIZE * 0.72).toFixed(2) +
-                 ') rotate(' + H.dirAngle(piece.facing).toFixed(1) + ')'
-    });
-    g.appendChild(arrow);
+                 ') rotate(' + angle.toFixed(1) + ')'
+    }));
   }
 
   var MARKER_CLASS = {
@@ -1546,7 +1592,10 @@ var Render = (function () {
   'use strict';
 
   var H = Hex, B = Board, U = Units, M = Moves, G = Game;
-  var DIR_GLYPH = ['↘', '↗', '↑', '↖', '↙', '↓'];
+  function dirArrow(angle) {
+    return '<svg class="dir-arrow" viewBox="-11 -11 22 22" aria-hidden="true">' +
+      '<path d="M-7,-5 L7,0 L-7,5 L-4,0 Z" transform="rotate(' + angle.toFixed(1) + ')"/></svg>';
+  }
 
   var state = null;
   var view = null;
@@ -1839,8 +1888,11 @@ var Render = (function () {
     if (!cell || !cell.piece) return '';
     var def = U.DEFS[cell.piece.type];
     var html = '<h3>' + def.name + '</h3><p class="hint">' + esc(def.short) + '</p>';
+    var wedge = cell.piece.type === 'springer';
     if (def.directional) {
-      html += '<p class="hint">Blickrichtung: <strong>' + H.DIR_NAMES[cell.piece.facing] + '</strong></p>';
+      html += '<p class="hint">Richtung: <strong>' +
+        (wedge ? H.wedgeName(cell.piece.facing) : H.DIR_NAMES[cell.piece.facing]) +
+        '</strong></p>';
     }
     if (state.pending) {
       html += '<p class="hint accent">' + (state.pending.kind === 'trainFacing'
@@ -1850,11 +1902,13 @@ var Render = (function () {
       html += '<p class="hint">Drehen kostet einen ganzen Zug.</p>';
     }
     if (def.directional) {
-      html += '<div class="dir-grid">' + [0, 1, 2, 3, 4, 5].map(function (d) {
-        return '<button class="dir-btn' + (cell.piece.facing === d ? ' is-active' : '') +
-          '" data-dir="' + d + '" title="' + H.DIR_NAMES[d] + '">' + DIR_GLYPH[d] +
-          '<span>' + H.DIR_SHORT[d] + '</span></button>';
-      }).join('') + '</div>';
+      html += '<div class="dir-grid' + (wedge ? ' is-wedge' : '') + '">' +
+        [0, 1, 2, 3, 4, 5].map(function (d) {
+          return '<button class="dir-btn' + (cell.piece.facing === d ? ' is-active' : '') +
+            '" data-dir="' + d + '" title="' + (wedge ? H.wedgeName(d) : H.DIR_NAMES[d]) + '">' +
+            dirArrow(wedge ? H.wedgeAngle(d) : H.dirAngle(d)) +
+            '<span>' + (wedge ? H.wedgeShort(d) : H.DIR_SHORT[d]) + '</span></button>';
+        }).join('') + '</div>';
     }
     if (state.pending) {
       html += '<button class="wide-btn" id="end-pending">Zug beenden</button>';

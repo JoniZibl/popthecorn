@@ -27,8 +27,8 @@ die über eine lückenlose Kette mit ihm verbunden sind.
 |---|---|---|
 | Königs-Turm | Startfigur | 1 Feld gegen 1 Holz; bildet Einheiten aus |
 | Arbeiter | 1 Holz | 1 Feld; fällt Bäume (+1 Holz), schlägt im Bewegungsradius |
-| Samurai | 1 Holz | genau 2 Felder geradeaus, über Wasser und Bäume hinweg |
-| Springer | 2 Holz | 2 Felder in die gewählte Richtung, über alles hinweg |
+| Samurai | 1 Holz | auf eine der 6 Diagonalen, über Wasser und Bäume hinweg |
+| Springer | 2 Holz | 2 oder 3 Felder in zwei benachbarte Richtungen, über alles hinweg |
 | Legionär | 2 Holz | beliebig weit vor/zurück auf seiner Achse, nicht über Bäume |
 | Bogenschütze | 2 Holz | 1 Feld ohne zu schlagen, oder Schuss auf Distanz 2 |
 | Tangolin | 2 Holz | Kettensprünge über Bäume und eigene Einheiten, nie über Wasser |
@@ -46,14 +46,20 @@ die über eine lückenlose Kette mit ihm verbunden sind.
 
 ## Auslegung der Regeln
 
-Die Spielidee lässt einige Details offen; so sind sie hier umgesetzt:
+Samurai, Springer, Bogenschütze, Legionär und Zenturio sind aus den Abbildungen der
+Regelkarten abgeleitet: Die Zielfelder der Karten wurden ausgemessen und in Hex-Koordinaten
+zurückgerechnet (`test/figuren.js` hält das Ergebnis fest). Wo die Abbildungen nichts
+hergeben, gilt der Kartentext:
 
-* **Samurai** springt genau 2 Felder geradeaus. Dadurch erreicht er nur jedes vierte Feld –
-  genau die im Regeltext beschriebene Eigenschaft, „niemals alle Felder berühren“ zu können.
-* **Springer** springt 2 Felder ausschließlich in seine Blickrichtung.
+* **Samurai** springt auf eine der 6 Hex-Diagonalen, also auf die „Ecken“ um sein Feld
+  herum. Diese Züge lassen `(q − r) mod 3` unverändert – er bleibt sein Leben lang auf
+  einem Drittel des Bretts und kann damit tatsächlich „niemals alle Felder berühren“.
+* **Springer** hat als Richtung einen Keil aus zwei benachbarten Richtungen und springt
+  darin genau 2 oder 3 Felder weit – vier Zielfelder je Ausrichtung.
 * **Bogenschütze** trifft auf Distanz 2 entlang der 6 geraden Richtungen und schlägt beim
   Laufen nicht („beim Springen keine Einheiten schlagen“).
-* **Tangolin** schlägt nur beim normalen 1-Feld-Zug, nicht beim Kettensprung.
+* **Tangolin** schlägt nur beim normalen 1-Feld-Zug, nicht beim Kettensprung. Seine
+  Abbildung zeigt nur die Nachbarfelder, daher folgt der Kettensprung dem Kartentext.
 * **Drehen** gilt als Zug, darf aber im Anschluss an eine Bewegung kostenlos erfolgen –
   so ergibt „laufen und/oder drehen“ aus dem Regeltext einen sinnvollen Zug.
 * **Wasser** kann nie betreten werden; Samurai, Springer und Schüsse überqueren es.
@@ -75,6 +81,7 @@ js/render.js        SVG-Darstellung von Brett, Bäumen und Figuren
 js/ui.js            Steuerung, Seitenleiste, Regelwerk
 build.js            baut alles zu einer einzigen HTML-Datei zusammen
 dist/hexodus.html   erzeugte Einzeldatei (CSS und JS eingebettet)
+test/figuren.js     Zielfelder der Figuren gegen die Regelkarten
 test/simulate.js    Regelwerks-Simulation (Node, ohne Browser)
 ```
 
@@ -90,9 +97,13 @@ Verschicken, Hochladen oder Öffnen ohne lokalen Server.
 ## Tests
 
 ```
-node test/simulate.js 100
+node test/figuren.js        # Zielfelder der Figuren gegen die Regelkarten
+node test/simulate.js 100   # komplette Zufallspartien
 ```
 
-Spielt zufällige Partien komplett durch – inklusive Aufbau, Ausbildung und Ausscheiden –
+`test/figuren.js` prüft die ausgemessenen Zielfelder von Samurai, Springer und
+Bogenschütze – inklusive der Eigenschaft des Samurai, auf einer Farbklasse zu bleiben.
+
+`test/simulate.js` spielt zufällige Partien komplett durch – inklusive Aufbau, Ausbildung und Ausscheiden –
 und prüft nach jedem Zug die Invarianten des Spielzustands (keine Figur im Wasser oder auf
 einem Baum, kein negatives Holz, genau ein Königs-Turm je aktivem Spieler).

@@ -3,7 +3,10 @@
   'use strict';
 
   var H = Hex, B = Board, U = Units, M = Moves, G = Game;
-  var DIR_GLYPH = ['↘', '↗', '↑', '↖', '↙', '↓'];
+  function dirArrow(angle) {
+    return '<svg class="dir-arrow" viewBox="-11 -11 22 22" aria-hidden="true">' +
+      '<path d="M-7,-5 L7,0 L-7,5 L-4,0 Z" transform="rotate(' + angle.toFixed(1) + ')"/></svg>';
+  }
 
   var state = null;
   var view = null;
@@ -296,8 +299,11 @@
     if (!cell || !cell.piece) return '';
     var def = U.DEFS[cell.piece.type];
     var html = '<h3>' + def.name + '</h3><p class="hint">' + esc(def.short) + '</p>';
+    var wedge = cell.piece.type === 'springer';
     if (def.directional) {
-      html += '<p class="hint">Blickrichtung: <strong>' + H.DIR_NAMES[cell.piece.facing] + '</strong></p>';
+      html += '<p class="hint">Richtung: <strong>' +
+        (wedge ? H.wedgeName(cell.piece.facing) : H.DIR_NAMES[cell.piece.facing]) +
+        '</strong></p>';
     }
     if (state.pending) {
       html += '<p class="hint accent">' + (state.pending.kind === 'trainFacing'
@@ -307,11 +313,13 @@
       html += '<p class="hint">Drehen kostet einen ganzen Zug.</p>';
     }
     if (def.directional) {
-      html += '<div class="dir-grid">' + [0, 1, 2, 3, 4, 5].map(function (d) {
-        return '<button class="dir-btn' + (cell.piece.facing === d ? ' is-active' : '') +
-          '" data-dir="' + d + '" title="' + H.DIR_NAMES[d] + '">' + DIR_GLYPH[d] +
-          '<span>' + H.DIR_SHORT[d] + '</span></button>';
-      }).join('') + '</div>';
+      html += '<div class="dir-grid' + (wedge ? ' is-wedge' : '') + '">' +
+        [0, 1, 2, 3, 4, 5].map(function (d) {
+          return '<button class="dir-btn' + (cell.piece.facing === d ? ' is-active' : '') +
+            '" data-dir="' + d + '" title="' + (wedge ? H.wedgeName(d) : H.DIR_NAMES[d]) + '">' +
+            dirArrow(wedge ? H.wedgeAngle(d) : H.dirAngle(d)) +
+            '<span>' + (wedge ? H.wedgeShort(d) : H.DIR_SHORT[d]) + '</span></button>';
+        }).join('') + '</div>';
     }
     if (state.pending) {
       html += '<button class="wide-btn" id="end-pending">Zug beenden</button>';

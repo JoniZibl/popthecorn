@@ -58,14 +58,13 @@ var Moves = (function () {
     }
   }
 
-  /* Doppelsprung über alles hinweg (Samurai, Springer). */
-  function leap(board, from, dirs, owner, out) {
-    dirs.forEach(function (d) {
-      var target = B.at(board, H.add(from, H.scale(H.DIRS[d], 2)));
-      if (!enterable(target)) return;
-      if (!target.piece) out.push(act('move', target));
-      else if (target.piece.owner !== owner) out.push(act('capture', target));
-    });
+  /* Sprung auf ein festes Zielfeld – Bäume, Wasser und Figuren dazwischen
+     spielen keine Rolle (Samurai, Springer). */
+  function leapTo(board, from, vec, owner, out) {
+    var target = B.at(board, H.add(from, vec));
+    if (!enterable(target)) return;
+    if (!target.piece) out.push(act('move', target));
+    else if (target.piece.owner !== owner) out.push(act('capture', target));
   }
 
   /* Alle legalen Aktionen der Figur auf `cell`. `wood` = Holzvorrat des Besitzers. */
@@ -88,11 +87,17 @@ var Moves = (function () {
         break;
 
       case 'samurai':
-        leap(board, cell, [0, 1, 2, 3, 4, 5], owner, out);
+        // Die 6 Hex-Diagonalen: dadurch bleibt er auf einem Drittel des Bretts
+        H.DIAGS.forEach(function (v) { leapTo(board, cell, v, owner, out); });
         break;
 
       case 'springer':
-        leap(board, cell, [piece.facing], owner, out);
+        // Zwei benachbarte Richtungen, jeweils genau 2 oder 3 Felder weit
+        H.wedgeDirs(piece.facing).forEach(function (d) {
+          [2, 3].forEach(function (n) {
+            leapTo(board, cell, H.scale(H.DIRS[d], n), owner, out);
+          });
+        });
         break;
 
       case 'legionaer':

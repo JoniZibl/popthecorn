@@ -89,15 +89,17 @@ var Render = (function () {
   }
 
   function facingArrow(g, piece, color) {
-    var v = H.dirVector(piece.facing);
-    var arrow = el('path', {
+    // Der Springer springt in zwei benachbarte Richtungen – sein Pfeil zeigt dazwischen
+    var wedge = piece.type === 'springer';
+    var v = wedge ? H.wedgeVector(piece.facing) : H.dirVector(piece.facing);
+    var angle = wedge ? H.wedgeAngle(piece.facing) : H.dirAngle(piece.facing);
+    g.appendChild(el('path', {
       class: 'facing',
-      d: 'M0,-5 L9,0 L0,5 Z',
+      d: wedge ? 'M0,-7 L10,0 L0,7 L3,0 Z' : 'M0,-5 L9,0 L0,5 Z',
       fill: color,
       transform: 'translate(' + (v.x * SIZE * 0.72).toFixed(2) + ',' + (v.y * SIZE * 0.72).toFixed(2) +
-                 ') rotate(' + H.dirAngle(piece.facing).toFixed(1) + ')'
-    });
-    g.appendChild(arrow);
+                 ') rotate(' + angle.toFixed(1) + ')'
+    }));
   }
 
   var MARKER_CLASS = {

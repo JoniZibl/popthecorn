@@ -62,6 +62,38 @@ var Hex = (function () {
     return Math.atan2(v.y, v.x) * 180 / Math.PI;
   }
 
+  /* Die 6 Hex-Diagonalen: Summe zweier benachbarter Richtungen.
+     Ein Zug entlang einer Diagonale hält (q - r) mod 3 konstant – wer sich nur so
+     bewegt, erreicht nur ein Drittel aller Felder (Samurai). */
+  var DIAGS = DIRS.map(function (d, i) {
+    var n = DIRS[(i + 1) % 6];
+    return [d[0] + n[0], d[1] + n[1]];
+  });
+
+  /* Keil aus zwei benachbarten Richtungen (Springer): Richtung d und d+1.
+     Der Pfeil zeigt auf die Winkelhalbierende zwischen beiden. */
+  function wedgeDirs(d) { return [d % 6, (d + 1) % 6]; }
+
+  function wedgeVector(d) {
+    var a = dirVector(d % 6), b = dirVector((d + 1) % 6);
+    var x = a.x + b.x, y = a.y + b.y;
+    var len = Math.sqrt(x * x + y * y) || 1;
+    return { x: x / len, y: y / len };
+  }
+
+  function wedgeAngle(d) {
+    var v = wedgeVector(d);
+    return Math.atan2(v.y, v.x) * 180 / Math.PI;
+  }
+
+  function wedgeName(d) {
+    return DIR_NAMES[d % 6] + ' + ' + DIR_NAMES[(d + 1) % 6];
+  }
+
+  function wedgeShort(d) {
+    return DIR_SHORT[d % 6] + '+' + DIR_SHORT[(d + 1) % 6];
+  }
+
   // Zellen eines 7er-Plättchens um ein Zentrum
   function tileCells(center) {
     var cells = [{ q: center[0], r: center[1] }];
@@ -72,7 +104,9 @@ var Hex = (function () {
   }
 
   return {
-    DIRS: DIRS, DIR_NAMES: DIR_NAMES, DIR_SHORT: DIR_SHORT, TILE_DIRS: TILE_DIRS,
+    DIRS: DIRS, DIAGS: DIAGS, DIR_NAMES: DIR_NAMES, DIR_SHORT: DIR_SHORT, TILE_DIRS: TILE_DIRS,
+    wedgeDirs: wedgeDirs, wedgeVector: wedgeVector, wedgeAngle: wedgeAngle,
+    wedgeName: wedgeName, wedgeShort: wedgeShort,
     key: key, parseKey: parseKey, add: add, scale: scale, equals: equals,
     distance: distance, neighbors: neighbors, toPixel: toPixel,
     corners: corners, cornerPoints: cornerPoints, dirVector: dirVector,

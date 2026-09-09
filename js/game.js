@@ -291,7 +291,8 @@ var Game = (function () {
     }
     cell.piece.facing = dir;
     log(state, state.players[state.current].name + ': ' + U.DEFS[cell.piece.type].name +
-      ' richtet sich nach ' + H.DIR_NAMES[dir] + ' aus.', state.current);
+      ' richtet sich nach ' +
+      (cell.piece.type === 'springer' ? H.wedgeName(dir) : H.DIR_NAMES[dir]) + ' aus.', state.current);
     state.passes = 0;
     finishTurn(state, null);
     return true;
