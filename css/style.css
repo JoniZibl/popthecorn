@@ -145,6 +145,8 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   background: rgba(24, 28, 34, .92); color: var(--text); border: 1px solid var(--line);
 }
 .hud-btn:hover { border-color: var(--accent); color: var(--accent); }
+/* der Knopf für die Ansicht trägt Text statt eines Zeichens */
+.hud-btn.is-wide { font-size: 12px; font-weight: 700; letter-spacing: .06em; }
 .legend {
   position: absolute; left: 12px; bottom: 12px; display: flex; flex-wrap: wrap; gap: 10px;
   background: rgba(24, 28, 34, .9); border: 1px solid var(--line);
@@ -241,8 +243,10 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 #log-list .dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
 
 /* ---------- Brett ---------- */
-/* Flache Felder in vier ähnlichen Tönen je Gelände – die Streuung stammt aus
-   den Koordinaten, ist also stabil und wirkt wie gewachsener Untergrund. */
+/* Das Brett ist eine Platte mit Dicke: Die Felder liegen oben, das Wasser ein
+   Stück tiefer, an den Außenkanten steht die Erde an. Flache Felder in vier
+   ähnlichen Tönen je Gelände – die Streuung stammt aus den Koordinaten, ist
+   also stabil und wirkt wie gewachsener Untergrund. */
 .hex-shape { stroke: #00000033; stroke-width: 1.2; }
 .hex-shape.ton-g0 { fill: #8ed07a; }
 .hex-shape.ton-g1 { fill: #86c973; }
@@ -255,6 +259,12 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .hex.is-placeable .hex-shape { fill: #b6e9a4; cursor: pointer; }
 .hex.is-placeable:hover .hex-shape { fill: #d9f7cd; }
 .hex-grass .hex-shape, .hex-water .hex-shape { transition: fill .12s ease; }
+
+/* Schnittkanten der Platte: Farbe kommt aus der Beleuchtung und steht im
+   Element – jede Wand liegt anders zur Sonne. */
+.hex-side { stroke: #00000022; stroke-width: .6; }
+/* Uferkante: dunkler Saum am tiefer liegenden Wasser */
+.water-rim { fill: none; stroke: rgba(0, 0, 0, .22); stroke-width: 3; }
 
 /* Zugmarkierungen atmen leicht, damit sie ins Auge fallen */
 @keyframes markerBreathe {
@@ -285,35 +295,45 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .pulse-train { stroke: var(--accent); }
 .float-text text { font-size: 17px; font-weight: 800; paint-order: stroke; stroke: rgba(0,0,0,.6); stroke-width: 3; }
 
-.tree-shadow { fill: rgba(0, 0, 0, .18); }
+/* Schatten liegen als projizierte Kreise auf dem Boden und verankern
+   Bäume und Figuren auf ihrem Feld. */
+.tree-shadow { fill: rgba(0, 0, 0, .20); }
+.piece-shadow { fill: rgba(0, 0, 0, .28); }
+.tree-trunk { fill: #6b4a2f; }
 .tree-top { fill: url(#treeGrad); }
 .tree-top2 { fill: #268342; }
-.tree { pointer-events: none; }
 
-.boat { pointer-events: none; }
+/* Baum, Boot und Figur stecken in der Gruppe ihres Feldes und nehmen Klicks
+   entgegen: Wer eine stehende Figur anklickt, meint ihr Feld. Ohne das fiele
+   der Klick durch die Figur hindurch – und träfe in der Schrägsicht das Feld
+   dahinter, über das sie hinausragt. */
 .boat-hull { fill: #8a5a35; stroke: #63401f; stroke-width: 2; }
 .boat-deck { fill: #a97148; }
 
 .cost-badge circle { fill: #1b2026; stroke: var(--warn); stroke-width: 1.5; }
 .cost-badge text { fill: var(--warn); font-size: 11px; font-weight: 700; }
 
-.piece { pointer-events: none; }
-.piece-shadow { fill: rgba(0, 0, 0, .3); }
-.piece-base { fill: #23282f; }
+/* Figuren stehen auf einem Sockel, der flach auf dem Feld liegt */
+.piece-base { fill: #23282f; stroke: rgba(0, 0, 0, .35); stroke-width: 1; }
+.piece-rim { opacity: .9; }
 .piece-head { fill: url(#headGrad); stroke-width: 1.4; }
 .piece.is-selected .piece-head { stroke-width: 2.4; }
 /* dunkler Rand, damit der Pfeil auf jedem Untergrund ablesbar bleibt */
-.facing { stroke: rgba(0, 0, 0, .55); stroke-width: 1.4; paint-order: stroke; }
+.facing { stroke: rgba(0, 0, 0, .5); stroke-width: 1.4; paint-order: stroke; opacity: .95; }
 
 .marker { cursor: pointer; }
 .marker-hex { fill: transparent; }
 .marker-dot { fill: #f2fff0; opacity: .85; stroke: #2c3a26; stroke-width: 1; }
 .marker-ring { fill: rgba(227, 93, 93, .28); stroke: var(--danger); stroke-width: 3; }
 .marker-icon { stroke: #ff6b6b; stroke-width: 4; stroke-linecap: round; fill: none; }
-.mk-harvest .marker-icon { stroke: none; fill: var(--warn); }
+.marker-icon-fill { fill: var(--warn); }
 .mk-jump .marker-dot { fill: #9fd6ff; }
 .mk-train .marker-hex { fill: rgba(239, 148, 184, .55); stroke: #ef94b8; stroke-width: 2; }
 .marker:hover .marker-hex { fill: rgba(255, 255, 255, .3); }
+
+/* Flache Symbole in Seitenleiste und Regelwerk */
+.icon-shadow { fill: rgba(0, 0, 0, .3); }
+.icon-base { fill: #23282f; }
 
 /* ---------- Regel-Overlay ---------- */
 .overlay {
@@ -373,6 +393,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 
   /* Fingerfreundliche Ziele */
   .wide-btn, .train-btn, .dir-btn { min-height: 46px; }
+  /* sechs Knöpfe übereinander passen nicht neben ein halbhohes Brett –
+     auf dem Handy liegen sie als Zeile unten rechts, wo die Legende entfällt */
+  .board-hud { flex-direction: row; top: auto; bottom: 10px; right: 10px; }
   .hud-btn { width: 42px; height: 42px; font-size: 18px; }
   .ghost-btn { padding: 9px 12px; }
   .topbar { padding: 8px 12px; }

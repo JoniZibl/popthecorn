@@ -154,8 +154,7 @@ Damit nachvollziehbar bleibt, was gerade passiert ist – gerade gegen die KI:
 
 * **Figuren gleiten** von ihrem alten Feld heran, statt zu springen.
 * Der **letzte Zug bleibt markiert**: gestrichelt das Startfeld, weiß das Zielfeld.
-* Eine **geschlagene Figur** vergeht mit einem roten Ring **an ihrem Todesfeld** – unter der
-  Figur, die sie geschlagen hat.
+* Eine **geschlagene Figur** vergeht mit einem roten Ring **an ihrem Todesfeld**.
 * Beim **Baumfällen** steigt ein „+1 🌲" **genau über dem gefällten Baum** auf, der Holzstand
   in der Leiste hebt sich kurz hervor.
 * Eine **neu ausgebildete Einheit** wächst aus dem Boden.
@@ -174,6 +173,46 @@ stabil. Dieselbe Streuung bestimmt Größe und Neigung der Bäume.
 Wer im Betriebssystem „Bewegung reduzieren" eingestellt hat, bekommt ein ruhiges Brett:
 Alle Animationen entfallen, die Markierung des letzten Zuges bleibt.
 
+## Das Brett in drei Dimensionen
+
+Das Spielfeld ist kein Bild, sondern eine **Platte mit Dicke**: Die Felder liegen oben, das
+Wasser ein Stück tiefer, an den Außenkanten steht die Erde an. Bäume und Figuren stehen als
+Aufsteller darauf und werfen einen Schatten auf ihr Feld. Das Brett lässt sich **drehen und
+kippen** – vom flachen Blick über die Landschaft bis zur klassischen Draufsicht.
+
+Gerechnet wird das ohne WebGL und ohne Bibliothek: `js/scene.js` ist eine Lochkamera aus
+zwanzig Zeilen. Jeder Weltpunkt wird um den Gierwinkel gedreht, um den Neigungswinkel
+gekippt und durch seinen Kameraabstand geteilt – der nahe Brettrand wird dadurch größer
+als der ferne. Eine bloße Isometrie ohne diese Teilung sähe wieder flach aus.
+
+Gezeichnet wird weiter in SVG, in zwei Sorten Geometrie:
+
+* **Am Boden Liegendes** – Felder, Seitenwände, Zugmarkierungen, Richtungspfeile und
+  Schatten – wird Punkt für Punkt projiziert. Ein Richtungspfeil zeigt deshalb aus jedem
+  Blickwinkel auf das Nachbarfeld, das er meint, und aus Kreisen werden beim Kippen
+  Ellipsen von selbst.
+* **Aufrechtes** – Bäume, Figuren, aufsteigende Texte – steht als Aufsteller im Bild: an
+  seinen projizierten Standpunkt gesetzt und mit dem Perspektivfaktor skaliert. Eine echte
+  perspektivische Verkürzung ließe die Figuren in der Draufsicht auf null zusammenfallen;
+  ein Brettspiel schaut man aber auch von oben an und will seine Figuren dabei sehen.
+
+Statt eines Tiefenpuffers sortiert ein **Maler-Algorithmus**: Die Felder werden nach ihrem
+Kameraabstand geordnet und von hinten nach vorn gezeichnet, jedes mit seinem eigenen Baum
+und seiner eigenen Figur. Ein nahes Feld überdeckt damit alles, was hinter ihm steht.
+Senkrechte Wände werden nur dort gezeichnet, wo man sie sehen kann: an den Außenkanten der
+Platte und an den Ufern zum tiefer liegenden Wasser – innen verdeckt sie ohnehin das nähere
+Feld. Beleuchtet werden sie von einer **fest in der Welt stehenden Sonne**; beim Drehen
+wandert das Licht über die Kanten, statt mitzudrehen, und erst dadurch sieht die Platte aus
+wie ein Körper.
+
+Angeklickt wird nach wie vor das Feld selbst: Die projizierte Deckfläche ist die
+Schaltfläche. Auch Baum und Figur nehmen den Klick für ihr Feld entgegen – sonst fiele er
+in der Schrägsicht durch die Figur hindurch auf das Feld dahinter, über das sie hinausragt.
+
+Die **Draufsicht ist exakt das alte, flache Brett**: Bei 90° Neigung ist die Projektion die
+Identität, Feld für Feld auf dem Pixel, auf dem es vorher lag (`test/kamera.js` prüft das).
+Wer die Schrägsicht nicht mag, verliert also nichts.
+
 ## Bedienung
 
 * **Figur anklicken** → mögliche Züge werden markiert (weiß = Zug, roter Ring = schlagen,
@@ -186,6 +225,11 @@ Alle Animationen entfallen, die Markierung des letzten Zuges bleibt.
   zwei Pfeile für seine Achse nach vorn und zurück.
 * Brett verschieben durch Ziehen, Zoom per Mausrad, Zwei-Finger-Geste oder über die
   Schaltflächen rechts oben. Am Handy liegen die Aktionen direkt unter dem Brett.
+* **Blickwinkel:** `⟲` und `⟳` drehen das Brett, `2D`/`3D` wechselt zwischen Schrägsicht
+  und Draufsicht. Feiner geht es mit gedrückter **Umschalt-** oder **rechter Maustaste**
+  (seitwärts dreht, nach unten kippt), mit zwei Fingern, die man gegeneinander verdreht,
+  oder mit den **Pfeiltasten**. War vorher das ganze Brett zu sehen, passt es sich nach dem
+  Drehen selbst wieder ein; wer hineingezoomt hat, behält seinen Ausschnitt.
 
 ## Auslegung der Regeln
 
@@ -227,7 +271,8 @@ js/board.js         Spielfeld-Erzeugung aus 7er-Plättchen
 js/moves.js         Regelwerk: legale Züge, Schüsse, Ausbildungsfelder
 js/game.js          Spielzustand, Aufbauphasen, Zugabwicklung, Ausscheiden
 js/ai.js            Computergegner: Suche, Bewertung, Aufbaustrategie
-js/render.js        SVG-Darstellung von Brett, Bäumen und Figuren
+js/scene.js         Kamera: Drehung, Neigung, Perspektive, Licht
+js/render.js        3D-Darstellung von Brett, Bäumen und Figuren in SVG
 js/ui.js            Steuerung, Seitenleiste, Regelwerk
 build.js            baut alles zu einer einzigen HTML-Datei zusammen
 dist/hexodus.html   erzeugte Einzeldatei (CSS und JS eingebettet)
@@ -239,6 +284,8 @@ test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
 test/jagd.js        KI gegen einen Gegner, der gezielt den Turm jagt
 test/blunder.js     lässt die KI ihren Turm im Schlagbereich stehen?
 test/entscheidung.js  endet jede Partie mit genau einem Sieger?
+test/kamera.js      Kamera: Draufsicht, Perspektive, Tiefensortierung
+test/ansicht.js     die gezeichnete Szene, ohne Browser
 test/simulate.js    Regelwerks-Simulation (Node, ohne Browser)
 ```
 
@@ -255,6 +302,8 @@ Verschicken, Hochladen oder Öffnen ohne lokalen Server.
 
 ```
 node test/figuren.js            # Zielfelder der Figuren gegen die Regelkarten
+node test/kamera.js             # Kamera: Draufsicht, Perspektive, sichtbare Wände
+node test/ansicht.js            # die gezeichnete Szene, ohne Browser
 node test/boot.js               # Boot-Regeln gegen die Regelkarte
 node test/beute.js              # Beute beim Schlagen
 node test/ki.js                 # KI-Zuggenerierung gegen das Regelwerk
@@ -275,6 +324,17 @@ zu oft ins Festfahren läuft.
 Königs-Turm zu und schlägt ihn, sobald er kann. Genau daran scheitert eine KI, die den
 Angriff erst bemerkt, wenn er schon vor der Tür steht. Der Test schlägt fehl, sobald die
 KI auch nur eine Partie durch einen verlorenen Turm abgibt.
+
+`test/kamera.js` prüft die Kamera rechnerisch: dass die Draufsicht die Identität bleibt,
+dass Nahes größer und Fernes kleiner wird, dass die Tiefensortierung der Brettebene folgt und
+dass zu jeder Richtung die richtige Hexkante gehört – die Ecken laufen andersherum als die
+Richtungen, und wer das verwechselt, hängt vier von sechs Seitenwänden an den falschen
+Nachbarn.
+
+`test/ansicht.js` lässt `render.js` in einem winzigen DOM-Gerüst zeichnen – ohne Browser –
+und prüft das Ergebnis aus vier Blickwinkeln: jedes Feld wird gezeichnet und bleibt
+anklickbar, keine Koordinate ist `NaN`, gemalt wird von hinten nach vorn, aus der Draufsicht
+ist keine Seitenwand zu sehen und aus der Schrägsicht schon.
 
 `test/ki.js` vergleicht jeden von der KI erzeugten Zug mit `moves.js` – in beide
 Richtungen, damit die Suche weder Züge erfindet noch übersieht – und prüft, dass das

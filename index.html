@@ -74,6 +74,9 @@
       <button id="zoom-in" class="hud-btn" title="Vergrößern">+</button>
       <button id="zoom-out" class="hud-btn" title="Verkleinern">−</button>
       <button id="zoom-fit" class="hud-btn" title="Einpassen">⤢</button>
+      <button id="rot-left" class="hud-btn" title="Brett nach links drehen">⟲</button>
+      <button id="rot-right" class="hud-btn" title="Brett nach rechts drehen">⟳</button>
+      <button id="view-tilt" class="hud-btn is-wide" title="Zwischen Schrägsicht und Draufsicht wechseln">2D</button>
     </div>
     <div class="legend">
       <span><i class="lg lg-move"></i>Zug</span>
@@ -112,6 +115,10 @@
           Der Springer trägt einen breiten Pfeil zwischen seinen beiden Sprungrichtungen,
           der Legionär zwei Pfeile für seine Achse nach vorn und zurück.</li>
         <li><strong>Bäume</strong> blockieren; nur der Arbeiter darf ihr Feld betreten und fällt sie dabei.</li>
+        <li><strong>Ansicht:</strong> Das Brett steht als Platte im Raum. Mit <strong>⟲ ⟳</strong>
+          drehst du es, mit <strong>2D/3D</strong> wechselst du zwischen Schrägsicht und
+          Draufsicht. Am Rechner geht beides auch mit gedrückter Umschalt- oder rechter
+          Maustaste, am Handy mit zwei Fingern.</li>
         <li><strong>Holz</strong> stammt aus gefällten Bäumen und bezahlt jede neue Einheit.</li>
         <li>Von <strong>jeder Figur</strong> darf höchstens eine je Spieler auf dem Feld stehen.
           Erst wenn sie geschlagen wird, darf sie neu ausgebildet werden – der Zenturio bleibt
@@ -158,6 +165,7 @@
 <script src="js/moves.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ai.js"></script>
+<script src="js/scene.js"></script>
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>
 </body>

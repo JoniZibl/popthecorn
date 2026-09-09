@@ -77,7 +77,76 @@
       attachBoardEvents();
     }
     Render.fit(view, state.board);
+    updateTiltButton();
     refresh();
+  }
+
+  /* ---------------- Kamera: drehen und neigen ----------------
+     Das Brett ist eine Platte im Raum; gedreht und gekippt wird die Kamera,
+     nicht das Spiel. Jede Änderung lässt render.js die Szene neu aufbauen –
+     die Zellen müssen für den Maler-Algorithmus neu sortiert werden. */
+
+  var camAnim = null;
+
+  function updateTiltButton() {
+    var btn = $('#view-tilt');
+    if (!btn || !view) return;
+    var flat = Render.isFlat(view);
+    // Der Knopf zeigt, wohin er führt, nicht wo man ist
+    btn.textContent = flat ? '3D' : '2D';
+    btn.title = flat ? 'Brett schräg stellen' : 'Von oben auf das Brett schauen';
+  }
+
+  function orbitNow(dYaw, dPitch) {
+    if (!view) return;
+    Render.orbit(view, dYaw, dPitch);
+    updateTiltButton();
+  }
+
+  /* Weich zu einem Blickwinkel fahren. Der Zwischenschritt wird immer aus dem
+     zuletzt angesteuerten Wert berechnet, nicht aus der Kamera selbst – deren
+     Gierwinkel springt bei 360° auf 0 zurück und risse die Fahrt auseinander. */
+  function camTo(yaw, pitch, ms) {
+    if (!view) return;
+    if (camAnim) { cancelAnimationFrame(camAnim); camAnim = null; }
+    var y0 = view.cam.yaw, p0 = view.cam.pitch;
+    var dy = yaw - y0, dp = pitch - p0;
+    if (reducedMotion() || (!dy && !dp)) { return orbitNow(dy, dp); }
+    var t0 = null, yPrev = y0, pPrev = p0;
+    camAnim = requestAnimationFrame(function step(ts) {
+      if (t0 === null) t0 = ts;
+      var t = Math.min(1, (ts - t0) / (ms || 420));
+      var e = 1 - Math.pow(1 - t, 3);
+      var yNow = y0 + dy * e, pNow = p0 + dp * e;
+      Render.orbit(view, yNow - yPrev, pNow - pPrev);
+      yPrev = yNow; pPrev = pNow;
+      camAnim = t < 1 ? requestAnimationFrame(step) : null;
+      if (!camAnim) updateTiltButton();
+    });
+  }
+
+  /* Beim Ziehen mit der Maus oder zwei Fingern fällt pro Bild höchstens eine
+     Drehung an – ohne diese Bremse würde die Szene mehrfach je Bild neu
+     aufgebaut und das Drehen ruckelt. */
+  var orbitTarget = null, orbitFrame = 0;
+
+  /* Die Zwei-Finger-Drehung liefert Schritte, keine Zielwerte. Sie müssen sich
+     auf einen schon wartenden Schritt aufaddieren – sonst geht jede Bewegung
+     verloren, die im selben Bild noch vor dem Neuzeichnen eintrifft. */
+  function queueOrbitBy(dYaw) {
+    var basis = orbitTarget || { yaw: view.cam.yaw, pitch: view.cam.pitch };
+    queueOrbit(basis.yaw + dYaw, basis.pitch);
+  }
+
+  function queueOrbit(yaw, pitch) {
+    orbitTarget = { yaw: yaw, pitch: Math.max(Scene.MIN_PITCH, Math.min(Scene.MAX_PITCH, pitch)) };
+    if (orbitFrame) return;
+    orbitFrame = requestAnimationFrame(function () {
+      orbitFrame = 0;
+      var t = orbitTarget;
+      orbitTarget = null;
+      if (t && view) orbitNow(t.yaw - view.cam.yaw, t.pitch - view.cam.pitch);
+    });
   }
 
   /* ---------------- Interaktion mit dem Brett ---------------- */
@@ -95,7 +164,8 @@
       var ids = Object.keys(pointers);
       var a = pointers[ids[0]], b = pointers[ids[1]];
       return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2,
-               dist: Math.hypot(a.x - b.x, a.y - b.y) };
+               dist: Math.hypot(a.x - b.x, a.y - b.y),
+               angle: Math.atan2(b.y - a.y, b.x - a.x) };
     }
 
     svg.addEventListener('pointerdown', function (e) {
@@ -106,18 +176,21 @@
       svg.setPointerCapture(e.pointerId);
 
       if (count() === 1) {
+        // Umschalttaste, rechte oder mittlere Maustaste: drehen statt schieben
+        var turning = e.shiftKey || e.button === 1 || e.button === 2;
         drag = {
           id: e.pointerId, x: e.clientX, y: e.clientY,
-          vx: view.view.x, vy: view.view.y,
-          key: node ? node.getAttribute('data-key') : null
+          vx: view.view.x, vy: view.view.y, turn: turning,
+          yaw: view.cam.yaw, pitch: view.cam.pitch,
+          key: (node && !turning) ? node.getAttribute('data-key') : null
         };
         moved = false;
       } else if (count() === 2) {
-        // zweiter Finger: Verschieben abbrechen, Zoom beginnen
+        // zweiter Finger: Verschieben abbrechen, Zoom und Drehung beginnen
         drag = null;
         moved = true;
         var c = centerOf();
-        pinch = { dist: c.dist || 1 };
+        pinch = { dist: c.dist || 1, angle: c.angle };
       }
     });
 
@@ -131,12 +204,23 @@
         if (!c.dist) return;
         var rect = svg.getBoundingClientRect();
         Render.zoomBy(view, c.dist / pinch.dist, c.x - rect.left, c.y - rect.top);
+        // Verdrehen der beiden Finger dreht das Brett wie eine Scheibe
+        var da = c.angle - pinch.angle;
+        while (da > Math.PI) da -= 2 * Math.PI;
+        while (da < -Math.PI) da += 2 * Math.PI;
+        if (Math.abs(da) > 0.005) queueOrbitBy(da * 180 / Math.PI);
         pinch.dist = c.dist;
+        pinch.angle = c.angle;
         return;
       }
       if (!drag || e.pointerId !== drag.id) return;
       var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+      if (drag.turn) {
+        // nach unten ziehen legt das Brett flach zum Betrachter
+        queueOrbit(drag.yaw + dx * 0.35, drag.pitch - dy * 0.3);
+        return;
+      }
       view.view.x = drag.vx + dx;
       view.view.y = drag.vy + dy;
       Render.applyView(view);
@@ -168,9 +252,39 @@
       Render.zoomBy(view, e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - rect.left, e.clientY - rect.top);
     }, { passive: false });
 
+    // Rechtsklick dreht das Brett – das Kontextmenü stört dabei nur
+    svg.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+
     $('#zoom-in').addEventListener('click', function () { centreZoom(1.2); });
     $('#zoom-out').addEventListener('click', function () { centreZoom(1 / 1.2); });
     $('#zoom-fit').addEventListener('click', function () { Render.fit(view, state.board); });
+    $('#rot-left').addEventListener('click', function () { camTo(view.cam.yaw - 30, view.cam.pitch, 320); });
+    $('#rot-right').addEventListener('click', function () { camTo(view.cam.yaw + 30, view.cam.pitch, 320); });
+    $('#view-tilt').addEventListener('click', function () {
+      // Beim Wechsel in die Schrägsicht wandert der Ausschnitt – neu einpassen
+      camTo(view.cam.yaw, Render.isFlat(view) ? Render.TILT : Render.FLAT, 500);
+    });
+
+    document.addEventListener('keydown', cameraKeys);
+  }
+
+  /* Pfeiltasten drehen und neigen das Brett – ohne Animation, damit die
+     Tastenwiederholung selbst die weiche Bewegung ergibt. */
+  function cameraKeys(e) {
+    if (!view || !state) return;
+    if (!$('#screen-game') || $('#screen-game').classList.contains('hidden')) return;
+    if (!$('#rules').classList.contains('hidden')) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    var tag = e.target && e.target.tagName;
+    if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+    var yaw = 0, pitch = 0;
+    if (e.key === 'ArrowLeft') yaw = -12;
+    else if (e.key === 'ArrowRight') yaw = 12;
+    else if (e.key === 'ArrowUp') pitch = 5;
+    else if (e.key === 'ArrowDown') pitch = -5;
+    else return;
+    e.preventDefault();
+    orbitNow(yaw, pitch);
   }
 
   function centreZoom(f) {
