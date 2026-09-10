@@ -457,6 +457,14 @@ node build.js
 Schreibt `dist/hexodus.html` mit eingebettetem CSS und JavaScript – praktisch zum
 Verschicken, Hochladen oder Öffnen ohne lokalen Server.
 
+Der **Kopf der Seite wandert mit**. Zwei Angaben darin entscheiden darüber, ob die Datei von
+der Festplatte aus etwas taugt: `charset`, sonst rät der Browser die Zeichenkodierung und aus
+„Königs-Turm“ wird Buchstabensalat – ein Server schickt die Kodierung mit, eine Datei nicht.
+Und `viewport`, sonst legt ein Handy die Seite in knapp tausend Punkten Breite aus: Die Regeln
+für schmale Bildschirme greifen nicht, und statt der Handy-Ansicht bekommt man die
+geschrumpfte Rechner-Ansicht mit Knöpfen, die man nicht trifft. `build.js` bricht ab, wenn
+eine der beiden fehlt.
+
 ## Tests
 
 ```

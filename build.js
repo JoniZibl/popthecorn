@@ -33,12 +33,21 @@ html = html.replace(/[ \t]*<script src="([^"]+)"><\/script>\n?/g, function (m, s
 // Rumpf zwischen <body> und </body> herauslösen
 var body = html.slice(html.indexOf('<body>') + 6, html.lastIndexOf('</body>')).trim();
 
-var head = html.slice(html.indexOf('<head>'), html.indexOf('</head>'));
-var title = (/<title>([^<]*)<\/title>/.exec(head) || [, 'Hexodus'])[1];
-var desc = (/<meta name="description" content="([^"]*)"/.exec(head) || [, ''])[1];
+/* Der Kopf wandert vollständig mit – bis auf das, was oben schon entfernt
+   wurde (Stylesheet, Manifest, Service Worker). Zwei Angaben darin sind für
+   eine Datei, die von der Festplatte geöffnet wird, entscheidend:
 
-var out = '<title>' + title + '</title>\n' +
-  (desc ? '<meta name="description" content="' + desc + '">\n' : '') +
+   `charset`, sonst rät der Browser die Zeichenkodierung und aus "Königs-Turm"
+   wird Buchstabensalat – ein Server schickt die Kodierung mit, eine Datei
+   nicht.
+
+   `viewport`, sonst legt ein Handy die Seite in knapp tausend Punkten Breite
+   aus. Die Regeln für schmale Bildschirme greifen dann nicht, und statt der
+   Handy-Ansicht bekommt man die geschrumpfte Rechner-Ansicht – Knöpfe so
+   klein, dass man sie nicht trifft. */
+var head = html.slice(html.indexOf('<head>') + 6, html.indexOf('</head>')).trim();
+
+var out = head + '\n' +
   '<style>\n' + cssFiles.map(read).join('\n') + '\n</style>\n\n' +
   body + '\n\n' +
   jsFiles.map(function (f) {
@@ -50,3 +59,11 @@ fs.writeFileSync(path.join(root, 'dist', 'hexodus.html'), out);
 console.log('dist/hexodus.html geschrieben –',
   (Buffer.byteLength(out) / 1024).toFixed(1), 'KB,',
   cssFiles.length, 'CSS +', jsFiles.length, 'JS eingebettet');
+
+// Ohne diese beiden ist die Datei am Handy unbrauchbar – lieber laut scheitern
+['charset', 'viewport'].forEach(function (pflicht) {
+  if (out.indexOf(pflicht) < 0) {
+    console.error('FEHLT im Kopf: ' + pflicht + ' – die Einzeldatei wäre am Handy unbrauchbar.');
+    process.exitCode = 1;
+  }
+});
