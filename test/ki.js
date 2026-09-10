@@ -64,7 +64,15 @@ function rulesMoves(st, p) {
     if (!c.piece || c.piece.owner !== p) return;
     var from = key;
     M.forPiece(st.board, c, st.players[p].wood).forEach(function (a) {
-      set[a.kind + '|' + from + '|' + a.q + ',' + a.r] = true;
+      /* Beim Kettensprung gehört dazu, was unterwegs fällt und was der Weg an
+         Booten kostet: Weichen die beiden Suchen darin ab, spielt die KI etwas
+         anderes, als das Regelwerk erlaubt. */
+      var zusatz = '';
+      if (a.kind === 'jump') {
+        zusatz = '|' + (a.captures ? a.captures.slice().sort().join('+') : '') +
+                 '|' + (a.cost || 0);
+      }
+      set[a.kind + '|' + from + '|' + a.q + ',' + a.r + zusatz] = true;
     });
     if (U.DEFS[c.piece.type].directional) {
       for (var d = 0; d < 6; d++) if (d !== c.piece.facing) set['rotate|' + from + '|' + d] = true;
@@ -90,7 +98,9 @@ function aiMoves(st, p) {
     } else if (kind === AI.KIND_ROTATE) {
       set['rotate|' + geo.keys[from] + '|' + extra] = true;
     } else if (kind === AI.KIND_CHAIN) {
-      set['jump|' + geo.keys[from] + '|' + toKey] = true;
+      var plan = AI.chainPlanFor(s, from, to, p);
+      var beute = plan.caps.map(function (idx) { return geo.keys[idx]; }).sort().join('+');
+      set['jump|' + geo.keys[from] + '|' + toKey + '|' + beute + '|' + plan.cost] = true;
     } else {
       var names = ['move', 'capture', 'harvest', 'shoot'];
       set[names[kind] + '|' + geo.keys[from] + '|' + toKey] = true;

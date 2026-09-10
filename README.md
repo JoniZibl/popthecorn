@@ -107,7 +107,7 @@ Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
 | Springer | 2 Holz | 2 oder 3 Felder in zwei benachbarte Richtungen, über alles hinweg |
 | Legionär | 2 Holz | beliebig weit vor/zurück auf seiner Achse, nicht über Bäume |
 | Bogenschütze | 2 Holz | 1 Feld ohne zu schlagen, oder Schuss auf Distanz 2 |
-| Tangolin | 2 Holz | Kettensprünge über Bäume und eigene Einheiten; schlägt beim 1-Feld-Zug |
+| Tangolin | 2 Holz | Kettensprünge über Bäume und die eigene Seite; schlägt, worauf er landet |
 | Zenturio | 3 Holz | beliebig weit in jede Richtung; trägt das Feldzeichen; nur einmal pro Spiel |
 | Boot | 1 Holz | kein Figur, sondern ein neutrales Objekt – macht ein Wasserfeld begehbar |
 
@@ -134,15 +134,30 @@ soll die Figur auf dem Feld wiedererkennen.
 
 ### Der Kettensprung des Tangolins
 
-Der Tangolin springt über **Bäume und eigene Einheiten**, so oft es weitergeht – ein Zug kann
-ihn quer über das halbe Brett tragen, wenn genug Sprungbretter in einer Reihe stehen. Eine
-**gegnerische Figur ist kein Sprungbrett, sondern eine Sperre**: Über sie geht es nicht
-hinweg, und das Feld dahinter bleibt unerreichbar. Geschlagen wird nicht im Vorbeispringen,
-sondern nur beim normalen Zug auf ein Nachbarfeld – dort schlägt er in jede Richtung.
+Der Tangolin springt über **Sprungbretter**: über Bäume und über Figuren der eigenen Seite,
+so oft es weitergeht. Eine **gegnerische Figur ist kein Sprungbrett, sondern eine Sperre** –
+über sie geht es nicht hinweg.
 
-Weil ein Sprung nichts am Brett ändert, zählt allein, welche Felder erreichbar sind: Gesucht
-wird in die Breite, und jedes Feld wird genau einmal betreten. Ohne diese Regel liefe der
-Tangolin im Kreis, solange ein Baum in Reichweite steht.
+**Gelandet** wird dagegen auch auf dem Gegner: Steht auf dem Zielfeld eine gegnerische Figur,
+schlägt er sie und darf von dort aus weiterspringen. Ein Zug kann so mehrere Figuren kosten.
+Auf dem Brett trägt so ein Sprung den roten Ring der Schlagzüge und, wenn er mehr als eine
+Figur mitnimmt, die Anzahl als kleine Zahl.
+
+Und er darf **ins Wasser springen**, wenn er sich dort ein **Boot** leistet: 1 Holz je
+Wasserfeld, auf dem noch keines liegt – so oft, wie das Holz reicht. Das Boot bleibt liegen,
+auch auf einer Zwischenlandung; wer später dorthin kommt, findet es vor. Was der ganze Weg
+kostet, steht als kleine Zahl am Zielfeld, und ein Weg, den der Holzvorrat nicht trägt, wird
+gar nicht erst angeboten.
+
+Damit hängt am **Weg** mehr als am Ziel – und dasselbe Zielfeld ist oft über mehrere Wege
+erreichbar. Gemerkt wird je Zielfeld der beste: erst nach Schlägen, dann nach Kosten, dann
+nach Länge. Ein Feld wird im selben Weg nicht zweimal betreten; sonst liefe der Tangolin im
+Kreis, solange ein Baum in Reichweite steht.
+
+Fällt mitten in einer Kette ein **Königs-Turm**, scheidet sein Spieler sofort aus: Seine ganze
+Armee kommt vom Brett und sein Holz wechselt den Besitzer – auch Figuren, die weiter hinten in
+derselben Kette noch drangekommen wären. Beim Ausführen wird deshalb für jedes Feld geprüft,
+ob dort überhaupt noch etwas steht.
 
 ### Boote
 
@@ -435,12 +450,12 @@ hergeben, gilt der Kartentext:
   darin genau 2 oder 3 Felder weit – vier Zielfelder je Ausrichtung.
 * **Bogenschütze** trifft auf Distanz 2 entlang der 6 geraden Richtungen und schlägt beim
   Laufen nicht („beim Springen keine Einheiten schlagen“).
-* **Tangolin:** Er springt über Bäume und eigene Einheiten, so weit es weitergeht. Über
-  gegnerische Figuren springt er nicht – sie sperren ihm den Weg. Geschlagen wird nur beim
-  normalen 1-Feld-Zug, dort in jede Richtung.
-* **Boote und Kettensprünge:** Der Tangolin landet beim Kettensprung nur an Land – die Karte
-  sagt ausdrücklich, dass er nicht über Wasser springt. Sein normaler 1-Feld-Zug darf dagegen
-  ein Boot nutzen.
+* **Tangolin:** Er springt über Bäume und über Figuren der eigenen Seite, so weit es
+  weitergeht. Über gegnerische Figuren springt er nicht – sie sperren ihm den Weg. Wohl aber
+  landet er auf ihnen: Wer im Landefeld steht, fällt, und der Sprung geht weiter.
+* **Boote und Kettensprünge:** Der Tangolin darf beim Kettensprung im Wasser landen, wenn er
+  dort ein Boot bezahlt – 1 Holz je Wasserfeld ohne Boot, so oft der Vorrat reicht. Über ein
+  leeres Wasserfeld springt er nicht: Ein Sprungbrett ist ein Baum oder eine Figur, kein Wasser.
 * **Boote und Sprünge:** Samurai und Springer dürfen auf einem Wasserfeld landen, wenn sie ein
   Boot kaufen oder dort schon eines liegt. Springen sie nur darüber hinweg, kostet es nichts.
 * **Ausgebildet** wird ausschließlich auf Landfeldern.
@@ -474,7 +489,7 @@ icon.svg, icon-*.png  App-Symbole für den Startbildschirm
 test/figuren.js     Zielfelder der Figuren gegen die Regelkarten
 test/boot.js        Boot-Regeln inklusive des Beispiels von der Regelkarte
 test/beute.js       Beute beim Schlagen
-test/tangolin.js    Kettensprung: Sprungbretter, Sperren, Landeplätze
+test/tangolin.js    Kettensprung: Sprungbretter, Schlagen beim Landen, Boote
 test/versorgung.js  Feldzeichen: der Zenturio als zweiter Anker der Kette
 test/team.js        Mannschaften: Verbündete, Farbfamilien, gemeinsamer Sieg
 test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
@@ -583,10 +598,10 @@ Zurücknehmen eines Zuges die Stellung bitgenau wiederherstellt. Der Kettensprun
 als eigene Zugart: Die KI hat für ihn eine eigene Suche, und weicht die vom Regelwerk ab,
 spielt sie Züge, die es nicht gibt.
 
-`test/tangolin.js` prüft die Sprungregeln gegen die Regelkarte: Über Bäume und eigene
-Einheiten geht es weiter, ein Gegner sperrt die Kette ab, besetzte Felder sind keine
-Landeplätze, Wasser bleibt unüberwindlich, ein Sprung schlägt nichts – und der Schlag auf das
-Nachbarfeld bringt die Beute.
+`test/tangolin.js` prüft die Sprungregeln gegen die Regelkarte: Über Bäume und die eigene
+Seite geht es weiter, ein Gegner sperrt als Sprungbrett ab, auf ihm gelandet fällt er, die
+Kette nimmt mehrere mit, Wasserlandungen kosten je ein Boot und werden ohne Holz gar nicht
+angeboten – und derselbe Weg kommt aus dem Generator der KI noch einmal heraus.
 
 `test/figuren.js` prüft die ausgemessenen Zielfelder von Samurai, Springer und
 Bogenschütze – inklusive der Eigenschaft des Samurai, auf einer Farbklasse zu bleiben –

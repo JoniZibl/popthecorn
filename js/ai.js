@@ -217,38 +217,87 @@ var AI = (function () {
   var genSpots = [];
 
   /* ---------------- Kettensprünge des Tangolins ----------------
-     Dieselbe Regel wie in moves.js: über Bäume und eigene Einheiten, nie über
-     Wasser und nie über eine gegnerische Figur. Ein Sprung schlägt nichts und
-     ändert nichts am Brett – gesucht wird deshalb in die Breite, und jedes Feld
-     wird genau einmal betreten. Weicht das hier vom Regelwerk ab, spielt die KI
-     Züge, die es gar nicht gibt – test/ki.js vergleicht beide Generatoren Zug
-     für Zug. */
-  var chainStamp = null, chainMark = 0, chainList = [], chainQueue = [];
+     Dieselbe Regel wie in moves.js: Sprungbrett ist ein Baum oder eine Figur
+     der eigenen Seite, gelandet wird auch auf dem Gegner (der fällt dabei),
+     und eine Wasserlandung kostet ein Boot, wenn dort keines liegt.
 
+     Am Weg hängt damit mehr als das Ziel, und dasselbe Feld ist oft über
+     mehrere Wege erreichbar. Je Zielfeld wird der beste Weg gemerkt: erst nach
+     Schlägen, dann nach Kosten, dann nach Länge. Der Weg selbst passt nicht in
+     den Zug – der ist eine Zahl aus Art, Von und Nach – und wird beim Ausführen
+     noch einmal gesucht. Das kostet wenig, weil Kettensprünge selten sind.
+     Weicht das hier vom Regelwerk ab, spielt die KI Züge, die es gar nicht
+     gibt – test/ki.js vergleicht beide Generatoren Zug für Zug. */
+  var chainStamp = null, chainPath = null, chainMark = 0, chainList = [], chainNodes = 0;
+  var chainBest = null;
+  var LEER = [];
+
+  function chainBesser(a, b) {
+    if (!b) return true;
+    if (a.caps.length !== b.caps.length) return a.caps.length > b.caps.length;
+    if (a.cost !== b.cost) return a.cost < b.cost;
+    return a.len < b.len;
+  }
+
+  function chainStep(s, pos, p, weg, beute, kosten) {   // weg = bisherige Landungen
+    if (++chainNodes > 4000) return;         // Notbremse gegen entartete Stellungen
+    var nb = s.geo.nb;
+    for (var d = 0; d < 6; d++) {
+      var over = nb[pos * 6 + d];
+      if (over < 0) continue;
+      // Sprungbrett: Baum oder Figur der eigenen Seite
+      if (!s.tree[over] && !(s.pt[over] >= 0 && allied(s, s.po[over], p))) continue;
+
+      var land = nb[over * 6 + d];
+      if (land < 0 || s.tree[land]) continue;
+      if (chainPath[land] === chainMark) continue;
+
+      var opfer = -1;
+      if (s.pt[land] >= 0) {
+        if (allied(s, s.po[land], p)) continue;
+        opfer = land;
+      }
+      var preis = (s.terrain[land] === 1 && !s.boat[land]) ? 1 : 0;
+      if (kosten + preis > s.wood[p]) continue;
+
+      var neuBeute = (opfer >= 0) ? beute.concat([opfer]) : beute;
+      var neuWeg = weg.concat([land]);
+      var kand = { caps: neuBeute, cost: kosten + preis, len: neuWeg.length, path: neuWeg };
+      if (chainStamp[land] !== chainMark) {
+        chainStamp[land] = chainMark;
+        chainBest[land] = kand;
+        chainList.push(land);
+      } else if (chainBesser(kand, chainBest[land])) {
+        chainBest[land] = kand;
+      }
+
+      chainPath[land] = chainMark;
+      chainStep(s, land, p, neuWeg, neuBeute, kosten + preis);
+      chainPath[land] = 0;
+    }
+  }
+
+  /* Liefert die erreichbaren Zielfelder; chainBest[ziel] hält Schläge und
+     Kosten dazu. Gültig bis zum nächsten Aufruf. */
   function chainSearch(s, from, p) {
-    var n = s.n, nb = s.geo.nb;
-    if (!chainStamp || chainStamp.length < n) chainStamp = new Int32Array(n);
+    var n = s.n;
+    if (!chainStamp || chainStamp.length < n) {
+      chainStamp = new Int32Array(n);
+      chainPath = new Int32Array(n);
+      chainBest = new Array(n);
+    }
     chainMark++;
     chainList.length = 0;
-    chainQueue.length = 0;
-    chainStamp[from] = chainMark;
-    chainQueue.push(from);
-    while (chainQueue.length) {
-      var pos = chainQueue.pop();
-      for (var d = 0; d < 6; d++) {
-        var over = nb[pos * 6 + d];
-        if (over < 0 || s.terrain[over] === 1) continue;      // nie über Wasser
-        // Übersprungen werden dürfen nur Bäume und eigene Einheiten
-        if (!s.tree[over] && !(s.pt[over] >= 0 && allied(s, s.po[over], p))) continue;
-        var land = nb[over * 6 + d];
-        if (!dryLand(s, land) || s.pt[land] >= 0) continue;
-        if (chainStamp[land] === chainMark) continue;
-        chainStamp[land] = chainMark;
-        chainQueue.push(land);
-        chainList.push(land);
-      }
-    }
+    chainNodes = 0;
+    chainPath[from] = chainMark;
+    chainStep(s, from, p, LEER, LEER, 0);
+    chainPath[from] = 0;
     return chainList;
+  }
+
+  function chainPlanFor(s, from, to, p) {
+    chainSearch(s, from, p);
+    return (chainStamp[to] === chainMark) ? chainBest[to] : { caps: LEER, cost: 0, len: 0, path: LEER };
   }
 
   /* Blickrichtungen, die für eine Richtungsfigur in Frage kommen:
@@ -386,9 +435,12 @@ var AI = (function () {
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
           else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
-        if (!capturesOnly) {                            // Kettensprünge schlagen nichts
-          var ziele = chainSearch(s, i, p);
-          for (var ci = 0; ci < ziele.length; ci++) out.push(mk(KIND_CHAIN, i, ziele[ci], KEEP));
+        // Kettensprünge: in der Ruhesuche zählen nur die, die etwas schlagen
+        var ziele = chainSearch(s, i, p);
+        for (var ci = 0; ci < ziele.length; ci++) {
+          var zl = ziele[ci];
+          if (capturesOnly && !chainBest[zl].caps.length) continue;
+          out.push(mk(KIND_CHAIN, i, zl, KEEP));
         }
 
       } else if (type === T.king) {
@@ -492,6 +544,18 @@ var AI = (function () {
     return { cost: cost, takes: takes, drops: drops, endOnWater: carrying };
   }
 
+  /* Bootsplan eines Kettensprungs: Auf jedem Wasserfeld des Weges, auf dem noch
+     keines liegt, wird eines gekauft – auch auf den Zwischenlandungen, denn der
+     Tangolin lässt es zurück, wenn er weiterspringt. */
+  function chainPlanBoote(s, plan) {
+    var drops = [];
+    for (var i = 0; i < plan.path.length; i++) {
+      var c = plan.path[i];
+      if (s.terrain[c] === 1 && !s.boat[c]) drops.push(c);
+    }
+    return { cost: plan.cost, takes: [], drops: drops, endOnWater: false };
+  }
+
   /* ---------------- Zug ausführen und zurücknehmen ---------------- */
 
   /* Eine Figur vom Brett nehmen – für den Schlag und für den Schuss. Alles
@@ -547,13 +611,25 @@ var AI = (function () {
     // Geschlagene Figur einsammeln (Schuss und Schlag)
     if (kind === KIND_CAPTURE || kind === KIND_SHOOT) takeAt(s, to, p, u);
 
+    /* Kettensprung: erst fällt, was er unterwegs trifft – auch das Zielfeld wird
+       dadurch frei. Der Weg steht nicht im Zug, er wird hier noch einmal
+       gesucht; sein Bootsplan hängt mit daran. */
+    var chainPlan = null;
+    if (kind === KIND_CHAIN) {
+      chainPlan = chainPlanFor(s, from, to, p);
+      for (var bi = 0; bi < chainPlan.caps.length; bi++) {
+        if (s.pt[chainPlan.caps[bi]] >= 0) takeAt(s, chainPlan.caps[bi], p, u);
+      }
+    }
+
     if (kind === KIND_SHOOT) return u;                 // Bogenschütze bleibt stehen
 
     if (kind === KIND_HARVEST) { u.hadTree = 1; s.tree[to] = 0; s.wood[p] += 1; }
     if (s.pt[from] === T.king) { u.spend = 1; s.wood[p] -= 1; }
 
     // Boote: bezahlen, mitnehmen, zurücklassen
-    var plan = planFor(s, s.pt[from], from, to);
+    var plan = chainPlan ? chainPlanBoote(s, chainPlan)
+                         : planFor(s, s.pt[from], from, to);
     if (plan.cost || plan.takes.length || plan.drops.length || plan.endOnWater) {
       var was = [];
       function setBoat(idx, val) {
@@ -1415,6 +1491,7 @@ var AI = (function () {
            geometry: geometry, snapshot: snapshot, landable: landable,
            nextAlive: nextAlive, hasType: hasType,
            genMoves: genMoves, make: make, unmake: unmake, clusterSpots: clusterSpots,
+           chainPlanFor: chainPlanFor,
            evaluate: evaluate, chooseMove: chooseMove, chooseMoveSliced: chooseMoveSliced,
            makeRootSearch: makeRootSearch,
            makeContext: makeContext,

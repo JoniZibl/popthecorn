@@ -516,7 +516,8 @@ var Render = (function () {
     var p = H.toPixel(cell, SIZE), z = surfaceZ(cell) + 0.8;
     var o = view.anchors[key] || S.project(cam, p.x, p.y, z);
     var g = el('g', {
-      class: 'marker ' + (MARKER_CLASS[m.kind] || 'mk-move'),
+      class: 'marker ' + (MARKER_CLASS[m.kind] || 'mk-move') +
+             (m.captures && m.captures.length ? ' has-catch' : ''),
       transform: 'translate(' + o.x.toFixed(2) + ',' + o.y.toFixed(2) + ')',
       'data-key': key
     });
@@ -542,19 +543,33 @@ var Render = (function () {
         points: pts(cam, [[p.x - 8, p.y + 6, z], [p.x, p.y - 8, z], [p.x + 8, p.y + 6, z]], o)
       }));
     } else {
+      /* Ein Kettensprung, der unterwegs schlägt, bekommt den roten Ring der
+         Schlagzüge dazu – sonst sähe er aus wie ein harmloser Sprung. */
+      if (m.captures && m.captures.length) {
+        g.appendChild(el('polygon', {
+          class: 'marker-ring', points: pts(cam, disc(p.x, p.y, z, SIZE * 0.62, 16), o)
+        }));
+      }
       g.appendChild(el('polygon', {
         class: 'marker-dot',
         points: pts(cam, disc(p.x, p.y, z, m.kind === 'jump' ? 9 : 7, 12), o)
       }));
     }
-    if (m.cost) {                       // was der Zug an Holz kostet
-      var badge = el('g', { class: 'cost-badge', transform: 'translate(0,-14)' });
-      badge.appendChild(el('circle', { cx: 0, cy: 0, r: 9 }));
-      var txt = el('text', { x: 0, y: 3.5, 'text-anchor': 'middle' });
-      txt.textContent = '-' + m.cost;
-      badge.appendChild(txt);
-      g.appendChild(badge);
+
+    /* Schilder über dem Zielfeld: wie viele Figuren der Sprung mitnimmt und was
+       er an Holz kostet. Trägt er beides, rücken sie auseinander. */
+    var vieleSchlaege = m.captures && m.captures.length > 1;
+    var beides = vieleSchlaege && m.cost;
+    function schild(cls, text, dx) {
+      var b = el('g', { class: cls, transform: 'translate(' + dx + ',-14)' });
+      b.appendChild(el('circle', { cx: 0, cy: 0, r: 9 }));
+      var t = el('text', { x: 0, y: 3.5, 'text-anchor': 'middle' });
+      t.textContent = text;
+      b.appendChild(t);
+      g.appendChild(b);
     }
+    if (vieleSchlaege) schild('catch-badge', '\u00D7' + m.captures.length, beides ? -10 : 0);
+    if (m.cost) schild('cost-badge', '-' + m.cost, beides ? 10 : 0);
     view.layers.markers.appendChild(g);
   }
 

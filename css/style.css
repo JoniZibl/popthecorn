@@ -353,6 +353,10 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .cost-badge circle { fill: #1b2026; stroke: var(--warn); stroke-width: 1.5; }
 .cost-badge text { fill: var(--warn); font-size: 11px; font-weight: 700; }
 
+/* Wie viele Figuren ein Kettensprung mitnimmt */
+.catch-badge circle { fill: #1b2026; stroke: var(--danger); stroke-width: 1.5; }
+.catch-badge text { fill: var(--danger); font-size: 11px; font-weight: 700; }
+
 /* Figuren stehen auf einem Sockel, der flach auf dem Feld liegt */
 .piece-base { fill: #23282f; stroke: rgba(0, 0, 0, .35); stroke-width: 1; }
 .piece-rim { opacity: .9; }
@@ -382,6 +386,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .marker-icon { stroke: #ff6b6b; stroke-width: 4; stroke-linecap: round; fill: none; }
 .marker-icon-fill { fill: var(--warn); }
 .mk-jump .marker-dot { fill: #9fd6ff; }
+.marker.has-catch .marker-dot { fill: #ffd7d7; }
 .mk-train .marker-hex { fill: rgba(239, 148, 184, .55); stroke: #ef94b8; stroke-width: 2; }
 .marker:hover .marker-hex { fill: rgba(255, 255, 255, .3); }
 

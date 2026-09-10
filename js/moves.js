@@ -73,6 +73,20 @@ var Moves = (function () {
     return { cost: cost, takes: takes, drops: drops, endOnWater: carrying };
   }
 
+  /* Bootsplan eines Kettensprungs: Auf jedem Wasserfeld des Weges, auf dem noch
+     keines liegt, wird ein Boot gekauft und bleibt dort liegen – auch auf den
+     Zwischenlandungen, denn der Tangolin lässt es zurück, wenn er weiterspringt. */
+  function jumpPlan(board, action) {
+    var cost = 0, drops = [];
+    (action.path || []).forEach(function (k) {
+      var c = board.cells[k];
+      if (!c || c.terrain !== 'water' || c.boat) return;
+      cost++;
+      drops.push(c);
+    });
+    return { cost: cost, takes: [], drops: drops, endOnWater: false };
+  }
+
   /* Spielen zwei Spieler zusammen? Die Mannschaften hängen am Brett, weil das
      Zugerzeugen nur das Brett zu sehen bekommt (siehe game.js). Ohne Angabe
      spielt jeder für sich – dann ist nur man selbst mit sich verbündet.
@@ -122,47 +136,82 @@ var Moves = (function () {
     });
   }
 
-  /* Kettensprünge des Tangolins: über Bäume und über Figuren der eigenen Seite,
-     nie über Wasser und nie über eine gegnerische Figur – die ist eine Sperre,
-     kein Sprungbrett. Geschlagen wird nicht im Vorbeispringen, sondern nur beim
-     normalen Zug auf ein Nachbarfeld.
+  /* Kettensprünge des Tangolins.
 
-     Gesucht wird in die Breite: Weil ein Sprung nichts am Brett ändert, zählt
-     allein, welche Felder erreichbar sind. Jedes Feld wird deshalb genau
-     einmal betreten – sonst liefe der Tangolin im Kreis, solange ein Baum in
-     Reichweite steht.
+     Übersprungen wird nur ein **Sprungbrett**: ein Baum oder eine Figur der
+     eigenen Seite. Eine gegnerische Figur ist kein Sprungbrett, sondern eine
+     Sperre – über sie geht es nicht hinweg.
 
-     Am Zug hängt der Weg dorthin als `path`: die Zwischenlandungen von der
-     ersten bis zum Zielfeld. Die Oberfläche springt ihn einzeln ab, damit man
-     sieht, wie der Tangolin dorthin gekommen ist. Weil in die Breite gesucht
-     wird, ist der gemerkte Weg immer einer mit den wenigsten Sprüngen. */
-  function chainJumps(board, from, owner, out) {
-    var startKey = H.key(from.q, from.r);
-    var seen = {}, weg = {};
-    seen[startKey] = true;
-    weg[startKey] = [];
-    var queue = [{ q: from.q, r: from.r }];
-    while (queue.length) {
-      var pos = queue.shift();
-      var posWeg = weg[H.key(pos.q, pos.r)];
+     Gelandet wird dagegen auch auf dem Gegner: Steht auf dem Zielfeld eine
+     gegnerische Figur, wird sie geschlagen, und der Sprung darf von dort aus
+     weitergehen. Ein Zug kann so mehrere Figuren kosten.
+
+     Und er darf ins Wasser springen, wenn er sich dort ein **Boot** leistet:
+     1 Holz je Wasserfeld, auf dem noch keines liegt. Das gilt so oft, wie das
+     Holz reicht – die Kosten des ganzen Weges hängen am Zug.
+
+     Gesucht wird in die Tiefe, denn jetzt hängt am Weg mehr als das Ziel:
+     was er unterwegs schlägt und was er dabei ausgibt. Je Zielfeld wird der
+     beste Weg gemerkt – erst nach Schlägen, dann nach Kosten, dann nach Länge.
+     Ein Feld wird im selben Weg nicht zweimal betreten; sonst liefe der
+     Tangolin im Kreis, solange ein Baum in Reichweite steht. */
+  function chainJumps(board, from, owner, wood, out) {
+    var best = {};                       // Zielfeld → bester gefundener Weg
+    var pfad = {};
+    pfad[H.key(from.q, from.r)] = true;
+    var knoten = 0;
+
+    // Mehr Schläge schlagen weniger Kosten schlagen kürzeren Weg
+    function besser(a, b) {
+      if (!b) return true;
+      if (a.captures.length !== b.captures.length) return a.captures.length > b.captures.length;
+      if (a.cost !== b.cost) return a.cost < b.cost;
+      return a.path.length < b.path.length;
+    }
+
+    function suche(pos, weg, beute, kosten) {
+      if (++knoten > 4000) return;       // Notbremse gegen entartete Stellungen
       for (var d = 0; d < 6; d++) {
         var over = B.at(board, H.add(pos, H.DIRS[d]));
         if (!over) continue;
-        // Übersprungen werden dürfen nur Bäume, eigene und verbündete Einheiten
-        var jumpable = (over.terrain === 'grass') &&
-          (over.tree || (over.piece && allied(board, over.piece.owner, owner)));
-        if (!jumpable) continue;
+        // Sprungbrett: ein Baum oder eine Figur der eigenen Seite
+        var sprungbrett = over.tree ||
+          (over.piece && allied(board, over.piece.owner, owner));
+        if (!sprungbrett) continue;
+
         var land = B.at(board, H.add(pos, H.scale(H.DIRS[d], 2)));
-        // Kettensprünge enden nur an Land – der Tangolin kommt nicht über Wasser
-        if (!land || land.terrain !== 'grass' || land.tree || land.piece) continue;
-        var k = H.key(land.q, land.r);
-        if (seen[k]) continue;
-        seen[k] = true;
-        weg[k] = posWeg.concat([k]);
-        queue.push({ q: land.q, r: land.r });
-        out.push(act('jump', land, { path: weg[k] }));
+        if (!land || land.tree) continue;
+        var landKey = H.key(land.q, land.r);
+        if (pfad[landKey]) continue;     // kein Feld zweimal im selben Weg
+
+        var opfer = null;
+        if (land.piece) {
+          if (allied(board, land.piece.owner, owner)) continue;   // die eigene Seite sperrt
+          opfer = landKey;                                        // Gegner wird geschlagen
+        }
+        // Wasser betritt nur, wer dort ein Boot hat oder eines kauft
+        var preis = (land.terrain === 'water' && !land.boat) ? 1 : 0;
+        if (kosten + preis > wood) continue;
+
+        var neuWeg = weg.concat([landKey]);
+        var neuBeute = opfer ? beute.concat([opfer]) : beute;
+        var kand = { path: neuWeg, captures: neuBeute, cost: kosten + preis };
+        if (besser(kand, best[landKey])) best[landKey] = kand;
+
+        pfad[landKey] = true;
+        suche(land, neuWeg, neuBeute, kosten + preis);
+        pfad[landKey] = false;
       }
     }
+    suche(from, [], [], 0);
+
+    Object.keys(best).forEach(function (k) {
+      var b = best[k];
+      var extra = { path: b.path };
+      if (b.captures.length) extra.captures = b.captures;
+      if (b.cost) extra.cost = b.cost;
+      out.push(act('jump', board.cells[k], extra));
+    });
   }
 
   /* Sprung auf ein festes Zielfeld – Bäume, Wasser und Figuren dazwischen
@@ -246,7 +295,7 @@ var Moves = (function () {
           if (!target.piece) out.push(act('move', target, tx));
           else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, tx));
         }
-        chainJumps(board, cell, owner, out);
+        chainJumps(board, cell, owner, wood, out);
         break;
 
       case 'king':
@@ -389,7 +438,7 @@ var Moves = (function () {
 
   return {
     forPiece: forPiece, trainingSpots: trainingSpots, supplyChain: supplyChain,
-    waterPlan: waterPlan, stepCost: stepCost, isWater: isWater, pathCells: pathCells,
+    waterPlan: waterPlan, jumpPlan: jumpPlan, stepCost: stepCost, isWater: isWater, pathCells: pathCells,
     hasAnyAction: hasAnyAction, affordableUnits: affordableUnits,
     trainBlocker: trainBlocker, typesOnBoard: typesOnBoard, enterable: enterable
   };

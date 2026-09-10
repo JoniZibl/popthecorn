@@ -77,15 +77,17 @@ var Units = (function () {
     },
     tangolin: {
       id: 'tangolin', name: 'Tangolin', cost: 2, trainable: true, directional: false,
-      short: 'Kettensprünge über Bäume und eigene Einheiten.',
-      text: 'Der Tangolin kann unbegrenzt über Bäume und eigene Einheiten springen. Seine ' +
-            'Bewegungsreichweite wird erst dann eingeschränkt, wenn keine Bäume oder eigene Einheiten ' +
-            'mehr zum Überspringen vorhanden sind.',
+      short: 'Kettensprünge über Bäume und die eigene Seite – wer im Landefeld steht, fällt.',
+      text: 'Der Tangolin kann unbegrenzt über Bäume und über Figuren der eigenen Seite springen. ' +
+            'Übersprungen wird nur ein Sprungbrett; gelandet wird auch auf dem Gegner, und der fällt ' +
+            'dabei. Danach darf der Sprung weitergehen – ein Zug kann so mehrere Figuren kosten.',
       bullets: [
-        'Der Tangolin kann auch 1 Feld normal ziehen und in jede Richtung schlagen.',
-        'Über gegnerische Figuren springt er nicht – sie sperren ihm den Weg.',
-        'Er kann jedoch nicht über Wasser springen.',
-        'Beim Kettensprung schlägt er keine Einheiten.'
+        'Sprungbrett ist ein Baum oder eine Figur der eigenen Seite. Über gegnerische Figuren ' +
+          'springt er nicht – sie sperren ihm den Weg.',
+        'Steht auf dem Landefeld ein Gegner, schlägt er ihn und springt von dort weiter.',
+        'Er darf ins Wasser springen, wenn er sich dort ein Boot leistet: 1 Holz je Wasserfeld, ' +
+          'auf dem noch keines liegt – so oft, wie das Holz reicht.',
+        'Der Tangolin kann auch 1 Feld normal ziehen und dabei in jede Richtung schlagen.'
       ]
     },
     boat: {
