@@ -6,6 +6,11 @@
 <title>Hexodus</title>
 <meta name="description" content="Hexodus: Strategiespiel für 2–4 Spieler auf einem Hexagon-Spielfeld. Bäume fällen, Holz sammeln, Einheiten ausbilden und den gegnerischen Königs-Turm schlagen.">
 <link rel="stylesheet" href="css/style.css">
+<link rel="manifest" href="manifest.webmanifest" data-online-only>
+<meta name="theme-color" content="#14171c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="icon-192.png" data-online-only>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 2h10l5 10-5 10H7L2 12z' fill='%237bc96f'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -199,5 +204,17 @@
 <script src="js/scene.js"></script>
 <script src="js/render.js"></script>
 <script src="js/ui.js"></script>
+
+<script data-online-only>
+/* Hexodus ohne Internet: Beim ersten Besuch legt sw.js eine Kopie des Spiels
+   im Browser ab, danach startet es auch ohne Verbindung. Von der Festplatte
+   geöffnet (file://) gibt es keine Service Worker – dann liegt das Spiel
+   ohnehin schon lokal. */
+if ('serviceWorker' in navigator && location.protocol.slice(0, 4) === 'http') {
+  window.addEventListener('load', function () {
+    navigator.serviceWorker.register('sw.js').catch(function () { /* dann eben nur online */ });
+  });
+}
+</script>
 </body>
 </html>

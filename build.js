@@ -17,6 +17,12 @@ html = html.replace(/[ \t]*<link rel="stylesheet" href="([^"]+)">\n?/g, function
   return '';
 });
 
+/* Was nur die gehostete Fassung braucht, fliegt raus: Die Einzeldatei trägt
+   alles in sich und wird meist von der Festplatte geöffnet – ein Manifest oder
+   ein Service Worker wären dort tote Verweise. */
+html = html.replace(/[ \t]*<link [^>]*data-online-only[^>]*>\n?/g, '');
+html = html.replace(/[ \t]*<script data-online-only>[\s\S]*?<\/script>\n?/g, '');
+
 // Skripte einsammeln
 var jsFiles = [];
 html = html.replace(/[ \t]*<script src="([^"]+)"><\/script>\n?/g, function (m, src) {

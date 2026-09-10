@@ -401,6 +401,9 @@ js/render.js        3D-Darstellung von Brett, Bäumen und Figuren in SVG
 js/ui.js            Steuerung, Seitenleiste, Regelwerk
 build.js            baut alles zu einer einzigen HTML-Datei zusammen
 dist/hexodus.html   erzeugte Einzeldatei (CSS und JS eingebettet)
+sw.js               legt das Spiel im Browser ab – Hexodus ohne Internet
+manifest.webmanifest  macht Hexodus auf dem Handy installierbar
+icon.svg, icon-*.png  App-Symbole für den Startbildschirm
 test/figuren.js     Zielfelder der Figuren gegen die Regelkarten
 test/boot.js        Boot-Regeln inklusive des Beispiels von der Regelkarte
 test/beute.js       Beute beim Schlagen
@@ -414,6 +417,36 @@ test/kamera.js      Kamera: Draufsicht, Perspektive, Tiefensortierung
 test/ansicht.js     die gezeichnete Szene, ohne Browser
 test/simulate.js    Regelwerks-Simulation (Node, ohne Browser)
 ```
+
+## Ohne Internet spielen
+
+Hexodus braucht nie eine Verbindung: Es rechnet alles im Browser, vom
+Computergegner bis zur Darstellung, und lädt nichts nach – keine Schrift, keine
+Bibliothek, kein Bild. Zwei Wege, das auch zu nutzen:
+
+**Die Einzeldatei mitnehmen.** `dist/hexodus.html` enthält Spiel, Optik und
+Computergegner in einer Datei. Speichern, doppelklicken, spielen – auf dem
+Rechner, dem Stick, dem Handy. Sie hat keinen einzigen Verweis nach außen; im
+Flugmodus geöffnet lädt sie nichts nach, weil es nichts nachzuladen gibt.
+
+**Als App aufs Handy.** Liegt Hexodus auf einer Adresse (GitHub Pages genügt),
+macht `manifest.webmanifest` es installierbar und `sw.js` netzunabhängig: Beim
+ersten Besuch legt der Service Worker eine vollständige Kopie im Browser ab.
+Danach genügt *Zum Startbildschirm hinzufügen* – Hexodus startet als eigene App,
+im Flugzeug wie im Keller.
+
+Ausgeliefert wird dabei **zuerst aus dem Vorrat**, danach sieht der Service
+Worker im Hintergrund nach einer neueren Fassung. Der Start bleibt dadurch
+sofort und netzunabhängig; eine neue Fassung ist beim übernächsten Start da.
+Umgekehrt – erst das Netz fragen, dann den Vorrat – hinge jeder Start an der
+Antwortzeit des Servers, und genau das soll hier nicht sein. Wer eine Fassung
+sofort ausrollen will, erhöht die Zahl in `CACHE` (`hexodus-v1`) in `sw.js`;
+dann wird beim nächsten Besuch alles neu geholt.
+
+Manifest, Service Worker und App-Symbole gehören nur zur gehosteten Fassung.
+`build.js` lässt sie beim Bauen der Einzeldatei weg – sie wird meist von der
+Festplatte geöffnet, und dort wären es tote Verweise. Erkennbar sind sie im
+Quelltext am Merkmal `data-online-only`.
 
 ## Einzeldatei erzeugen
 
