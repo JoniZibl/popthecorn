@@ -302,6 +302,11 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 /* Uferkante: dunkler Saum am tiefer liegenden Wasser */
 .water-rim { fill: none; stroke: rgba(0, 0, 0, .22); stroke-width: 3; }
 
+/* Spuren gefallener Figuren: Splitter in der Farbe des Verlierers, dauerhaft
+   auf dem Feld. Zurückhaltend genug, dass Zugmarkierungen darüber lesbar
+   bleiben – aber sichtbar genug, dass ein umkämpftes Feld auffällt. */
+.scar { opacity: .62; stroke: rgba(0, 0, 0, .3); stroke-width: .7; pointer-events: none; }
+
 /* Zugmarkierungen stehen still. Sie haben einmal geatmet, damit sie ins Auge
    fallen – dabei sah man aber nie genau, wo der Punkt sitzt, auf den man
    zielen soll. Auffallen sollen sie durch Farbe und Rand, nicht durch

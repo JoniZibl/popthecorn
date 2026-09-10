@@ -277,7 +277,16 @@ Damit nachvollziehbar bleibt, was gerade passiert ist – gerade gegen die KI:
   Sekunde, die der Rechner mindestens überlegt – er wartet deshalb, bis der letzte Sprung
   gelandet ist, sonst zöge er mitten hinein und der Rest der Kette wäre weg.
 * Der **letzte Zug bleibt markiert**: gestrichelt das Startfeld, weiß das Zielfeld.
-* Eine **geschlagene Figur** vergeht mit einem roten Ring **an ihrem Todesfeld**.
+* Eine **geschlagene Figur** vergeht mit einem roten Ring **an ihrem Todesfeld** – und
+  hinterlässt dort **Splitter in ihrer Farbe**, die liegen bleiben. Über eine Partie hinweg
+  zeichnet sich damit auf dem Brett ab, wo gekämpft wurde: Eine ruhige Ecke bleibt sauberes
+  Grün, ein umkämpfter Pass ist gesprenkelt. Scheidet ein Spieler aus, bleibt auch seine
+  ganze Armee als Spur an ihren Feldern zurück.
+
+  Im Spielstand steht dabei nur, wem die gefallene Figur gehörte. Wo die Splitter genau
+  liegen, rechnet die Anzeige aus den Koordinaten des Feldes – dieselbe Zahlenfolge kommt bei
+  jedem Zeichnen wieder heraus, also liegen sie still, auch wenn man die Kamera dreht. Ein
+  Feld fasst acht Spuren; ist es voll, verschwindet die älteste.
 * Beim **Baumfällen** steigt ein „+1 🌲" **genau über dem gefällten Baum** auf, der Holzstand
   in der Leiste hebt sich kurz hervor.
 * Eine **neu ausgebildete Einheit** wächst aus dem Boden.

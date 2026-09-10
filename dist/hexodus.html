@@ -311,6 +311,11 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 /* Uferkante: dunkler Saum am tiefer liegenden Wasser */
 .water-rim { fill: none; stroke: rgba(0, 0, 0, .22); stroke-width: 3; }
 
+/* Spuren gefallener Figuren: Splitter in der Farbe des Verlierers, dauerhaft
+   auf dem Feld. Zurückhaltend genug, dass Zugmarkierungen darüber lesbar
+   bleiben – aber sichtbar genug, dass ein umkämpftes Feld auffällt. */
+.scar { opacity: .62; stroke: rgba(0, 0, 0, .3); stroke-width: .7; pointer-events: none; }
+
 /* Zugmarkierungen stehen still. Sie haben einmal geatmet, damit sie ins Auge
    fallen – dabei sah man aber nie genau, wo der Punkt sitzt, auf den man
    zielen soll. Auffallen sollen sie durch Farbe und Rand, nicht durch
@@ -710,6 +715,8 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
           springt zwischen der Draufsicht und genau dem Winkel, den du dir eingestellt hast –
           er bleibt auch für die nächste Partie erhalten.</li>
         <li><strong>Holz</strong> stammt aus gefällten Bäumen und bezahlt jede neue Einheit.</li>
+        <li><strong>Spuren:</strong> Wo eine Figur fällt, bleiben Splitter in ihrer Farbe
+          liegen. Nach ein paar Runden sieht man dem Brett an, wo gekämpft wurde.</li>
         <li>Von <strong>jeder Figur</strong> darf höchstens eine je Spieler auf dem Feld stehen.
           Erst wenn sie geschlagen wird, darf sie neu ausgebildet werden – der Zenturio bleibt
           auf eine Ausbildung pro Partie beschränkt.</li>
@@ -2034,6 +2041,7 @@ var Game = (function () {
     // Ein Kettensprung des Tangolins schlägt mehrere – gezeigt werden alle
     if (!state.lastCaptures) state.lastCaptures = [];
     state.lastCaptures.push(state.lastCapture);
+    markScar(cell, victim.owner);
     cell.piece = null;
     var vName = U.DEFS[victim.type].name;
     log(state, vName + ' von ' + state.players[victim.owner].name + ' geschlagen.', attacker);
@@ -2049,13 +2057,34 @@ var Game = (function () {
     return vName;
   }
 
+  /* Spuren des Kampfes: Wo eine Figur fällt, bleibt etwas von ihr liegen – in
+     ihrer Farbe und dauerhaft. Über eine Partie hinweg zeichnet sich damit auf
+     dem Brett ab, wo viel gekämpft wurde.
+
+     Gespeichert wird nur, wem die gefallene Figur gehörte. Wie die Splitter auf
+     dem Feld liegen, rechnet die Anzeige aus den Koordinaten aus – so springen
+     sie beim Drehen der Kamera nicht umher und kosten nichts im Spielstand.
+     Ein Feld fasst nur eine Handvoll; ist es voll, verschwindet die älteste
+     Spur, damit die letzten Gefallenen immer zu sehen sind. */
+  var MAX_SPUREN = 8;
+
+  function markScar(cell, owner) {
+    if (!cell) return;
+    if (!cell.scars) cell.scars = [];
+    cell.scars.push(owner);
+    if (cell.scars.length > MAX_SPUREN) cell.scars.shift();
+  }
+
   function eliminate(state, victimIndex, attackerIndex) {
     var victim = state.players[victimIndex];
     victim.eliminated = true;
     var board = state.board;
     board.keys.forEach(function (k) {
       var c = board.cells[k];
-      if (c.piece && c.piece.owner === victimIndex) c.piece = null;
+      if (c.piece && c.piece.owner === victimIndex) {
+        markScar(c, victimIndex);      // auch die Armee bleibt als Spur liegen
+        c.piece = null;
+      }
     });
     if (attackerIndex !== null && attackerIndex !== undefined && victim.wood > 0) {
       state.players[attackerIndex].wood += victim.wood;
@@ -4288,6 +4317,40 @@ var Render = (function () {
     return ((cell.q * 73856093) ^ (cell.r * 19349663)) >>> 0;
   }
 
+  /* Spuren des Kampfes. Wo eine Figur gefallen ist, liegen Splitter in ihrer
+     Farbe auf dem Feld – dauerhaft, damit man einer Insel nach ein paar Runden
+     ansieht, wo gekämpft wurde.
+
+     Wo genau sie liegen, steht nicht im Spielstand: Es wird aus den Koordinaten
+     des Feldes und der laufenden Nummer gerechnet. Dieselbe Zahlenfolge kommt
+     bei jedem Zeichnen wieder heraus, also liegen die Splitter still, auch wenn
+     man die Kamera dreht. */
+  function scarSpots(cell, n) {
+    var h = jitter(cell) ^ 0x5bf03635, out = [];
+    function next() { h = (Math.imul(h, 1664525) + 1013904223) >>> 0; return h; }
+    for (var i = 0; i < n; i++) {
+      var a = (next() % 3600) / 3600 * Math.PI * 2;
+      var r = SIZE * (0.15 + (next() % 1000) / 1000 * 0.55);
+      var s = 2.7 + (next() % 100) / 100 * 2.6;
+      out.push([Math.cos(a) * r, Math.sin(a) * r, s]);
+    }
+    return out;
+  }
+
+  function scars(g, cam, o, state, cell, cx, cy, z) {
+    if (!cell.scars || !cell.scars.length) return;
+    var spots = scarSpots(cell, cell.scars.length);
+    for (var i = 0; i < spots.length; i++) {
+      var sp = spots[i], pl = state.players[cell.scars[i]];
+      if (!pl) continue;
+      g.appendChild(el('polygon', {
+        class: 'scar',
+        fill: pl.color,
+        points: pts(cam, disc(cx + sp[0], cy + sp[1], z + 0.25, sp[2], 6), o)
+      }));
+    }
+  }
+
   /* Schatten auf dem Boden: ein projizierter Kreis, der beim Drehen zur
      richtigen Ellipse wird. Er verankert Baum und Figur auf dem Feld –
      ohne ihn schweben die Aufsteller über der Platte. */
@@ -4432,6 +4495,9 @@ var Render = (function () {
         class: 'water-rim', points: pts(cam, hexRing(cx, cy, z + 0.3, 0.88), o)
       }));
     }
+
+    // Spuren gefallener Figuren liegen zuunterst, unter allen Markierungen
+    scars(g, cam, o, state, cell, cx, cy, z);
 
     // Bodenmarkierungen des Feldes: sie liegen unter den Figuren dieses Feldes
     if (state.selected === item.k) {

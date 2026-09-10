@@ -392,6 +392,7 @@ var Game = (function () {
     // Ein Kettensprung des Tangolins schlägt mehrere – gezeigt werden alle
     if (!state.lastCaptures) state.lastCaptures = [];
     state.lastCaptures.push(state.lastCapture);
+    markScar(cell, victim.owner);
     cell.piece = null;
     var vName = U.DEFS[victim.type].name;
     log(state, vName + ' von ' + state.players[victim.owner].name + ' geschlagen.', attacker);
@@ -407,13 +408,34 @@ var Game = (function () {
     return vName;
   }
 
+  /* Spuren des Kampfes: Wo eine Figur fällt, bleibt etwas von ihr liegen – in
+     ihrer Farbe und dauerhaft. Über eine Partie hinweg zeichnet sich damit auf
+     dem Brett ab, wo viel gekämpft wurde.
+
+     Gespeichert wird nur, wem die gefallene Figur gehörte. Wie die Splitter auf
+     dem Feld liegen, rechnet die Anzeige aus den Koordinaten aus – so springen
+     sie beim Drehen der Kamera nicht umher und kosten nichts im Spielstand.
+     Ein Feld fasst nur eine Handvoll; ist es voll, verschwindet die älteste
+     Spur, damit die letzten Gefallenen immer zu sehen sind. */
+  var MAX_SPUREN = 8;
+
+  function markScar(cell, owner) {
+    if (!cell) return;
+    if (!cell.scars) cell.scars = [];
+    cell.scars.push(owner);
+    if (cell.scars.length > MAX_SPUREN) cell.scars.shift();
+  }
+
   function eliminate(state, victimIndex, attackerIndex) {
     var victim = state.players[victimIndex];
     victim.eliminated = true;
     var board = state.board;
     board.keys.forEach(function (k) {
       var c = board.cells[k];
-      if (c.piece && c.piece.owner === victimIndex) c.piece = null;
+      if (c.piece && c.piece.owner === victimIndex) {
+        markScar(c, victimIndex);      // auch die Armee bleibt als Spur liegen
+        c.piece = null;
+      }
     });
     if (attackerIndex !== null && attackerIndex !== undefined && victim.wood > 0) {
       state.players[attackerIndex].wood += victim.wood;

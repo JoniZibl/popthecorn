@@ -80,6 +80,11 @@ var landfrei = state.board.keys.filter(function (k) { return Board.isFree(state.
   if (c) c.piece = { type: paar[0], owner: 0, facing: paar[1] };
 });
 
+/* Spuren gefallener Figuren: Wo jemand gestorben ist, liegen Splitter in seiner
+   Farbe – dauerhaft und immer an derselben Stelle. */
+var spurFeld = state.board.cells[landfrei[3]];
+if (spurFeld) spurFeld.scars = [0, 1, 0];
+
 /* Der Zenturio gehört dem Spieler am Zug: Gezeichnet wird die Versorgungskette
    von ihm, und nur dessen Feldzeichen bekommt seinen Ring. */
 var zentFeld = state.board.cells[landfrei[2]];
@@ -163,6 +168,14 @@ ok(view.cam.pitch === Render.TILT, 'das Brett startet in der Schrägsicht');
       if (cls === 'hex-side') waende++;
     });
     ok(figuren === 7, 'alle Figuren stehen auf dem Brett (' + figuren + ')');
+
+    // Spuren gefallener Figuren liegen auf ihrem Feld
+    var splitter = alleKnoten(view.layers.scene).filter(function (n) {
+      return (n.attrs['class'] || '') === 'scar';
+    });
+    ok(splitter.length === 3, 'drei Splitter liegen auf dem Kampffeld (' + splitter.length + ')');
+    ok(splitter.every(function (n) { return /^#/.test(n.attrs.fill || ''); }),
+       'jeder trägt die Farbe seines Spielers');
 
     // Das Feldzeichen des Zenturios ist der zweite Anker der Versorgungskette
     var ringe = alleKnoten(view.layers.overlay).filter(function (n) {

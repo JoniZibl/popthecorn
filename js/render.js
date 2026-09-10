@@ -312,6 +312,40 @@ var Render = (function () {
     return ((cell.q * 73856093) ^ (cell.r * 19349663)) >>> 0;
   }
 
+  /* Spuren des Kampfes. Wo eine Figur gefallen ist, liegen Splitter in ihrer
+     Farbe auf dem Feld – dauerhaft, damit man einer Insel nach ein paar Runden
+     ansieht, wo gekämpft wurde.
+
+     Wo genau sie liegen, steht nicht im Spielstand: Es wird aus den Koordinaten
+     des Feldes und der laufenden Nummer gerechnet. Dieselbe Zahlenfolge kommt
+     bei jedem Zeichnen wieder heraus, also liegen die Splitter still, auch wenn
+     man die Kamera dreht. */
+  function scarSpots(cell, n) {
+    var h = jitter(cell) ^ 0x5bf03635, out = [];
+    function next() { h = (Math.imul(h, 1664525) + 1013904223) >>> 0; return h; }
+    for (var i = 0; i < n; i++) {
+      var a = (next() % 3600) / 3600 * Math.PI * 2;
+      var r = SIZE * (0.15 + (next() % 1000) / 1000 * 0.55);
+      var s = 2.7 + (next() % 100) / 100 * 2.6;
+      out.push([Math.cos(a) * r, Math.sin(a) * r, s]);
+    }
+    return out;
+  }
+
+  function scars(g, cam, o, state, cell, cx, cy, z) {
+    if (!cell.scars || !cell.scars.length) return;
+    var spots = scarSpots(cell, cell.scars.length);
+    for (var i = 0; i < spots.length; i++) {
+      var sp = spots[i], pl = state.players[cell.scars[i]];
+      if (!pl) continue;
+      g.appendChild(el('polygon', {
+        class: 'scar',
+        fill: pl.color,
+        points: pts(cam, disc(cx + sp[0], cy + sp[1], z + 0.25, sp[2], 6), o)
+      }));
+    }
+  }
+
   /* Schatten auf dem Boden: ein projizierter Kreis, der beim Drehen zur
      richtigen Ellipse wird. Er verankert Baum und Figur auf dem Feld –
      ohne ihn schweben die Aufsteller über der Platte. */
@@ -456,6 +490,9 @@ var Render = (function () {
         class: 'water-rim', points: pts(cam, hexRing(cx, cy, z + 0.3, 0.88), o)
       }));
     }
+
+    // Spuren gefallener Figuren liegen zuunterst, unter allen Markierungen
+    scars(g, cam, o, state, cell, cx, cy, z);
 
     // Bodenmarkierungen des Feldes: sie liegen unter den Figuren dieses Feldes
     if (state.selected === item.k) {
