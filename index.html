@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hexodus</title>
-<meta name="description" content="Hexodus: Strategiespiel für 2–4 Spieler auf einem Hexagon-Spielfeld. Bäume fällen, Holz sammeln, Einheiten ausbilden und den gegnerischen Königs-Turm schlagen.">
+<meta name="description" content="Hexodus: Strategiespiel für 2 bis 8 Spieler auf einem Hexagon-Spielfeld, einzeln oder in Mannschaften. Bäume fällen, Holz sammeln, Einheiten ausbilden und den gegnerischen Königs-Turm schlagen.">
 <link rel="stylesheet" href="css/style.css">
 <link rel="manifest" href="manifest.webmanifest" data-online-only>
 <meta name="theme-color" content="#14171c">
@@ -29,7 +29,7 @@
 <!-- ---------- Startbildschirm ---------- -->
 <main id="screen-menu" class="screen menu">
   <section class="hero">
-    <p class="kicker">2–4 Spieler · ab 12 Jahren · Brettspiel im Browser</p>
+    <p class="kicker">2–8 Spieler · Mannschaften · ab 12 Jahren · Brettspiel im Browser</p>
     <h1>Hexodus</h1>
     <p class="lede">
       Ein Spielfeld aus zufällig gelegten Hexagon-Plättchen. Bäume sind dein Rohstoff, Holz deine
@@ -46,6 +46,17 @@
         <option value="2">2 Spieler</option>
         <option value="3">3 Spieler</option>
         <option value="4">4 Spieler</option>
+        <option value="5">5 Spieler</option>
+        <option value="6">6 Spieler</option>
+        <option value="7">7 Spieler</option>
+        <option value="8">8 Spieler</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Modus</span>
+      <select id="game-mode">
+        <option value="frei">Jeder für sich</option>
+        <option value="teams">Mannschaften</option>
       </select>
     </label>
     <div id="player-fields"></div>
@@ -161,6 +172,26 @@
           Richtungsfigur oder nach ihrer Ausbildung –, liegen sechs Pfeile rund um die Figur, jeder
           dort, wohin er zeigt. Einen antippen genügt. Der hervorgehobene Pfeil ist die jetzige
           Richtung; ihn anzutippen beendet den Zug, ohne zu drehen.</li>
+      </ul>
+    </section>
+
+    <section class="rule-block">
+      <h3>Mannschaften</h3>
+      <p>Hexodus wird zu <strong>zwei bis acht</strong> gespielt – jeder für sich oder in
+        <strong>Mannschaften</strong>: 2 gegen 2, 3 gegen 3, 4 gegen 4, aber auch ungleich
+        wie 3 gegen 1. Eingestellt wird das vor der Partie; jede Mannschaft bekommt eine
+        <strong>Farbfamilie</strong>, innerhalb der sich die Spieler durch die Helligkeit
+        unterscheiden. Wer zusammen spielt, ist damit auf einen Blick zusammen zu sehen.</p>
+      <ul>
+        <li>Verbündete <strong>schlägt man nicht</strong> – weder im Zug noch mit dem
+          Bogenschützen. Sie versperren einander den Weg wie eigene Figuren.</li>
+        <li>Der <strong>Tangolin springt über Verbündete</strong> wie über eigene Einheiten.</li>
+        <li>Die <strong>Versorgungskette bleibt jedem selbst überlassen</strong>: Ausgebildet
+          wird nur am eigenen Turm und am eigenen Feldzeichen. Jeder wirtschaftet für sich.</li>
+        <li>Gewonnen hat die <strong>letzte Mannschaft</strong>, die noch steht. Fällt ein
+          Turm, scheidet nur dieser Spieler aus – die Mannschaft spielt weiter.</li>
+        <li>Wird eine festgefahrene Partie gewertet, zählt das <strong>Vermögen der
+          Mannschaft</strong>: Was die Mitglieder besitzen, kommt zusammen.</li>
       </ul>
     </section>
 

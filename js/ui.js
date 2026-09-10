@@ -21,25 +21,101 @@
     });
   }
 
+  /* Spielt hier überhaupt jemand in einer Mannschaft? Bei "jeder für sich" ist
+     jeder seine eigene – dann bleibt jede Anzeige, wie sie immer war. */
+  function imTeam() {
+    if (!state || !state.teams) return false;
+    var seen = {};
+    for (var i = 0; i < state.teams.length; i++) seen[state.teams[i]] = true;
+    return Object.keys(seen).length < state.teams.length;
+  }
+
   /* ---------------- Startmenü ---------------- */
+
+  /* Wie viele Mannschaften zur Wahl stehen. Mehr als vier braucht niemand:
+     Wer acht Spieler in acht Lager stellt, spielt "jeder für sich". */
+  function teamAuswahl(count) { return Math.max(2, Math.min(4, count - 1)); }
+
+  /* Voreinstellung beim Umschalten auf Mannschaften: die erste Hälfte gegen
+     die zweite – also 2 gegen 2, 3 gegen 3, bei ungerader Zahl 2 gegen 1. */
+  function standardTeams(count) {
+    var haelfte = Math.ceil(count / 2), out = [];
+    for (var i = 0; i < count; i++) out.push(i < haelfte ? 0 : 1);
+    return out;
+  }
+
+  /* Die aktuell eingestellten Mannschaften. "Jeder für sich" heißt: jeder ist
+     seine eigene – dann rechnet das Spiel wie in jeder bisherigen Partie. */
+  function teamsAusMenue(count) {
+    if ($('#game-mode').value !== 'teams') {
+      var frei = [];
+      for (var j = 0; j < count; j++) frei.push(j);
+      return frei;
+    }
+    var teams = [], vor = standardTeams(count);
+    for (var i = 0; i < count; i++) {
+      var sel = document.getElementById('pteam' + i);
+      teams.push(sel ? +sel.value : vor[i]);
+    }
+    return teams;
+  }
+
+  /* Wie die Aufstellung heißt: "2 gegen 2", "3 gegen 1 gegen 1" – die
+     Mannschaftsgrößen der Reihe nach. */
+  function aufstellungText(teams) {
+    var groessen = {};
+    teams.forEach(function (t) { groessen[t] = (groessen[t] || 0) + 1; });
+    return Object.keys(groessen)
+      .map(function (k) { return groessen[k]; })
+      .sort(function (a, b) { return b - a; })
+      .join(' gegen ');
+  }
 
   function buildMenu() {
     var wrap = $('#player-fields');
-    function render() {
+
+    function render(behalteTeams) {
       var count = +$('#player-count').value;
       var cfg = G.SETUP[count];
-      var previous = [];
-      for (var q = 0; q < 4; q++) {
+      var mitTeams = $('#game-mode').value === 'teams';
+      var maxPlayers = G.MAX_PLAYERS || 8;
+
+      // Eingestellte Gegner und Mannschaften über das Neuzeichnen retten
+      var previous = [], vorTeams = behalteTeams || [];
+      for (var q = 0; q < maxPlayers; q++) {
         var sel = document.getElementById('pkind' + q);
         previous[q] = sel ? sel.value : (q === 0 ? 'mensch' : 'normal');
+        if (!behalteTeams) {
+          var ts = document.getElementById('pteam' + q);
+          if (ts) vorTeams[q] = +ts.value;
+        }
       }
+      var vorgabe = standardTeams(count);
+      var teams = [];
+      for (var t = 0; t < count; t++) {
+        teams.push(mitTeams
+          ? (vorTeams[t] === undefined ? vorgabe[t] : Math.min(vorTeams[t], teamAuswahl(count) - 1))
+          : t);
+      }
+      var farben = G.colorsFor(teams);
+
       wrap.innerHTML = '';
       for (var i = 0; i < count; i++) {
-        var c = G.COLORS[i];
         var row = document.createElement('label');
         row.className = 'player-field';
-        row.innerHTML = '<span class="swatch" style="background:' + c.hex + '"></span>' +
+        var teamSel = '';
+        if (mitTeams) {
+          teamSel = '<select id="pteam' + i + '" class="team-select">';
+          for (var k = 0; k < teamAuswahl(count); k++) {
+            teamSel += '<option value="' + k + '"' + (teams[i] === k ? ' selected' : '') + '>' +
+              esc(G.TEAM_COLORS[k].name) + '</option>';
+          }
+          teamSel += '</select>';
+        }
+        row.innerHTML = '<span class="swatch" id="pswatch' + i + '" style="background:' +
+            farben[i].hex + '" title="' + esc(farben[i].name) + '"></span>' +
           '<input type="text" id="pname' + i + '" value="Spieler ' + (i + 1) + '" maxlength="16">' +
+          teamSel +
           '<select id="pkind' + i + '" class="kind-select">' +
             '<option value="mensch">Mensch</option>' +
             '<option value="leicht">KI leicht</option>' +
@@ -48,11 +124,26 @@
           '</select>';
         wrap.appendChild(row);
         document.getElementById('pkind' + i).value = previous[i];
+        if (mitTeams) {
+          document.getElementById('pteam' + i).addEventListener('change', function () {
+            render(teamsAusMenue(+$('#player-count').value));
+          });
+        }
       }
-      $('#setup-info').textContent =
-        cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' + cfg.trees + ' Bäume gesamt';
+
+      var info = cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' +
+                 cfg.trees + ' Bäume gesamt';
+      if (mitTeams) info = aufstellungText(teams) + ' · ' + info;
+      var einLager = mitTeams && teams.every(function (x) { return x === teams[0]; });
+      $('#setup-info').textContent = einLager
+        ? 'Alle in einer Mannschaft – dann gibt es keinen Gegner.'
+        : info;
+      $('#setup-info').className = 'hint' + (einLager ? ' warn' : '');
+      $('#start-game').disabled = einLager;
     }
-    $('#player-count').addEventListener('change', render);
+
+    $('#player-count').addEventListener('change', function () { render(); });
+    $('#game-mode').addEventListener('change', function () { render(); });
     render();
 
     $('#start-game').addEventListener('click', function () {
@@ -63,13 +154,13 @@
         var kind = $('#pkind' + i).value;
         kinds.push(kind === 'mensch' ? null : kind);
       }
-      startGame(names, kinds);
+      startGame(names, kinds, teamsAusMenue(count));
     });
   }
 
-  function startGame(names, kinds) {
+  function startGame(names, kinds, teams) {
     beendeDenker();
-    state = G.create(names, kinds);
+    state = G.create(names, kinds, teams);
     ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null,
            thinking: false, shownEvent: 0, woodShown: null,
            sheetOpen: false, sheetAuto: false, sheetMove: null };
@@ -82,6 +173,9 @@
       ladeAnsicht();
       attachBoardEvents();
     }
+    /* Erst die Spielerzeile zeichnen, dann einpassen: Ihre Höhe bestimmt am
+       Handy, wie viel Platz dem Brett bleibt. */
+    renderPlayers();
     // Der Blickwinkel gehört dem Spieler: Jede Partie beginnt so, wie er das
     // Brett zuletzt hingestellt hat.
     Render.setCamera(view, ansicht.pitch, ansicht.yaw);
@@ -613,6 +707,8 @@
       if (state.phase === 'trees') extra = p.treesLeft + ' Bäume übrig';
       else if (p.eliminated) extra = 'ausgeschieden';
       else extra = G.pieceCount(state, p.index) + ' Figuren';
+      // In einer Mannschaft steht dabei, für wen gespielt wird
+      if (imTeam()) extra += ' · ' + esc(G.teamName(state, state.teams[p.index]));
       var tag = p.ai ? ' <span class="ai-tag">KI ' + p.ai + '</span>' : '';
       return '<div class="' + cls + '" style="--pc:' + p.color + '">' +
         '<span class="swatch"></span>' +
@@ -623,6 +719,23 @@
         '</div>';
     }).join('');
     $('#players').innerHTML = html;
+    misseKopf();
+  }
+
+  /* Am Handy liegen die Spielerchips über dem Brett. Bei acht Spielern brechen
+     sie auf zwei Reihen um – Statuszeile und Brett müssen dann tiefer anfangen,
+     sonst schreibt das eine über das andere. Die gemessene Höhe steht als
+     CSS-Variable bereit, damit das Ausweichen im Stylesheet passiert. */
+  function misseKopf() {
+    var el = $('#players');
+    if (!el) return;
+    var h = Math.round(el.getBoundingClientRect().height);
+    if (h && h !== kopfHoehe) {
+      kopfHoehe = h;
+      document.documentElement.style.setProperty('--kopf', h + 'px');
+      return true;
+    }
+    return false;
   }
 
   // Kurztext auf dem Knopf: warum geht die Einheit gerade nicht?
@@ -720,14 +833,20 @@
     if (state.phase === 'over') {
       // Bei einer Wertung steht der Grund direkt in der Kopfzeile – sonst wirkt
       // ein Sieg mit noch stehendem Gegner-Turm wie ein Fehler.
-      banner.innerHTML = state.winner !== null
+      // Gewonnen hat immer eine Mannschaft – bei "jeder für sich" ist das ein Spieler
+      var siegName = (state.winnerTeam !== null && state.winnerTeam !== undefined)
+        ? G.teamName(state, state.winnerTeam)
+        : (state.winner !== null ? state.players[state.winner].name : null);
+      banner.innerHTML = siegName
         ? '<strong style="color:' + state.players[state.winner].color + '">' +
-          esc(state.players[state.winner].name) + '</strong> gewinnt' +
+          esc(siegName) + '</strong> gewinnt' +
           (state.endReason ? ' nach Wertung · ' + esc(state.endReason) : ' – Königs-Turm geschlagen!')
         : 'Das Spiel ist beendet.';
       var grund = state.endReason
         ? '<p class="hint">' + esc(state.endReason) + ' – gewertet wurde nach Vermögen: ' +
-          'Holzvorrat plus das Holz, das in den Figuren steckt.</p>' +
+          'Holzvorrat plus das Holz, das in den Figuren steckt.' +
+          (imTeam() ? ' In einer Mannschaft zählt zusammen, was die Mitglieder besitzen.' : '') +
+          '</p>' +
           '<ul class="score-list">' + state.players.map(function (pl) {
             return '<li><span class="dot" style="background:' + pl.color + '"></span>' +
               esc(pl.name) + ': <strong>' + G.wealth(state, pl.index) + '</strong> Holz' +
@@ -1022,7 +1141,9 @@
   function reinerZustand(state) {
     var rein = {};
     for (var k in state) if (k !== 'board') rein[k] = state[k];
-    rein.board = { cells: state.board.cells, keys: state.board.keys, tiles: state.board.tiles };
+    // teams gehört mit: ohne sie hielte der Faden Verbündete für Gegner
+    rein.board = { cells: state.board.cells, keys: state.board.keys,
+                   tiles: state.board.tiles, teams: state.board.teams };
     return rein;
   }
 
@@ -1079,6 +1200,7 @@
      In der Aufbauphase bleibt es zügig: 30 Bäume mit je einer Sekunde wären
      eine halbe Minute Zuschauen. */
   var MIN_THINK = 1000;
+  var kopfHoehe = 0;      // Höhe der Spielerzeile am Handy
 
   function scheduleAI() {
     if (ui.thinking || !aiLevel()) return;

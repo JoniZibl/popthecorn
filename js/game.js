@@ -11,21 +11,104 @@ var Game = (function () {
   var SETUP = {
     2: { tiles: 10, trees: 30 },
     3: { tiles: 20, trees: 45 },
-    4: { tiles: 25, trees: 60 }
+    4: { tiles: 25, trees: 60 },
+    5: { tiles: 30, trees: 75 },
+    6: { tiles: 35, trees: 90 },
+    7: { tiles: 40, trees: 105 },
+    8: { tiles: 45, trees: 120 }
   };
+  var MAX_PLAYERS = 8;
 
-  var COLORS = [
-    { id: 'blue',   name: 'Blau',   hex: '#3b82f6' },
-    { id: 'pink',   name: 'Pink',   hex: '#ec4899' },
-    { id: 'yellow', name: 'Gelb',   hex: '#eab308' },
-    { id: 'orange', name: 'Orange', hex: '#f97316' }
+  /* Farben sind nach Mannschaften geordnet: Jede Mannschaft hat eine Familie,
+     innerhalb der Familie unterscheiden sich die Spieler durch die Helligkeit.
+     Wer zusammen spielt, ist damit auf einen Blick zusammen zu sehen, bleibt
+     aber einzeln unterscheidbar. Grün fehlt mit Absicht – das ist die Wiese. */
+  var TEAM_COLORS = [
+    { id: 'blau',    name: 'Blau',    shades: ['#3b82f6', '#93c5fd', '#1d4ed8', '#60a5fa'] },
+    { id: 'pink',    name: 'Pink',    shades: ['#ec4899', '#fbcfe8', '#9d174d', '#f9a8d4'] },
+    { id: 'gelb',    name: 'Gelb',    shades: ['#eab308', '#fde047', '#a16207', '#fbbf24'] },
+    { id: 'orange',  name: 'Orange',  shades: ['#f97316', '#fdba74', '#9a3412', '#fb923c'] },
+    { id: 'violett', name: 'Violett', shades: ['#a855f7', '#d8b4fe', '#6b21a8', '#c084fc'] },
+    { id: 'tuerkis', name: 'Türkis',  shades: ['#06b6d4', '#a5f3fc', '#0e7490', '#22d3ee'] },
+    { id: 'rot',     name: 'Rot',     shades: ['#ef4444', '#fecaca', '#991b1b', '#f87171'] },
+    { id: 'grau',    name: 'Grau',    shades: ['#94a3b8', '#e2e8f0', '#475569', '#cbd5e1'] }
   ];
+  var SHADE_NAMES = ['', ' hell', ' dunkel', ' blass'];
 
-  function create(playerNames, kinds) {
+  // Bisherige Aufrufer erwarten eine flache Farbliste – eine Farbe je Mannschaft
+  var COLORS = TEAM_COLORS.map(function (t) {
+    return { id: t.id, name: t.name, hex: t.shades[0] };
+  });
+
+  /* Mannschaften: `teams[i]` ist die Mannschaftsnummer von Spieler i. Ohne
+     Angabe spielt jeder für sich – dann ist jeder seine eigene Mannschaft, und
+     alles Weitere verhält sich wie bisher. */
+  /* Farbe je Spieler: die Familie kommt von der Mannschaft, die Helligkeit von
+     der Reihenfolge innerhalb der Mannschaft. Das Startmenü rechnet damit
+     dieselben Farben aus wie das Spiel selbst. */
+  function colorsFor(teams) {
+    var proTeam = {};
+    return teams.map(function (t) {
+      var fam = TEAM_COLORS[t % TEAM_COLORS.length];
+      var k = (proTeam[t] = (proTeam[t] === undefined ? 0 : proTeam[t] + 1));
+      return {
+        hex: fam.shades[k % fam.shades.length],
+        name: fam.name + (SHADE_NAMES[k % SHADE_NAMES.length] || '')
+      };
+    });
+  }
+
+  function normalizeTeams(teams, count) {
+    var out = [];
+    for (var i = 0; i < count; i++) {
+      var t = teams && teams[i];
+      out.push((typeof t === 'number' && t >= 0) ? t : i);
+    }
+    return out;
+  }
+
+  /* Spielen zwei Spieler zusammen? Ein Spieler ist immer mit sich selbst
+     verbündet. `teams` fehlt in alten Spielständen – dann zählt nur der Index. */
+  function allied(teams, a, b) {
+    if (a === b) return true;
+    if (!teams) return false;
+    return teams[a] === teams[b];
+  }
+
+  function teamMembers(state, team) {
+    return state.players.filter(function (p) { return state.teams[p.index] === team; });
+  }
+
+  function teamsAlive(state) {
+    var seen = {}, out = [];
+    state.players.forEach(function (p) {
+      if (p.eliminated) return;
+      var t = state.teams[p.index];
+      if (seen[t]) return;
+      seen[t] = true;
+      out.push(t);
+    });
+    return out;
+  }
+
+  /* Wie heißt die Mannschaft? Bei "jeder für sich" ist das der Spielername,
+     sonst die Farbfamilie, die sich alle Mitglieder teilen. */
+  function teamName(state, team) {
+    var mit = teamMembers(state, team);
+    if (mit.length <= 1) return mit.length ? mit[0].name : ('Mannschaft ' + (team + 1));
+    return 'Team ' + (TEAM_COLORS[team % TEAM_COLORS.length].name);
+  }
+
+  function create(playerNames, kinds, teams) {
     var count = playerNames.length;
     kinds = kinds || [];
+    teams = normalizeTeams(teams, count);
     var cfg = SETUP[count];
     var board = B.generate(cfg.tiles);
+    /* Die Mannschaften hängen am Brett, nicht nur am Spielzustand: moves.js
+       bekommt beim Zugerzeugen nur das Brett zu sehen und muss trotzdem
+       wissen, wer mit wem spielt. */
+    board.teams = teams.slice();
 
     // Bäume gleichmäßig verteilen; pro Spieler bleiben mindestens 6 Felder frei,
     // damit Türme und Arbeiter noch Platz finden.
@@ -34,13 +117,16 @@ var Game = (function () {
     var total = Math.min(cfg.trees, Math.max(count * 4, maxTrees));
     var perPlayer = Math.floor(total / count);
 
+    var farben = colorsFor(teams);
+
     var players = playerNames.map(function (name, i) {
       return {
         index: i,
         ai: kinds[i] || null,          // null = Mensch, sonst Spielstärke
         name: name || ('Spieler ' + (i + 1)),
-        color: COLORS[i].hex,
-        colorName: COLORS[i].name,
+        team: teams[i],
+        color: farben[i].hex,
+        colorName: farben[i].name,
         wood: 0,
         treesLeft: perPlayer,
         eliminated: false,
@@ -51,6 +137,7 @@ var Game = (function () {
     return {
       board: board,
       players: players,
+      teams: teams,            // teams[i] = Mannschaft von Spieler i
       phase: 'trees',          // trees → kings → play → over
       history: {},             // wie oft trat jede Stellung auf?
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
@@ -68,6 +155,7 @@ var Game = (function () {
       turn: 1,
       passes: 0,
       winner: null,
+      winnerTeam: null,        // gewonnen hat immer eine Mannschaft
       log: []
     };
   }
@@ -296,15 +384,21 @@ var Game = (function () {
     var alive = alivePlayers(state);
     if (!alive.length) { state.phase = 'over'; state.winner = null; return true; }
 
+    /* Gewertet wird je Mannschaft: Was die Mitglieder besitzen, zählt zusammen.
+       Spielt jeder für sich, ist jede Mannschaft ein Spieler – dann ist das
+       dieselbe Rechnung wie zuvor. */
     var best = null;
-    alive.forEach(function (pl) {
-      var cand = {
-        index: pl.index,
-        wealth: wealth(state, pl.index),
-        pieces: pieceCount(state, pl.index),
-        wood: pl.wood,
-        last: state.lastProgressBy === pl.index ? 1 : 0
-      };
+    teamsAlive(state).forEach(function (t) {
+      var mit = teamMembers(state, t).filter(function (p) { return !p.eliminated; });
+      var cand = { team: t, index: mit[0].index, wealth: 0, pieces: 0, wood: 0, last: 0 };
+      mit.forEach(function (pl) {
+        cand.wealth += wealth(state, pl.index);
+        cand.pieces += pieceCount(state, pl.index);
+        cand.wood += pl.wood;
+        if (state.lastProgressBy === pl.index) cand.last = 1;
+        // Sprecher der Mannschaft ist ihr vermögendstes Mitglied
+        if (wealth(state, pl.index) > wealth(state, cand.index)) cand.index = pl.index;
+      });
       if (!best ||
           cand.wealth > best.wealth ||
           (cand.wealth === best.wealth && cand.pieces > best.pieces) ||
@@ -317,11 +411,12 @@ var Game = (function () {
 
     state.phase = 'over';
     state.winner = best.index;
+    state.winnerTeam = best.team;
     state.endReason = reason;
     state.pending = null;
     state.selected = null;
     log(state, reason + ' – es wird gewertet.');
-    log(state, state.players[best.index].name + ' gewinnt mit ' + best.wealth +
+    log(state, teamName(state, best.team) + ' gewinnt mit ' + best.wealth +
         ' Holz in Vorrat und Figuren.', best.index);
     return true;
   }
@@ -342,15 +437,22 @@ var Game = (function () {
     return false;
   }
 
+  /* Gewonnen hat, wer als letzte Mannschaft steht. Spielt jeder für sich, ist
+     das genau der letzte übrige Spieler – dann bleibt alles wie bisher. */
   function checkVictory(state) {
     var alive = alivePlayers(state);
-    if (alive.length <= 1) {
+    var teams = teamsAlive(state);
+    if (teams.length <= 1) {
       state.phase = 'over';
+      state.winnerTeam = teams.length ? teams[0] : null;
       state.winner = alive.length ? alive[0].index : null;
       state.pending = null;
       state.selected = null;
-      if (state.winner !== null) log(state, alive[0].name + ' gewinnt Hexodus!', state.winner);
-      else log(state, 'Unentschieden – niemand bleibt übrig.');
+      if (state.winnerTeam !== null) {
+        log(state, teamName(state, state.winnerTeam) + ' gewinnt Hexodus!', state.winner);
+      } else {
+        log(state, 'Unentschieden – niemand bleibt übrig.');
+      }
       return true;
     }
     return false;
@@ -533,13 +635,16 @@ var Game = (function () {
   }
 
   return {
-    SETUP: SETUP, COLORS: COLORS,
+    SETUP: SETUP, COLORS: COLORS, TEAM_COLORS: TEAM_COLORS, MAX_PLAYERS: MAX_PLAYERS,
+    allied: allied, teamsAlive: teamsAlive, teamMembers: teamMembers, teamName: teamName,
+    colorsFor: colorsFor, normalizeTeams: normalizeTeams,
     create: create, log: log,
     placeTree: placeTree, autoPlaceTrees: autoPlaceTrees,
     canPlaceKing: canPlaceKing, placeKing: placeKing, placeWorker: placeWorker,
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
+    checkVictory: checkVictory, adjudicate: adjudicate,
     plunder: plunder,
     STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT
   };

@@ -11,6 +11,12 @@ function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
 
 function invariants(state, where) {
   var kings = {}, byType = {};
+  // Ein Schlag trifft nie die eigene Seite
+  var letzte = state.lastCapture;
+  if (letzte && G.allied(state.teams, letzte.by, letzte.owner)) {
+    throw new Error(where + ': ' + state.players[letzte.by].name +
+      ' hat die eigene Seite geschlagen (' + letzte.key + ')');
+  }
   state.board.keys.forEach(function (k) {
     var c = state.board.cells[k];
     if (!c.piece) return;
@@ -42,10 +48,10 @@ function invariants(state, where) {
   });
 }
 
-function setup(playerCount) {
+function setup(playerCount, teams) {
   var names = [];
   for (var i = 0; i < playerCount; i++) names.push('P' + (i + 1));
-  var state = G.create(names);
+  var state = G.create(names, [], teams);
   G.autoPlaceTrees(state);
   if (state.phase !== 'kings') throw new Error('Baumphase nicht beendet');
 
@@ -121,8 +127,8 @@ function randomTurn(state) {
   return choice.type;
 }
 
-function playGame(playerCount, maxTurns) {
-  var state = setup(playerCount);
+function playGame(playerCount, maxTurns, teams) {
+  var state = setup(playerCount, teams);
   if (!state) return null;
   var steps = 0;
   while (state.phase === 'play' && steps++ < maxTurns) {
@@ -139,9 +145,24 @@ function playGame(playerCount, maxTurns) {
 
 var games = +(process.argv[2] || 60);
 var stats = { finished: 0, timeout: 0, skipped: 0, steps: 0, elim: 0 };
+/* Gespielt wird abwechselnd "jeder für sich" und in Mannschaften, und die
+   Spielerzahl läuft bis acht durch – beides muss dieselben Invarianten halten. */
+function teamsFuer(i, count) {
+  if (i % 3 === 0) return null;                       // jeder für sich
+  if (i % 3 === 1) {                                  // zwei Lager, Hälfte gegen Hälfte
+    var h = Math.ceil(count / 2), a = [];
+    for (var k = 0; k < count; k++) a.push(k < h ? 0 : 1);
+    return a;
+  }
+  var b = [];                                         // abwechselnd, ergibt gemischte Größen
+  for (var j = 0; j < count; j++) b.push(j % Math.max(2, Math.min(3, count - 1)));
+  return b;
+}
+
 for (var i = 0; i < games; i++) {
-  var count = 2 + (i % 3);
-  var res = playGame(count, 1200);
+  var count = 2 + (i % 7);
+  var teams = teamsFuer(i, count);
+  var res = playGame(count, 1200, teams);
   if (!res) { stats.skipped++; continue; }
   stats.steps += res.steps;
   if (res.state.phase === 'over') stats.finished++; else stats.timeout++;

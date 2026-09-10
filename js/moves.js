@@ -73,6 +73,19 @@ var Moves = (function () {
     return { cost: cost, takes: takes, drops: drops, endOnWater: carrying };
   }
 
+  /* Spielen zwei Spieler zusammen? Die Mannschaften hängen am Brett, weil das
+     Zugerzeugen nur das Brett zu sehen bekommt (siehe game.js). Ohne Angabe
+     spielt jeder für sich – dann ist nur man selbst mit sich verbündet.
+
+     Verbündete schlägt man nicht, und sie versperren einander den Weg wie
+     eigene Figuren. Die Versorgungskette bleibt davon unberührt: Ausgebildet
+     wird nur an eigenen Einheiten, jeder Spieler wirtschaftet für sich. */
+  function allied(board, a, b) {
+    if (a === b) return true;
+    var t = board && board.teams;
+    return !!t && t[a] === t[b];
+  }
+
   function act(kind, cell, extra) {
     var a = { kind: kind, q: cell.q, r: cell.r };
     if (extra) for (var k in extra) a[k] = extra[k];
@@ -101,7 +114,7 @@ var Moves = (function () {
           carrying = false;                     // Boot bleibt zurück
         }
         if (cell.piece) {
-          if (cell.piece.owner !== owner) out.push(act('capture', cell, cost ? { cost: cost } : null));
+          if (!allied(board, cell.piece.owner, owner)) out.push(act('capture', cell, cost ? { cost: cost } : null));
           break;
         }
         out.push(act('move', cell, cost ? { cost: cost } : null));
@@ -109,9 +122,9 @@ var Moves = (function () {
     });
   }
 
-  /* Kettensprünge des Tangolins: über Bäume und eigene Einheiten, nie über
-     Wasser und nie über eine gegnerische Figur – die ist eine Sperre, kein
-     Sprungbrett. Geschlagen wird nicht im Vorbeispringen, sondern nur beim
+  /* Kettensprünge des Tangolins: über Bäume und über Figuren der eigenen Seite,
+     nie über Wasser und nie über eine gegnerische Figur – die ist eine Sperre,
+     kein Sprungbrett. Geschlagen wird nicht im Vorbeispringen, sondern nur beim
      normalen Zug auf ein Nachbarfeld.
 
      Gesucht wird in die Breite: Weil ein Sprung nichts am Brett ändert, zählt
@@ -135,9 +148,9 @@ var Moves = (function () {
       for (var d = 0; d < 6; d++) {
         var over = B.at(board, H.add(pos, H.DIRS[d]));
         if (!over) continue;
-        // Übersprungen werden dürfen nur Bäume und eigene Einheiten
+        // Übersprungen werden dürfen nur Bäume, eigene und verbündete Einheiten
         var jumpable = (over.terrain === 'grass') &&
-          (over.tree || (over.piece && over.piece.owner === owner));
+          (over.tree || (over.piece && allied(board, over.piece.owner, owner)));
         if (!jumpable) continue;
         var land = B.at(board, H.add(pos, H.scale(H.DIRS[d], 2)));
         // Kettensprünge enden nur an Land – der Tangolin kommt nicht über Wasser
@@ -160,7 +173,7 @@ var Moves = (function () {
     if (c < 0) return;
     var extra = c ? { cost: c } : null;
     if (!target.piece) out.push(act('move', target, extra));
-    else if (target.piece.owner !== owner) out.push(act('capture', target, extra));
+    else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, extra));
   }
 
   /* Alle legalen Aktionen der Figur auf `cell`. `wood` = Holzvorrat des Besitzers. */
@@ -181,7 +194,7 @@ var Moves = (function () {
           if (wc < 0) continue;
           var wx = wc ? { cost: wc } : null;
           if (!target.piece) out.push(act('move', target, wx));
-          else if (target.piece.owner !== owner) out.push(act('capture', target, wx));
+          else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, wx));
         }
         break;
 
@@ -218,7 +231,7 @@ var Moves = (function () {
         // Schießen: Distanz 2 auf einer der 6 Geraden, über Bäume und Wasser hinweg
         for (d = 0; d < 6; d++) {
           target = B.at(board, H.add(cell, H.scale(H.DIRS[d], 2)));
-          if (target && target.piece && target.piece.owner !== owner) {
+          if (target && target.piece && !allied(board, target.piece.owner, owner)) {
             out.push(act('shoot', target));
           }
         }
@@ -231,7 +244,7 @@ var Moves = (function () {
           if (tc < 0) continue;
           var tx = tc ? { cost: tc } : null;
           if (!target.piece) out.push(act('move', target, tx));
-          else if (target.piece.owner !== owner) out.push(act('capture', target, tx));
+          else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, tx));
         }
         chainJumps(board, cell, owner, out);
         break;
@@ -245,7 +258,7 @@ var Moves = (function () {
             var total = kc + 1;                 // 1 Holz für den Sprung, dazu das Boot
             if (total > wood) continue;
             if (!target.piece) out.push(act('move', target, { cost: total }));
-            else if (target.piece.owner !== owner) out.push(act('capture', target, { cost: total }));
+            else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, { cost: total }));
           }
         }
         break;

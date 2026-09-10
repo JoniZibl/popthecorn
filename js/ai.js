@@ -117,7 +117,7 @@ var AI = (function () {
       terrain: new Uint8Array(n), tree: new Uint8Array(n), boat: new Uint8Array(n),
       pt: new Int8Array(n), po: new Int8Array(n), pf: new Int8Array(n),
       wood: new Int32Array(np), alive: new Uint8Array(np), zent: new Uint8Array(np),
-      kingAt: new Int16Array(np)
+      kingAt: new Int16Array(np), team: new Int16Array(np)
     };
     s.pt.fill(-1); s.po.fill(-1); s.kingAt.fill(-1);
     for (var i = 0; i < n; i++) {
@@ -132,10 +132,13 @@ var AI = (function () {
         if (c.piece.type === 'king') s.kingAt[c.piece.owner] = i;
       }
     }
+    var teams = state.teams || (state.board && state.board.teams);
     for (var p = 0; p < np; p++) {
       s.wood[p] = state.players[p].wood;
       s.alive[p] = state.players[p].eliminated ? 0 : 1;
       s.zent[p] = state.players[p].trained.zenturio ? 1 : 0;
+      // Ohne Mannschaften spielt jeder für sich: dann ist jeder seine eigene
+      s.team[p] = teams ? teams[p] : p;
     }
     return s;
   }
@@ -146,6 +149,29 @@ var AI = (function () {
 
   /* Land ohne Boot – für Kettensprünge und Ausbildungsfelder */
   function dryLand(s, i) { return i >= 0 && s.terrain[i] === 0 && s.tree[i] === 0; }
+
+  /* Dieselbe Regel wie in moves.js: Verbündete schlägt man nicht, und für den
+     Tangolin sind sie Sprungbretter wie eigene Figuren. */
+  function allied(s, a, b) { return a === b || s.team[a] === s.team[b]; }
+
+  /* Steht auf dem Feld eine Figur der Gegenseite? */
+  function feindAuf(s, i, p) { return s.pt[i] >= 0 && !allied(s, s.po[i], p); }
+
+  /* Lebt die eigene Seite noch? Verloren ist die Suche erst, wenn die ganze
+     Mannschaft vom Brett ist – ein Spieler kann fallen und seine Seite trotzdem
+     gewinnen. Spielt jeder für sich, ist das genau der Spieler selbst. */
+  function seiteLebt(s, me) {
+    for (var p = 0; p < s.np; p++) {
+      if (s.alive[p] && s.kingAt[p] >= 0 && allied(s, p, me)) return true;
+    }
+    return false;
+  }
+
+  /* Steht überhaupt noch jemand auf der anderen Seite? */
+  function gegnerLeben(s, me) {
+    for (var p = 0; p < s.np; p++) if (s.alive[p] && !allied(s, p, me)) return true;
+    return false;
+  }
 
   /* Was kostet der Schritt von `from` nach `to`? -1 heißt: nicht möglich. */
   function stepCost(s, from, to, wood) {
@@ -213,7 +239,7 @@ var AI = (function () {
         var over = nb[pos * 6 + d];
         if (over < 0 || s.terrain[over] === 1) continue;      // nie über Wasser
         // Übersprungen werden dürfen nur Bäume und eigene Einheiten
-        if (!s.tree[over] && !(s.pt[over] >= 0 && s.po[over] === p)) continue;
+        if (!s.tree[over] && !(s.pt[over] >= 0 && allied(s, s.po[over], p))) continue;
         var land = nb[over * 6 + d];
         if (!dryLand(s, land) || s.pt[land] >= 0) continue;
         if (chainStamp[land] === chainMark) continue;
@@ -264,6 +290,7 @@ var AI = (function () {
         if (s.pt[i] === T.zenturio) myZent = i;
         continue;
       }
+      if (allied(s, s.po[i], p)) continue;          // Verbündete sind kein Ziel
       if (myKing >= 0) {
         var dd = geo.dist[myKing * n + i];
         if (s.pt[i] === T.king && dd < bestK) { bestK = dd; ctx.enemyKing = i; }
@@ -282,7 +309,7 @@ var AI = (function () {
           if (s.tree[j]) { if (!capturesOnly) out.push(mk(KIND_HARVEST, i, j, KEEP)); continue; }
           if (stepCost(s, i, j, s.wood[p]) < 0) continue;
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-          else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
 
       } else if (type === T.samurai) {
@@ -290,7 +317,7 @@ var AI = (function () {
           j = geo.diag[i * 6 + d];
           if (stepCost(s, i, j, s.wood[p]) < 0) continue;
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-          else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
 
       } else if (type === T.springer) {
@@ -303,7 +330,7 @@ var AI = (function () {
             if (stepCost(s, i, j, s.wood[p]) < 0) continue;
             if (s.pt[j] < 0) {
               if (!capturesOnly) pushFacings(out, KIND_MOVE, i, j, fac);
-            } else if (s.po[j] !== p) {
+            } else if (!allied(s, s.po[j], p)) {
               if (capturesOnly) out.push(mk(KIND_CAPTURE, i, j, KEEP));
               else pushFacings(out, KIND_CAPTURE, i, j, fac);
             }
@@ -329,7 +356,7 @@ var AI = (function () {
               carrying = false;
             }
             if (s.pt[cur] >= 0) {
-              if (s.po[cur] !== p) {
+              if (!allied(s, s.po[cur], p)) {
                 if (fac2) pushFacings(out, KIND_CAPTURE, i, cur, fac2);
                 else out.push(mk(KIND_CAPTURE, i, cur, KEEP));
               }
@@ -345,7 +372,7 @@ var AI = (function () {
       } else if (type === T.archer) {
         for (d = 0; d < 6; d++) {                       // Schuss auf Distanz 2
           j = geo.far2[i * 6 + d];
-          if (j >= 0 && s.pt[j] >= 0 && s.po[j] !== p) out.push(mk(KIND_SHOOT, i, j, KEEP));
+          if (j >= 0 && feindAuf(s, j, p)) out.push(mk(KIND_SHOOT, i, j, KEEP));
         }
         if (!capturesOnly) for (d = 0; d < 6; d++) {    // Laufen ohne zu schlagen
           j = nb[i * 6 + d];
@@ -357,7 +384,7 @@ var AI = (function () {
           j = nb[i * 6 + d];
           if (stepCost(s, i, j, s.wood[p]) < 0) continue;
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-          else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
         if (!capturesOnly) {                            // Kettensprünge schlagen nichts
           var ziele = chainSearch(s, i, p);
@@ -371,7 +398,7 @@ var AI = (function () {
             var kc = stepCost(s, i, j, s.wood[p] - 1);
             if (kc < 0 || kc + 1 > s.wood[p]) continue;
             if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-            else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+            else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
           }
         }
       }
@@ -664,10 +691,8 @@ var AI = (function () {
   function evaluate(s, me, ctx) {
     var n = s.n, np = s.np, geo = s.geo, dist = geo.dist, i, k, p;
 
-    if (!s.alive[me] || s.kingAt[me] < 0) return -WIN;
-    var others = 0;
-    for (p = 0; p < np; p++) if (p !== me && s.alive[p]) others++;
-    if (others === 0) return WIN;
+    if (!seiteLebt(s, me)) return -WIN;
+    if (!gegnerLeben(s, me)) return WIN;
 
     var atk = ctx.atk, mob = ctx.mob, sc = ctx.sc;
     var occ = ctx.occ, trees = ctx.trees, workerAt = ctx.workerAt, zentAt = ctx.zentAt;
@@ -702,7 +727,7 @@ var AI = (function () {
       i = occ[k];
       var own = s.po[i], t = s.pt[i];
       var att = 0;
-      for (p = 0; p < np; p++) if (p !== own && s.alive[p]) att += atk[p * n + i];
+      for (p = 0; p < np; p++) if (s.alive[p] && !allied(s, p, own)) att += atk[p * n + i];
       var def = atk[own * n + i];
 
       if (t === T.king) {
@@ -776,7 +801,7 @@ var AI = (function () {
       else if (escapes === 0) danger *= 1.8;
       else if (escapes === 1) danger *= 1.3;
       // Angriffslustige Stufen bewerten Druck auf fremde Türme höher
-      if (p !== me && ctx.aggression > 1) danger *= ctx.aggression;
+      if (!allied(s, p, me) && ctx.aggression > 1) danger *= ctx.aggression;
       sc[p] -= danger;
       part(p, 'Turmdruck', -danger);
 
@@ -802,7 +827,7 @@ var AI = (function () {
           if (s.po[mc] !== p || s.pt[mc] === T.king) continue;
           var nearest = 99;
           for (var op = 0; op < np; op++) {
-            if (op === p || !s.alive[op] || s.kingAt[op] < 0) continue;
+            if (allied(s, op, p) || !s.alive[op] || s.kingAt[op] < 0) continue;
             var dk = dist[s.kingAt[op] * n + mc];
             if (dk < nearest) nearest = dk;
           }
@@ -823,9 +848,24 @@ var AI = (function () {
       part(p, 'Ausbildungsfelder', tr);
     }
 
+    /* Gerechnet wird Mannschaft gegen Mannschaft: Was die Mitglieder erreichen,
+       zählt zusammen, verglichen wird mit der stärksten gegnerischen Seite.
+       Spielt jeder für sich, ist jede Mannschaft ein Spieler – dann ist das
+       dieselbe Rechnung wie zuvor. */
+    var teamSc = {}, meins = 0;
+    for (p = 0; p < np; p++) {
+      if (!s.alive[p]) continue;
+      var t = s.team[p];
+      teamSc[t] = (teamSc[t] || 0) + sc[p];
+    }
+    meins = teamSc[s.team[me]] || 0;
     var bestOther = -INF;
-    for (p = 0; p < np; p++) if (p !== me && s.alive[p] && sc[p] > bestOther) bestOther = sc[p];
-    return sc[me] - bestOther;
+    for (var tk in teamSc) {
+      if (+tk === s.team[me]) continue;
+      if (teamSc[tk] > bestOther) bestOther = teamSc[tk];
+    }
+    if (bestOther === -INF) return WIN;
+    return meins - bestOther;
   }
 
   /* ---------------- Wertung bei festgefahrener Partie ----------------
@@ -854,12 +894,22 @@ var AI = (function () {
 
   /* Gleiche Kette wie im Regelwerk: Vermögen, Figuren, Holz, Spielerreihenfolge. */
   function adjudicationScore(s, me) {
-    var mine = [wealthOf(s, me), piecesOf(s, me), s.wood[me], -me];
-    var best = null;
+    /* Gewertet wird je Mannschaft, wie im Regelwerk: Vermögen, Figuren und
+       Holz der Mitglieder zusammen. */
+    var proTeam = {};
     for (var p = 0; p < s.np; p++) {
-      if (p === me || !s.alive[p]) continue;
-      var other = [wealthOf(s, p), piecesOf(s, p), s.wood[p], -p];
-      if (!best || cmp(other, best) > 0) best = other;
+      if (!s.alive[p]) continue;
+      var t = s.team[p];
+      var e = proTeam[t] || (proTeam[t] = [0, 0, 0, -t]);
+      e[0] += wealthOf(s, p);
+      e[1] += piecesOf(s, p);
+      e[2] += s.wood[p];
+    }
+    var mine = proTeam[s.team[me]] || [0, 0, 0, -s.team[me]];
+    var best = null;
+    for (var tk in proTeam) {
+      if (+tk === s.team[me]) continue;
+      if (!best || cmp(proTeam[tk], best) > 0) best = proTeam[tk];
     }
     if (!best) return WIN;
     var d = cmp(mine, best);
@@ -944,13 +994,12 @@ var AI = (function () {
   function quiesce(s, player, alpha, beta, ctx, qd) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me;
-    if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + qd;
-    var others = 0;
-    for (var p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
-    if (!others) return WIN - qd;
+    if (!seiteLebt(s, me)) return -WIN + qd;
+    if (!gegnerLeben(s, me)) return WIN - qd;
 
     var stand = evaluate(s, me, ctx);
-    var isMe = (player === me);
+    // Verbündete ziehen für dieselbe Seite – sie maximieren mit
+    var isMe = allied(s, player, me);
     if (qd >= 4) return stand;
     if (isMe) { if (stand >= beta) return stand; if (stand > alpha) alpha = stand; }
     else { if (stand <= alpha) return stand; if (stand < beta) beta = stand; }
@@ -981,10 +1030,8 @@ var AI = (function () {
   function alphabeta(s, player, depth, alpha, beta, ctx, ply, stall) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me, p;
-    if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + ply;
-    var others = 0;
-    for (p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
-    if (!others) return WIN - ply;
+    if (!seiteLebt(s, me)) return -WIN + ply;
+    if (!gegnerLeben(s, me)) return WIN - ply;
     // Festgefahren: das Regelwerk wertet aus, danach ist die Partie vorbei
     if (stall >= ctx.stallLimit) return adjudicationScore(s, me);
     if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0);
@@ -998,7 +1045,7 @@ var AI = (function () {
     }
     orderMoves(s, moves, ctx, 0);
 
-    var isMe = (player === me);
+    var isMe = allied(s, player, me);   // die eigene Seite maximiert
     var best = isMe ? -INF : INF;
     for (var i = 0; i < moves.length; i++) {
       var mv = moves[i];
@@ -1234,25 +1281,40 @@ var AI = (function () {
     var pl = state.players[p];
     if (pl.__home !== undefined && pl.__home !== null) return pl.__home;
 
-    var taken = [];
+    /* Gegner weit weg, Verbündete in Reichweite: In einer Mannschaft ist eine
+       gemeinsame Ecke mehr wert als der eigene Platz. */
+    var teams = state.teams;
+    function verbuendet(a, b) { return a === b || (!!teams && teams[a] === teams[b]); }
+    var taken = [], mates = [];
     state.players.forEach(function (o) {
-      if (o.__home !== undefined && o.__home !== null) taken.push(o.__home);
+      if (o.__home === undefined || o.__home === null) return;
+      if (verbuendet(o.index, p)) mates.push(o.__home);
+      else taken.push(o.__home);
     });
 
-    var space = new Int32Array(n), i, j;
-    for (i = 0; i < n; i++) {
-      if (state.board.cells[keys[i]].terrain !== 'grass') continue;
-      for (j = 0; j < n; j++) {
-        if (geo.dist[i * n + j] <= 2 && state.board.cells[keys[j]].terrain === 'grass') space[i]++;
+    /* Wie viel Land liegt um ein Feld herum? Das hängt nur am Brett, nicht am
+       Spieler – bei acht Spielern wäre es sonst achtmal dieselbe Rechnung über
+       alle Feldpaare. */
+    var space = state.board.__space, i, j;
+    if (!space || space.length !== n) {
+      space = new Int32Array(n);
+      for (i = 0; i < n; i++) {
+        if (state.board.cells[keys[i]].terrain !== 'grass') continue;
+        for (j = 0; j < n; j++) {
+          if (geo.dist[i * n + j] <= 2 && state.board.cells[keys[j]].terrain === 'grass') space[i]++;
+        }
       }
+      state.board.__space = space;
     }
     var best = -1, bestScore = -1e9;
     for (i = 0; i < n; i++) {
       if (state.board.cells[keys[i]].terrain !== 'grass') continue;
-      var far = 99;
-      for (var t = 0; t < taken.length; t++) far = Math.min(far, geo.dist[i * n + taken[t]]);
+      var far = 99, nah = 99, t;
+      for (t = 0; t < taken.length; t++) far = Math.min(far, geo.dist[i * n + taken[t]]);
+      for (t = 0; t < mates.length; t++) nah = Math.min(nah, geo.dist[i * n + mates[t]]);
       if (far === 99) far = 10;
-      var score = space[i] * 5 + Math.min(far, 9) * 14 + Math.random() * 10;
+      var zusammen = (nah === 99) ? 0 : -Math.abs(nah - 4) * 9;
+      var score = space[i] * 5 + Math.min(far, 9) * 14 + zusammen + Math.random() * 10;
       if (score > bestScore) { bestScore = score; best = i; }
     }
     pl.__home = best;
@@ -1280,15 +1342,20 @@ var AI = (function () {
     for (var i = 0; i < n; i++) {
       var c = state.board.cells[keys[i]];
       if (!G.canPlaceKing(state, c)) continue;
-      var trees = 0, freeN = 0, foe = 99, j;
+      var trees = 0, freeN = 0, foe = 99, mate = 99, j;
       for (j = 0; j < n; j++) {
         var d = geo.dist[i * n + j], o = state.board.cells[keys[j]];
         if (o.tree && d <= 3) trees += (4 - d);
         if (d === 1 && o.terrain === 'grass' && !o.tree && !o.piece) freeN++;
-        if (o.piece && o.piece.type === 'king') foe = Math.min(foe, d);
+        if (o.piece && o.piece.type === 'king') {
+          // Vom Gegner weg, zum Verbündeten hin – aber nicht auf den Schoß
+          if (G.allied(state.teams, o.piece.owner, p)) mate = Math.min(mate, d);
+          else foe = Math.min(foe, d);
+        }
       }
       if (foe === 99) foe = 12;
-      var score = trees * 9 + freeN * 20 + Math.min(foe, 9) * 10
+      var zusammen = (mate === 99) ? 0 : -Math.abs(mate - 4) * 7;
+      var score = trees * 9 + freeN * 20 + Math.min(foe, 9) * 10 + zusammen
                 - geo.dist[home * n + i] * 6 + Math.random() * 8;
       if (score > bestScore) { bestScore = score; best = c; }
     }

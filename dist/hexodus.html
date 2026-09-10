@@ -1,7 +1,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hexodus</title>
-<meta name="description" content="Hexodus: Strategiespiel für 2–4 Spieler auf einem Hexagon-Spielfeld. Bäume fällen, Holz sammeln, Einheiten ausbilden und den gegnerischen Königs-Turm schlagen.">
+<meta name="description" content="Hexodus: Strategiespiel für 2 bis 8 Spieler auf einem Hexagon-Spielfeld, einzeln oder in Mannschaften. Bäume fällen, Holz sammeln, Einheiten ausbilden und den gegnerischen Königs-Turm schlagen.">
 <meta name="theme-color" content="#14171c">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -100,6 +100,9 @@ select, input[type=text] {
 select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
 .player-field { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
 .player-field .swatch { width: 16px; height: 16px; border-radius: 4px; flex: 0 0 auto; }
+/* Mannschaftswahl: schmaler als die Gegnerwahl, sie trägt nur eine Farbe */
+.team-select { width: 92px; flex: 0 0 auto; padding: 8px 6px; font-size: 13px; }
+.primary-btn:disabled { opacity: .45; cursor: not-allowed; }
 .color-name { font-size: 12px; color: var(--muted); width: 52px; flex: 0 0 auto; }
 .kind-select { width: 108px; flex: 0 0 auto; padding: 8px 6px; font-size: 13px; }
 .player-field input[type=text] { min-width: 0; }
@@ -449,7 +452,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   /* Das Brett bekommt genau die freie Fläche: unter der Kopfzeile aus Chips und
      Hinweis, über der Bedienleiste. Sonst läge das halbe Spielfeld darunter –
      und das Einpassen rechnete mit Platz, den es nicht gibt. */
-  .board { top: 78px; bottom: 54px; }
+  /* Die Spielerzeile bricht bei vielen Spielern um; ihre gemessene Höhe steht
+     in --kopf (siehe ui.js). Statuszeile und Brett weichen entsprechend aus. */
+  .board { top: calc(var(--kopf, 34px) + 44px); bottom: 54px; }
   .legend { display: none; }
 
   /* Die Seitenleiste wird zur durchsichtigen Ebene über dem Brett; nur ihre
@@ -464,11 +469,13 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .players {
     position: absolute; top: 8px; left: 8px; right: 8px; z-index: 2;
     flex-direction: row; justify-content: center; gap: 6px;
+    /* bis zu acht Spieler: die Zeile darf umbrechen, statt hinauszulaufen */
+    flex-wrap: wrap;
     padding: 0; background: none; border: 0; overflow: visible;
     pointer-events: auto;
   }
   .player-card {
-    flex: 0 0 auto; min-width: 0; gap: 6px; padding: 5px 10px; border-radius: 999px;
+    flex: 0 0 auto; min-width: 0; gap: 5px; padding: 4px 9px; border-radius: 999px;
     display: flex; align-items: center; border-left-width: 1px;
     background: rgba(24, 28, 34, .92);
   }
@@ -477,7 +484,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .player-card .wood { font-size: 14px; }
   .player-card.is-current { box-shadow: 0 0 0 2px var(--pc) inset; }
 
-  .phase-banner { top: 44px; font-size: 13px; padding: 6px 12px; }
+  .phase-banner { top: calc(var(--kopf, 34px) + 12px); font-size: 13px; padding: 6px 12px; }
 
   /* Die Kamerasteuerung ist eingeklappt, bis man sie über die Leiste aufruft */
   .board-hud {
@@ -564,7 +571,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 <!-- ---------- Startbildschirm ---------- -->
 <main id="screen-menu" class="screen menu">
   <section class="hero">
-    <p class="kicker">2–4 Spieler · ab 12 Jahren · Brettspiel im Browser</p>
+    <p class="kicker">2–8 Spieler · Mannschaften · ab 12 Jahren · Brettspiel im Browser</p>
     <h1>Hexodus</h1>
     <p class="lede">
       Ein Spielfeld aus zufällig gelegten Hexagon-Plättchen. Bäume sind dein Rohstoff, Holz deine
@@ -581,6 +588,17 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
         <option value="2">2 Spieler</option>
         <option value="3">3 Spieler</option>
         <option value="4">4 Spieler</option>
+        <option value="5">5 Spieler</option>
+        <option value="6">6 Spieler</option>
+        <option value="7">7 Spieler</option>
+        <option value="8">8 Spieler</option>
+      </select>
+    </label>
+    <label class="field">
+      <span>Modus</span>
+      <select id="game-mode">
+        <option value="frei">Jeder für sich</option>
+        <option value="teams">Mannschaften</option>
       </select>
     </label>
     <div id="player-fields"></div>
@@ -696,6 +714,26 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
           Richtungsfigur oder nach ihrer Ausbildung –, liegen sechs Pfeile rund um die Figur, jeder
           dort, wohin er zeigt. Einen antippen genügt. Der hervorgehobene Pfeil ist die jetzige
           Richtung; ihn anzutippen beendet den Zug, ohne zu drehen.</li>
+      </ul>
+    </section>
+
+    <section class="rule-block">
+      <h3>Mannschaften</h3>
+      <p>Hexodus wird zu <strong>zwei bis acht</strong> gespielt – jeder für sich oder in
+        <strong>Mannschaften</strong>: 2 gegen 2, 3 gegen 3, 4 gegen 4, aber auch ungleich
+        wie 3 gegen 1. Eingestellt wird das vor der Partie; jede Mannschaft bekommt eine
+        <strong>Farbfamilie</strong>, innerhalb der sich die Spieler durch die Helligkeit
+        unterscheiden. Wer zusammen spielt, ist damit auf einen Blick zusammen zu sehen.</p>
+      <ul>
+        <li>Verbündete <strong>schlägt man nicht</strong> – weder im Zug noch mit dem
+          Bogenschützen. Sie versperren einander den Weg wie eigene Figuren.</li>
+        <li>Der <strong>Tangolin springt über Verbündete</strong> wie über eigene Einheiten.</li>
+        <li>Die <strong>Versorgungskette bleibt jedem selbst überlassen</strong>: Ausgebildet
+          wird nur am eigenen Turm und am eigenen Feldzeichen. Jeder wirtschaftet für sich.</li>
+        <li>Gewonnen hat die <strong>letzte Mannschaft</strong>, die noch steht. Fällt ein
+          Turm, scheidet nur dieser Spieler aus – die Mannschaft spielt weiter.</li>
+        <li>Wird eine festgefahrene Partie gewertet, zählt das <strong>Vermögen der
+          Mannschaft</strong>: Was die Mitglieder besitzen, kommt zusammen.</li>
       </ul>
     </section>
 
@@ -1219,6 +1257,19 @@ var Moves = (function () {
     return { cost: cost, takes: takes, drops: drops, endOnWater: carrying };
   }
 
+  /* Spielen zwei Spieler zusammen? Die Mannschaften hängen am Brett, weil das
+     Zugerzeugen nur das Brett zu sehen bekommt (siehe game.js). Ohne Angabe
+     spielt jeder für sich – dann ist nur man selbst mit sich verbündet.
+
+     Verbündete schlägt man nicht, und sie versperren einander den Weg wie
+     eigene Figuren. Die Versorgungskette bleibt davon unberührt: Ausgebildet
+     wird nur an eigenen Einheiten, jeder Spieler wirtschaftet für sich. */
+  function allied(board, a, b) {
+    if (a === b) return true;
+    var t = board && board.teams;
+    return !!t && t[a] === t[b];
+  }
+
   function act(kind, cell, extra) {
     var a = { kind: kind, q: cell.q, r: cell.r };
     if (extra) for (var k in extra) a[k] = extra[k];
@@ -1247,7 +1298,7 @@ var Moves = (function () {
           carrying = false;                     // Boot bleibt zurück
         }
         if (cell.piece) {
-          if (cell.piece.owner !== owner) out.push(act('capture', cell, cost ? { cost: cost } : null));
+          if (!allied(board, cell.piece.owner, owner)) out.push(act('capture', cell, cost ? { cost: cost } : null));
           break;
         }
         out.push(act('move', cell, cost ? { cost: cost } : null));
@@ -1255,9 +1306,9 @@ var Moves = (function () {
     });
   }
 
-  /* Kettensprünge des Tangolins: über Bäume und eigene Einheiten, nie über
-     Wasser und nie über eine gegnerische Figur – die ist eine Sperre, kein
-     Sprungbrett. Geschlagen wird nicht im Vorbeispringen, sondern nur beim
+  /* Kettensprünge des Tangolins: über Bäume und über Figuren der eigenen Seite,
+     nie über Wasser und nie über eine gegnerische Figur – die ist eine Sperre,
+     kein Sprungbrett. Geschlagen wird nicht im Vorbeispringen, sondern nur beim
      normalen Zug auf ein Nachbarfeld.
 
      Gesucht wird in die Breite: Weil ein Sprung nichts am Brett ändert, zählt
@@ -1281,9 +1332,9 @@ var Moves = (function () {
       for (var d = 0; d < 6; d++) {
         var over = B.at(board, H.add(pos, H.DIRS[d]));
         if (!over) continue;
-        // Übersprungen werden dürfen nur Bäume und eigene Einheiten
+        // Übersprungen werden dürfen nur Bäume, eigene und verbündete Einheiten
         var jumpable = (over.terrain === 'grass') &&
-          (over.tree || (over.piece && over.piece.owner === owner));
+          (over.tree || (over.piece && allied(board, over.piece.owner, owner)));
         if (!jumpable) continue;
         var land = B.at(board, H.add(pos, H.scale(H.DIRS[d], 2)));
         // Kettensprünge enden nur an Land – der Tangolin kommt nicht über Wasser
@@ -1306,7 +1357,7 @@ var Moves = (function () {
     if (c < 0) return;
     var extra = c ? { cost: c } : null;
     if (!target.piece) out.push(act('move', target, extra));
-    else if (target.piece.owner !== owner) out.push(act('capture', target, extra));
+    else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, extra));
   }
 
   /* Alle legalen Aktionen der Figur auf `cell`. `wood` = Holzvorrat des Besitzers. */
@@ -1327,7 +1378,7 @@ var Moves = (function () {
           if (wc < 0) continue;
           var wx = wc ? { cost: wc } : null;
           if (!target.piece) out.push(act('move', target, wx));
-          else if (target.piece.owner !== owner) out.push(act('capture', target, wx));
+          else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, wx));
         }
         break;
 
@@ -1364,7 +1415,7 @@ var Moves = (function () {
         // Schießen: Distanz 2 auf einer der 6 Geraden, über Bäume und Wasser hinweg
         for (d = 0; d < 6; d++) {
           target = B.at(board, H.add(cell, H.scale(H.DIRS[d], 2)));
-          if (target && target.piece && target.piece.owner !== owner) {
+          if (target && target.piece && !allied(board, target.piece.owner, owner)) {
             out.push(act('shoot', target));
           }
         }
@@ -1377,7 +1428,7 @@ var Moves = (function () {
           if (tc < 0) continue;
           var tx = tc ? { cost: tc } : null;
           if (!target.piece) out.push(act('move', target, tx));
-          else if (target.piece.owner !== owner) out.push(act('capture', target, tx));
+          else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, tx));
         }
         chainJumps(board, cell, owner, out);
         break;
@@ -1391,7 +1442,7 @@ var Moves = (function () {
             var total = kc + 1;                 // 1 Holz für den Sprung, dazu das Boot
             if (total > wood) continue;
             if (!target.piece) out.push(act('move', target, { cost: total }));
-            else if (target.piece.owner !== owner) out.push(act('capture', target, { cost: total }));
+            else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, { cost: total }));
           }
         }
         break;
@@ -1546,21 +1597,104 @@ var Game = (function () {
   var SETUP = {
     2: { tiles: 10, trees: 30 },
     3: { tiles: 20, trees: 45 },
-    4: { tiles: 25, trees: 60 }
+    4: { tiles: 25, trees: 60 },
+    5: { tiles: 30, trees: 75 },
+    6: { tiles: 35, trees: 90 },
+    7: { tiles: 40, trees: 105 },
+    8: { tiles: 45, trees: 120 }
   };
+  var MAX_PLAYERS = 8;
 
-  var COLORS = [
-    { id: 'blue',   name: 'Blau',   hex: '#3b82f6' },
-    { id: 'pink',   name: 'Pink',   hex: '#ec4899' },
-    { id: 'yellow', name: 'Gelb',   hex: '#eab308' },
-    { id: 'orange', name: 'Orange', hex: '#f97316' }
+  /* Farben sind nach Mannschaften geordnet: Jede Mannschaft hat eine Familie,
+     innerhalb der Familie unterscheiden sich die Spieler durch die Helligkeit.
+     Wer zusammen spielt, ist damit auf einen Blick zusammen zu sehen, bleibt
+     aber einzeln unterscheidbar. Grün fehlt mit Absicht – das ist die Wiese. */
+  var TEAM_COLORS = [
+    { id: 'blau',    name: 'Blau',    shades: ['#3b82f6', '#93c5fd', '#1d4ed8', '#60a5fa'] },
+    { id: 'pink',    name: 'Pink',    shades: ['#ec4899', '#fbcfe8', '#9d174d', '#f9a8d4'] },
+    { id: 'gelb',    name: 'Gelb',    shades: ['#eab308', '#fde047', '#a16207', '#fbbf24'] },
+    { id: 'orange',  name: 'Orange',  shades: ['#f97316', '#fdba74', '#9a3412', '#fb923c'] },
+    { id: 'violett', name: 'Violett', shades: ['#a855f7', '#d8b4fe', '#6b21a8', '#c084fc'] },
+    { id: 'tuerkis', name: 'Türkis',  shades: ['#06b6d4', '#a5f3fc', '#0e7490', '#22d3ee'] },
+    { id: 'rot',     name: 'Rot',     shades: ['#ef4444', '#fecaca', '#991b1b', '#f87171'] },
+    { id: 'grau',    name: 'Grau',    shades: ['#94a3b8', '#e2e8f0', '#475569', '#cbd5e1'] }
   ];
+  var SHADE_NAMES = ['', ' hell', ' dunkel', ' blass'];
 
-  function create(playerNames, kinds) {
+  // Bisherige Aufrufer erwarten eine flache Farbliste – eine Farbe je Mannschaft
+  var COLORS = TEAM_COLORS.map(function (t) {
+    return { id: t.id, name: t.name, hex: t.shades[0] };
+  });
+
+  /* Mannschaften: `teams[i]` ist die Mannschaftsnummer von Spieler i. Ohne
+     Angabe spielt jeder für sich – dann ist jeder seine eigene Mannschaft, und
+     alles Weitere verhält sich wie bisher. */
+  /* Farbe je Spieler: die Familie kommt von der Mannschaft, die Helligkeit von
+     der Reihenfolge innerhalb der Mannschaft. Das Startmenü rechnet damit
+     dieselben Farben aus wie das Spiel selbst. */
+  function colorsFor(teams) {
+    var proTeam = {};
+    return teams.map(function (t) {
+      var fam = TEAM_COLORS[t % TEAM_COLORS.length];
+      var k = (proTeam[t] = (proTeam[t] === undefined ? 0 : proTeam[t] + 1));
+      return {
+        hex: fam.shades[k % fam.shades.length],
+        name: fam.name + (SHADE_NAMES[k % SHADE_NAMES.length] || '')
+      };
+    });
+  }
+
+  function normalizeTeams(teams, count) {
+    var out = [];
+    for (var i = 0; i < count; i++) {
+      var t = teams && teams[i];
+      out.push((typeof t === 'number' && t >= 0) ? t : i);
+    }
+    return out;
+  }
+
+  /* Spielen zwei Spieler zusammen? Ein Spieler ist immer mit sich selbst
+     verbündet. `teams` fehlt in alten Spielständen – dann zählt nur der Index. */
+  function allied(teams, a, b) {
+    if (a === b) return true;
+    if (!teams) return false;
+    return teams[a] === teams[b];
+  }
+
+  function teamMembers(state, team) {
+    return state.players.filter(function (p) { return state.teams[p.index] === team; });
+  }
+
+  function teamsAlive(state) {
+    var seen = {}, out = [];
+    state.players.forEach(function (p) {
+      if (p.eliminated) return;
+      var t = state.teams[p.index];
+      if (seen[t]) return;
+      seen[t] = true;
+      out.push(t);
+    });
+    return out;
+  }
+
+  /* Wie heißt die Mannschaft? Bei "jeder für sich" ist das der Spielername,
+     sonst die Farbfamilie, die sich alle Mitglieder teilen. */
+  function teamName(state, team) {
+    var mit = teamMembers(state, team);
+    if (mit.length <= 1) return mit.length ? mit[0].name : ('Mannschaft ' + (team + 1));
+    return 'Team ' + (TEAM_COLORS[team % TEAM_COLORS.length].name);
+  }
+
+  function create(playerNames, kinds, teams) {
     var count = playerNames.length;
     kinds = kinds || [];
+    teams = normalizeTeams(teams, count);
     var cfg = SETUP[count];
     var board = B.generate(cfg.tiles);
+    /* Die Mannschaften hängen am Brett, nicht nur am Spielzustand: moves.js
+       bekommt beim Zugerzeugen nur das Brett zu sehen und muss trotzdem
+       wissen, wer mit wem spielt. */
+    board.teams = teams.slice();
 
     // Bäume gleichmäßig verteilen; pro Spieler bleiben mindestens 6 Felder frei,
     // damit Türme und Arbeiter noch Platz finden.
@@ -1569,13 +1703,16 @@ var Game = (function () {
     var total = Math.min(cfg.trees, Math.max(count * 4, maxTrees));
     var perPlayer = Math.floor(total / count);
 
+    var farben = colorsFor(teams);
+
     var players = playerNames.map(function (name, i) {
       return {
         index: i,
         ai: kinds[i] || null,          // null = Mensch, sonst Spielstärke
         name: name || ('Spieler ' + (i + 1)),
-        color: COLORS[i].hex,
-        colorName: COLORS[i].name,
+        team: teams[i],
+        color: farben[i].hex,
+        colorName: farben[i].name,
         wood: 0,
         treesLeft: perPlayer,
         eliminated: false,
@@ -1586,6 +1723,7 @@ var Game = (function () {
     return {
       board: board,
       players: players,
+      teams: teams,            // teams[i] = Mannschaft von Spieler i
       phase: 'trees',          // trees → kings → play → over
       history: {},             // wie oft trat jede Stellung auf?
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
@@ -1603,6 +1741,7 @@ var Game = (function () {
       turn: 1,
       passes: 0,
       winner: null,
+      winnerTeam: null,        // gewonnen hat immer eine Mannschaft
       log: []
     };
   }
@@ -1831,15 +1970,21 @@ var Game = (function () {
     var alive = alivePlayers(state);
     if (!alive.length) { state.phase = 'over'; state.winner = null; return true; }
 
+    /* Gewertet wird je Mannschaft: Was die Mitglieder besitzen, zählt zusammen.
+       Spielt jeder für sich, ist jede Mannschaft ein Spieler – dann ist das
+       dieselbe Rechnung wie zuvor. */
     var best = null;
-    alive.forEach(function (pl) {
-      var cand = {
-        index: pl.index,
-        wealth: wealth(state, pl.index),
-        pieces: pieceCount(state, pl.index),
-        wood: pl.wood,
-        last: state.lastProgressBy === pl.index ? 1 : 0
-      };
+    teamsAlive(state).forEach(function (t) {
+      var mit = teamMembers(state, t).filter(function (p) { return !p.eliminated; });
+      var cand = { team: t, index: mit[0].index, wealth: 0, pieces: 0, wood: 0, last: 0 };
+      mit.forEach(function (pl) {
+        cand.wealth += wealth(state, pl.index);
+        cand.pieces += pieceCount(state, pl.index);
+        cand.wood += pl.wood;
+        if (state.lastProgressBy === pl.index) cand.last = 1;
+        // Sprecher der Mannschaft ist ihr vermögendstes Mitglied
+        if (wealth(state, pl.index) > wealth(state, cand.index)) cand.index = pl.index;
+      });
       if (!best ||
           cand.wealth > best.wealth ||
           (cand.wealth === best.wealth && cand.pieces > best.pieces) ||
@@ -1852,11 +1997,12 @@ var Game = (function () {
 
     state.phase = 'over';
     state.winner = best.index;
+    state.winnerTeam = best.team;
     state.endReason = reason;
     state.pending = null;
     state.selected = null;
     log(state, reason + ' – es wird gewertet.');
-    log(state, state.players[best.index].name + ' gewinnt mit ' + best.wealth +
+    log(state, teamName(state, best.team) + ' gewinnt mit ' + best.wealth +
         ' Holz in Vorrat und Figuren.', best.index);
     return true;
   }
@@ -1877,15 +2023,22 @@ var Game = (function () {
     return false;
   }
 
+  /* Gewonnen hat, wer als letzte Mannschaft steht. Spielt jeder für sich, ist
+     das genau der letzte übrige Spieler – dann bleibt alles wie bisher. */
   function checkVictory(state) {
     var alive = alivePlayers(state);
-    if (alive.length <= 1) {
+    var teams = teamsAlive(state);
+    if (teams.length <= 1) {
       state.phase = 'over';
+      state.winnerTeam = teams.length ? teams[0] : null;
       state.winner = alive.length ? alive[0].index : null;
       state.pending = null;
       state.selected = null;
-      if (state.winner !== null) log(state, alive[0].name + ' gewinnt Hexodus!', state.winner);
-      else log(state, 'Unentschieden – niemand bleibt übrig.');
+      if (state.winnerTeam !== null) {
+        log(state, teamName(state, state.winnerTeam) + ' gewinnt Hexodus!', state.winner);
+      } else {
+        log(state, 'Unentschieden – niemand bleibt übrig.');
+      }
       return true;
     }
     return false;
@@ -2068,13 +2221,16 @@ var Game = (function () {
   }
 
   return {
-    SETUP: SETUP, COLORS: COLORS,
+    SETUP: SETUP, COLORS: COLORS, TEAM_COLORS: TEAM_COLORS, MAX_PLAYERS: MAX_PLAYERS,
+    allied: allied, teamsAlive: teamsAlive, teamMembers: teamMembers, teamName: teamName,
+    colorsFor: colorsFor, normalizeTeams: normalizeTeams,
     create: create, log: log,
     placeTree: placeTree, autoPlaceTrees: autoPlaceTrees,
     canPlaceKing: canPlaceKing, placeKing: placeKing, placeWorker: placeWorker,
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
+    checkVictory: checkVictory, adjudicate: adjudicate,
     plunder: plunder,
     STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT
   };
@@ -2204,7 +2360,7 @@ var AI = (function () {
       terrain: new Uint8Array(n), tree: new Uint8Array(n), boat: new Uint8Array(n),
       pt: new Int8Array(n), po: new Int8Array(n), pf: new Int8Array(n),
       wood: new Int32Array(np), alive: new Uint8Array(np), zent: new Uint8Array(np),
-      kingAt: new Int16Array(np)
+      kingAt: new Int16Array(np), team: new Int16Array(np)
     };
     s.pt.fill(-1); s.po.fill(-1); s.kingAt.fill(-1);
     for (var i = 0; i < n; i++) {
@@ -2219,10 +2375,13 @@ var AI = (function () {
         if (c.piece.type === 'king') s.kingAt[c.piece.owner] = i;
       }
     }
+    var teams = state.teams || (state.board && state.board.teams);
     for (var p = 0; p < np; p++) {
       s.wood[p] = state.players[p].wood;
       s.alive[p] = state.players[p].eliminated ? 0 : 1;
       s.zent[p] = state.players[p].trained.zenturio ? 1 : 0;
+      // Ohne Mannschaften spielt jeder für sich: dann ist jeder seine eigene
+      s.team[p] = teams ? teams[p] : p;
     }
     return s;
   }
@@ -2233,6 +2392,29 @@ var AI = (function () {
 
   /* Land ohne Boot – für Kettensprünge und Ausbildungsfelder */
   function dryLand(s, i) { return i >= 0 && s.terrain[i] === 0 && s.tree[i] === 0; }
+
+  /* Dieselbe Regel wie in moves.js: Verbündete schlägt man nicht, und für den
+     Tangolin sind sie Sprungbretter wie eigene Figuren. */
+  function allied(s, a, b) { return a === b || s.team[a] === s.team[b]; }
+
+  /* Steht auf dem Feld eine Figur der Gegenseite? */
+  function feindAuf(s, i, p) { return s.pt[i] >= 0 && !allied(s, s.po[i], p); }
+
+  /* Lebt die eigene Seite noch? Verloren ist die Suche erst, wenn die ganze
+     Mannschaft vom Brett ist – ein Spieler kann fallen und seine Seite trotzdem
+     gewinnen. Spielt jeder für sich, ist das genau der Spieler selbst. */
+  function seiteLebt(s, me) {
+    for (var p = 0; p < s.np; p++) {
+      if (s.alive[p] && s.kingAt[p] >= 0 && allied(s, p, me)) return true;
+    }
+    return false;
+  }
+
+  /* Steht überhaupt noch jemand auf der anderen Seite? */
+  function gegnerLeben(s, me) {
+    for (var p = 0; p < s.np; p++) if (s.alive[p] && !allied(s, p, me)) return true;
+    return false;
+  }
 
   /* Was kostet der Schritt von `from` nach `to`? -1 heißt: nicht möglich. */
   function stepCost(s, from, to, wood) {
@@ -2300,7 +2482,7 @@ var AI = (function () {
         var over = nb[pos * 6 + d];
         if (over < 0 || s.terrain[over] === 1) continue;      // nie über Wasser
         // Übersprungen werden dürfen nur Bäume und eigene Einheiten
-        if (!s.tree[over] && !(s.pt[over] >= 0 && s.po[over] === p)) continue;
+        if (!s.tree[over] && !(s.pt[over] >= 0 && allied(s, s.po[over], p))) continue;
         var land = nb[over * 6 + d];
         if (!dryLand(s, land) || s.pt[land] >= 0) continue;
         if (chainStamp[land] === chainMark) continue;
@@ -2351,6 +2533,7 @@ var AI = (function () {
         if (s.pt[i] === T.zenturio) myZent = i;
         continue;
       }
+      if (allied(s, s.po[i], p)) continue;          // Verbündete sind kein Ziel
       if (myKing >= 0) {
         var dd = geo.dist[myKing * n + i];
         if (s.pt[i] === T.king && dd < bestK) { bestK = dd; ctx.enemyKing = i; }
@@ -2369,7 +2552,7 @@ var AI = (function () {
           if (s.tree[j]) { if (!capturesOnly) out.push(mk(KIND_HARVEST, i, j, KEEP)); continue; }
           if (stepCost(s, i, j, s.wood[p]) < 0) continue;
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-          else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
 
       } else if (type === T.samurai) {
@@ -2377,7 +2560,7 @@ var AI = (function () {
           j = geo.diag[i * 6 + d];
           if (stepCost(s, i, j, s.wood[p]) < 0) continue;
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-          else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
 
       } else if (type === T.springer) {
@@ -2390,7 +2573,7 @@ var AI = (function () {
             if (stepCost(s, i, j, s.wood[p]) < 0) continue;
             if (s.pt[j] < 0) {
               if (!capturesOnly) pushFacings(out, KIND_MOVE, i, j, fac);
-            } else if (s.po[j] !== p) {
+            } else if (!allied(s, s.po[j], p)) {
               if (capturesOnly) out.push(mk(KIND_CAPTURE, i, j, KEEP));
               else pushFacings(out, KIND_CAPTURE, i, j, fac);
             }
@@ -2416,7 +2599,7 @@ var AI = (function () {
               carrying = false;
             }
             if (s.pt[cur] >= 0) {
-              if (s.po[cur] !== p) {
+              if (!allied(s, s.po[cur], p)) {
                 if (fac2) pushFacings(out, KIND_CAPTURE, i, cur, fac2);
                 else out.push(mk(KIND_CAPTURE, i, cur, KEEP));
               }
@@ -2432,7 +2615,7 @@ var AI = (function () {
       } else if (type === T.archer) {
         for (d = 0; d < 6; d++) {                       // Schuss auf Distanz 2
           j = geo.far2[i * 6 + d];
-          if (j >= 0 && s.pt[j] >= 0 && s.po[j] !== p) out.push(mk(KIND_SHOOT, i, j, KEEP));
+          if (j >= 0 && feindAuf(s, j, p)) out.push(mk(KIND_SHOOT, i, j, KEEP));
         }
         if (!capturesOnly) for (d = 0; d < 6; d++) {    // Laufen ohne zu schlagen
           j = nb[i * 6 + d];
@@ -2444,7 +2627,7 @@ var AI = (function () {
           j = nb[i * 6 + d];
           if (stepCost(s, i, j, s.wood[p]) < 0) continue;
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-          else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
         if (!capturesOnly) {                            // Kettensprünge schlagen nichts
           var ziele = chainSearch(s, i, p);
@@ -2458,7 +2641,7 @@ var AI = (function () {
             var kc = stepCost(s, i, j, s.wood[p] - 1);
             if (kc < 0 || kc + 1 > s.wood[p]) continue;
             if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-            else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+            else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
           }
         }
       }
@@ -2751,10 +2934,8 @@ var AI = (function () {
   function evaluate(s, me, ctx) {
     var n = s.n, np = s.np, geo = s.geo, dist = geo.dist, i, k, p;
 
-    if (!s.alive[me] || s.kingAt[me] < 0) return -WIN;
-    var others = 0;
-    for (p = 0; p < np; p++) if (p !== me && s.alive[p]) others++;
-    if (others === 0) return WIN;
+    if (!seiteLebt(s, me)) return -WIN;
+    if (!gegnerLeben(s, me)) return WIN;
 
     var atk = ctx.atk, mob = ctx.mob, sc = ctx.sc;
     var occ = ctx.occ, trees = ctx.trees, workerAt = ctx.workerAt, zentAt = ctx.zentAt;
@@ -2789,7 +2970,7 @@ var AI = (function () {
       i = occ[k];
       var own = s.po[i], t = s.pt[i];
       var att = 0;
-      for (p = 0; p < np; p++) if (p !== own && s.alive[p]) att += atk[p * n + i];
+      for (p = 0; p < np; p++) if (s.alive[p] && !allied(s, p, own)) att += atk[p * n + i];
       var def = atk[own * n + i];
 
       if (t === T.king) {
@@ -2863,7 +3044,7 @@ var AI = (function () {
       else if (escapes === 0) danger *= 1.8;
       else if (escapes === 1) danger *= 1.3;
       // Angriffslustige Stufen bewerten Druck auf fremde Türme höher
-      if (p !== me && ctx.aggression > 1) danger *= ctx.aggression;
+      if (!allied(s, p, me) && ctx.aggression > 1) danger *= ctx.aggression;
       sc[p] -= danger;
       part(p, 'Turmdruck', -danger);
 
@@ -2889,7 +3070,7 @@ var AI = (function () {
           if (s.po[mc] !== p || s.pt[mc] === T.king) continue;
           var nearest = 99;
           for (var op = 0; op < np; op++) {
-            if (op === p || !s.alive[op] || s.kingAt[op] < 0) continue;
+            if (allied(s, op, p) || !s.alive[op] || s.kingAt[op] < 0) continue;
             var dk = dist[s.kingAt[op] * n + mc];
             if (dk < nearest) nearest = dk;
           }
@@ -2910,9 +3091,24 @@ var AI = (function () {
       part(p, 'Ausbildungsfelder', tr);
     }
 
+    /* Gerechnet wird Mannschaft gegen Mannschaft: Was die Mitglieder erreichen,
+       zählt zusammen, verglichen wird mit der stärksten gegnerischen Seite.
+       Spielt jeder für sich, ist jede Mannschaft ein Spieler – dann ist das
+       dieselbe Rechnung wie zuvor. */
+    var teamSc = {}, meins = 0;
+    for (p = 0; p < np; p++) {
+      if (!s.alive[p]) continue;
+      var t = s.team[p];
+      teamSc[t] = (teamSc[t] || 0) + sc[p];
+    }
+    meins = teamSc[s.team[me]] || 0;
     var bestOther = -INF;
-    for (p = 0; p < np; p++) if (p !== me && s.alive[p] && sc[p] > bestOther) bestOther = sc[p];
-    return sc[me] - bestOther;
+    for (var tk in teamSc) {
+      if (+tk === s.team[me]) continue;
+      if (teamSc[tk] > bestOther) bestOther = teamSc[tk];
+    }
+    if (bestOther === -INF) return WIN;
+    return meins - bestOther;
   }
 
   /* ---------------- Wertung bei festgefahrener Partie ----------------
@@ -2941,12 +3137,22 @@ var AI = (function () {
 
   /* Gleiche Kette wie im Regelwerk: Vermögen, Figuren, Holz, Spielerreihenfolge. */
   function adjudicationScore(s, me) {
-    var mine = [wealthOf(s, me), piecesOf(s, me), s.wood[me], -me];
-    var best = null;
+    /* Gewertet wird je Mannschaft, wie im Regelwerk: Vermögen, Figuren und
+       Holz der Mitglieder zusammen. */
+    var proTeam = {};
     for (var p = 0; p < s.np; p++) {
-      if (p === me || !s.alive[p]) continue;
-      var other = [wealthOf(s, p), piecesOf(s, p), s.wood[p], -p];
-      if (!best || cmp(other, best) > 0) best = other;
+      if (!s.alive[p]) continue;
+      var t = s.team[p];
+      var e = proTeam[t] || (proTeam[t] = [0, 0, 0, -t]);
+      e[0] += wealthOf(s, p);
+      e[1] += piecesOf(s, p);
+      e[2] += s.wood[p];
+    }
+    var mine = proTeam[s.team[me]] || [0, 0, 0, -s.team[me]];
+    var best = null;
+    for (var tk in proTeam) {
+      if (+tk === s.team[me]) continue;
+      if (!best || cmp(proTeam[tk], best) > 0) best = proTeam[tk];
     }
     if (!best) return WIN;
     var d = cmp(mine, best);
@@ -3031,13 +3237,12 @@ var AI = (function () {
   function quiesce(s, player, alpha, beta, ctx, qd) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me;
-    if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + qd;
-    var others = 0;
-    for (var p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
-    if (!others) return WIN - qd;
+    if (!seiteLebt(s, me)) return -WIN + qd;
+    if (!gegnerLeben(s, me)) return WIN - qd;
 
     var stand = evaluate(s, me, ctx);
-    var isMe = (player === me);
+    // Verbündete ziehen für dieselbe Seite – sie maximieren mit
+    var isMe = allied(s, player, me);
     if (qd >= 4) return stand;
     if (isMe) { if (stand >= beta) return stand; if (stand > alpha) alpha = stand; }
     else { if (stand <= alpha) return stand; if (stand < beta) beta = stand; }
@@ -3068,10 +3273,8 @@ var AI = (function () {
   function alphabeta(s, player, depth, alpha, beta, ctx, ply, stall) {
     if (timeUp(ctx)) return 0;
     var me = ctx.me, p;
-    if (!s.alive[me] || s.kingAt[me] < 0) return -WIN + ply;
-    var others = 0;
-    for (p = 0; p < s.np; p++) if (p !== me && s.alive[p]) others++;
-    if (!others) return WIN - ply;
+    if (!seiteLebt(s, me)) return -WIN + ply;
+    if (!gegnerLeben(s, me)) return WIN - ply;
     // Festgefahren: das Regelwerk wertet aus, danach ist die Partie vorbei
     if (stall >= ctx.stallLimit) return adjudicationScore(s, me);
     if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0);
@@ -3085,7 +3288,7 @@ var AI = (function () {
     }
     orderMoves(s, moves, ctx, 0);
 
-    var isMe = (player === me);
+    var isMe = allied(s, player, me);   // die eigene Seite maximiert
     var best = isMe ? -INF : INF;
     for (var i = 0; i < moves.length; i++) {
       var mv = moves[i];
@@ -3321,25 +3524,40 @@ var AI = (function () {
     var pl = state.players[p];
     if (pl.__home !== undefined && pl.__home !== null) return pl.__home;
 
-    var taken = [];
+    /* Gegner weit weg, Verbündete in Reichweite: In einer Mannschaft ist eine
+       gemeinsame Ecke mehr wert als der eigene Platz. */
+    var teams = state.teams;
+    function verbuendet(a, b) { return a === b || (!!teams && teams[a] === teams[b]); }
+    var taken = [], mates = [];
     state.players.forEach(function (o) {
-      if (o.__home !== undefined && o.__home !== null) taken.push(o.__home);
+      if (o.__home === undefined || o.__home === null) return;
+      if (verbuendet(o.index, p)) mates.push(o.__home);
+      else taken.push(o.__home);
     });
 
-    var space = new Int32Array(n), i, j;
-    for (i = 0; i < n; i++) {
-      if (state.board.cells[keys[i]].terrain !== 'grass') continue;
-      for (j = 0; j < n; j++) {
-        if (geo.dist[i * n + j] <= 2 && state.board.cells[keys[j]].terrain === 'grass') space[i]++;
+    /* Wie viel Land liegt um ein Feld herum? Das hängt nur am Brett, nicht am
+       Spieler – bei acht Spielern wäre es sonst achtmal dieselbe Rechnung über
+       alle Feldpaare. */
+    var space = state.board.__space, i, j;
+    if (!space || space.length !== n) {
+      space = new Int32Array(n);
+      for (i = 0; i < n; i++) {
+        if (state.board.cells[keys[i]].terrain !== 'grass') continue;
+        for (j = 0; j < n; j++) {
+          if (geo.dist[i * n + j] <= 2 && state.board.cells[keys[j]].terrain === 'grass') space[i]++;
+        }
       }
+      state.board.__space = space;
     }
     var best = -1, bestScore = -1e9;
     for (i = 0; i < n; i++) {
       if (state.board.cells[keys[i]].terrain !== 'grass') continue;
-      var far = 99;
-      for (var t = 0; t < taken.length; t++) far = Math.min(far, geo.dist[i * n + taken[t]]);
+      var far = 99, nah = 99, t;
+      for (t = 0; t < taken.length; t++) far = Math.min(far, geo.dist[i * n + taken[t]]);
+      for (t = 0; t < mates.length; t++) nah = Math.min(nah, geo.dist[i * n + mates[t]]);
       if (far === 99) far = 10;
-      var score = space[i] * 5 + Math.min(far, 9) * 14 + Math.random() * 10;
+      var zusammen = (nah === 99) ? 0 : -Math.abs(nah - 4) * 9;
+      var score = space[i] * 5 + Math.min(far, 9) * 14 + zusammen + Math.random() * 10;
       if (score > bestScore) { bestScore = score; best = i; }
     }
     pl.__home = best;
@@ -3367,15 +3585,20 @@ var AI = (function () {
     for (var i = 0; i < n; i++) {
       var c = state.board.cells[keys[i]];
       if (!G.canPlaceKing(state, c)) continue;
-      var trees = 0, freeN = 0, foe = 99, j;
+      var trees = 0, freeN = 0, foe = 99, mate = 99, j;
       for (j = 0; j < n; j++) {
         var d = geo.dist[i * n + j], o = state.board.cells[keys[j]];
         if (o.tree && d <= 3) trees += (4 - d);
         if (d === 1 && o.terrain === 'grass' && !o.tree && !o.piece) freeN++;
-        if (o.piece && o.piece.type === 'king') foe = Math.min(foe, d);
+        if (o.piece && o.piece.type === 'king') {
+          // Vom Gegner weg, zum Verbündeten hin – aber nicht auf den Schoß
+          if (G.allied(state.teams, o.piece.owner, p)) mate = Math.min(mate, d);
+          else foe = Math.min(foe, d);
+        }
       }
       if (foe === 99) foe = 12;
-      var score = trees * 9 + freeN * 20 + Math.min(foe, 9) * 10
+      var zusammen = (mate === 99) ? 0 : -Math.abs(mate - 4) * 7;
+      var score = trees * 9 + freeN * 20 + Math.min(foe, 9) * 10 + zusammen
                 - geo.dist[home * n + i] * 6 + Math.random() * 8;
       if (score > bestScore) { bestScore = score; best = c; }
     }
@@ -4354,25 +4577,101 @@ var Render = (function () {
     });
   }
 
+  /* Spielt hier überhaupt jemand in einer Mannschaft? Bei "jeder für sich" ist
+     jeder seine eigene – dann bleibt jede Anzeige, wie sie immer war. */
+  function imTeam() {
+    if (!state || !state.teams) return false;
+    var seen = {};
+    for (var i = 0; i < state.teams.length; i++) seen[state.teams[i]] = true;
+    return Object.keys(seen).length < state.teams.length;
+  }
+
   /* ---------------- Startmenü ---------------- */
+
+  /* Wie viele Mannschaften zur Wahl stehen. Mehr als vier braucht niemand:
+     Wer acht Spieler in acht Lager stellt, spielt "jeder für sich". */
+  function teamAuswahl(count) { return Math.max(2, Math.min(4, count - 1)); }
+
+  /* Voreinstellung beim Umschalten auf Mannschaften: die erste Hälfte gegen
+     die zweite – also 2 gegen 2, 3 gegen 3, bei ungerader Zahl 2 gegen 1. */
+  function standardTeams(count) {
+    var haelfte = Math.ceil(count / 2), out = [];
+    for (var i = 0; i < count; i++) out.push(i < haelfte ? 0 : 1);
+    return out;
+  }
+
+  /* Die aktuell eingestellten Mannschaften. "Jeder für sich" heißt: jeder ist
+     seine eigene – dann rechnet das Spiel wie in jeder bisherigen Partie. */
+  function teamsAusMenue(count) {
+    if ($('#game-mode').value !== 'teams') {
+      var frei = [];
+      for (var j = 0; j < count; j++) frei.push(j);
+      return frei;
+    }
+    var teams = [], vor = standardTeams(count);
+    for (var i = 0; i < count; i++) {
+      var sel = document.getElementById('pteam' + i);
+      teams.push(sel ? +sel.value : vor[i]);
+    }
+    return teams;
+  }
+
+  /* Wie die Aufstellung heißt: "2 gegen 2", "3 gegen 1 gegen 1" – die
+     Mannschaftsgrößen der Reihe nach. */
+  function aufstellungText(teams) {
+    var groessen = {};
+    teams.forEach(function (t) { groessen[t] = (groessen[t] || 0) + 1; });
+    return Object.keys(groessen)
+      .map(function (k) { return groessen[k]; })
+      .sort(function (a, b) { return b - a; })
+      .join(' gegen ');
+  }
 
   function buildMenu() {
     var wrap = $('#player-fields');
-    function render() {
+
+    function render(behalteTeams) {
       var count = +$('#player-count').value;
       var cfg = G.SETUP[count];
-      var previous = [];
-      for (var q = 0; q < 4; q++) {
+      var mitTeams = $('#game-mode').value === 'teams';
+      var maxPlayers = G.MAX_PLAYERS || 8;
+
+      // Eingestellte Gegner und Mannschaften über das Neuzeichnen retten
+      var previous = [], vorTeams = behalteTeams || [];
+      for (var q = 0; q < maxPlayers; q++) {
         var sel = document.getElementById('pkind' + q);
         previous[q] = sel ? sel.value : (q === 0 ? 'mensch' : 'normal');
+        if (!behalteTeams) {
+          var ts = document.getElementById('pteam' + q);
+          if (ts) vorTeams[q] = +ts.value;
+        }
       }
+      var vorgabe = standardTeams(count);
+      var teams = [];
+      for (var t = 0; t < count; t++) {
+        teams.push(mitTeams
+          ? (vorTeams[t] === undefined ? vorgabe[t] : Math.min(vorTeams[t], teamAuswahl(count) - 1))
+          : t);
+      }
+      var farben = G.colorsFor(teams);
+
       wrap.innerHTML = '';
       for (var i = 0; i < count; i++) {
-        var c = G.COLORS[i];
         var row = document.createElement('label');
         row.className = 'player-field';
-        row.innerHTML = '<span class="swatch" style="background:' + c.hex + '"></span>' +
+        var teamSel = '';
+        if (mitTeams) {
+          teamSel = '<select id="pteam' + i + '" class="team-select">';
+          for (var k = 0; k < teamAuswahl(count); k++) {
+            teamSel += '<option value="' + k + '"' + (teams[i] === k ? ' selected' : '') + '>' +
+              esc(G.TEAM_COLORS[k].name) + '</option>';
+          }
+          teamSel += '</select>';
+        }
+        row.innerHTML = '<span class="swatch" id="pswatch' + i + '" style="background:' +
+            farben[i].hex + '" title="' + esc(farben[i].name) + '"></span>' +
           '<input type="text" id="pname' + i + '" value="Spieler ' + (i + 1) + '" maxlength="16">' +
+          teamSel +
           '<select id="pkind' + i + '" class="kind-select">' +
             '<option value="mensch">Mensch</option>' +
             '<option value="leicht">KI leicht</option>' +
@@ -4381,11 +4680,26 @@ var Render = (function () {
           '</select>';
         wrap.appendChild(row);
         document.getElementById('pkind' + i).value = previous[i];
+        if (mitTeams) {
+          document.getElementById('pteam' + i).addEventListener('change', function () {
+            render(teamsAusMenue(+$('#player-count').value));
+          });
+        }
       }
-      $('#setup-info').textContent =
-        cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' + cfg.trees + ' Bäume gesamt';
+
+      var info = cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' +
+                 cfg.trees + ' Bäume gesamt';
+      if (mitTeams) info = aufstellungText(teams) + ' · ' + info;
+      var einLager = mitTeams && teams.every(function (x) { return x === teams[0]; });
+      $('#setup-info').textContent = einLager
+        ? 'Alle in einer Mannschaft – dann gibt es keinen Gegner.'
+        : info;
+      $('#setup-info').className = 'hint' + (einLager ? ' warn' : '');
+      $('#start-game').disabled = einLager;
     }
-    $('#player-count').addEventListener('change', render);
+
+    $('#player-count').addEventListener('change', function () { render(); });
+    $('#game-mode').addEventListener('change', function () { render(); });
     render();
 
     $('#start-game').addEventListener('click', function () {
@@ -4396,13 +4710,13 @@ var Render = (function () {
         var kind = $('#pkind' + i).value;
         kinds.push(kind === 'mensch' ? null : kind);
       }
-      startGame(names, kinds);
+      startGame(names, kinds, teamsAusMenue(count));
     });
   }
 
-  function startGame(names, kinds) {
+  function startGame(names, kinds, teams) {
     beendeDenker();
-    state = G.create(names, kinds);
+    state = G.create(names, kinds, teams);
     ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null,
            thinking: false, shownEvent: 0, woodShown: null,
            sheetOpen: false, sheetAuto: false, sheetMove: null };
@@ -4415,6 +4729,9 @@ var Render = (function () {
       ladeAnsicht();
       attachBoardEvents();
     }
+    /* Erst die Spielerzeile zeichnen, dann einpassen: Ihre Höhe bestimmt am
+       Handy, wie viel Platz dem Brett bleibt. */
+    renderPlayers();
     // Der Blickwinkel gehört dem Spieler: Jede Partie beginnt so, wie er das
     // Brett zuletzt hingestellt hat.
     Render.setCamera(view, ansicht.pitch, ansicht.yaw);
@@ -4946,6 +5263,8 @@ var Render = (function () {
       if (state.phase === 'trees') extra = p.treesLeft + ' Bäume übrig';
       else if (p.eliminated) extra = 'ausgeschieden';
       else extra = G.pieceCount(state, p.index) + ' Figuren';
+      // In einer Mannschaft steht dabei, für wen gespielt wird
+      if (imTeam()) extra += ' · ' + esc(G.teamName(state, state.teams[p.index]));
       var tag = p.ai ? ' <span class="ai-tag">KI ' + p.ai + '</span>' : '';
       return '<div class="' + cls + '" style="--pc:' + p.color + '">' +
         '<span class="swatch"></span>' +
@@ -4956,6 +5275,23 @@ var Render = (function () {
         '</div>';
     }).join('');
     $('#players').innerHTML = html;
+    misseKopf();
+  }
+
+  /* Am Handy liegen die Spielerchips über dem Brett. Bei acht Spielern brechen
+     sie auf zwei Reihen um – Statuszeile und Brett müssen dann tiefer anfangen,
+     sonst schreibt das eine über das andere. Die gemessene Höhe steht als
+     CSS-Variable bereit, damit das Ausweichen im Stylesheet passiert. */
+  function misseKopf() {
+    var el = $('#players');
+    if (!el) return;
+    var h = Math.round(el.getBoundingClientRect().height);
+    if (h && h !== kopfHoehe) {
+      kopfHoehe = h;
+      document.documentElement.style.setProperty('--kopf', h + 'px');
+      return true;
+    }
+    return false;
   }
 
   // Kurztext auf dem Knopf: warum geht die Einheit gerade nicht?
@@ -5053,14 +5389,20 @@ var Render = (function () {
     if (state.phase === 'over') {
       // Bei einer Wertung steht der Grund direkt in der Kopfzeile – sonst wirkt
       // ein Sieg mit noch stehendem Gegner-Turm wie ein Fehler.
-      banner.innerHTML = state.winner !== null
+      // Gewonnen hat immer eine Mannschaft – bei "jeder für sich" ist das ein Spieler
+      var siegName = (state.winnerTeam !== null && state.winnerTeam !== undefined)
+        ? G.teamName(state, state.winnerTeam)
+        : (state.winner !== null ? state.players[state.winner].name : null);
+      banner.innerHTML = siegName
         ? '<strong style="color:' + state.players[state.winner].color + '">' +
-          esc(state.players[state.winner].name) + '</strong> gewinnt' +
+          esc(siegName) + '</strong> gewinnt' +
           (state.endReason ? ' nach Wertung · ' + esc(state.endReason) : ' – Königs-Turm geschlagen!')
         : 'Das Spiel ist beendet.';
       var grund = state.endReason
         ? '<p class="hint">' + esc(state.endReason) + ' – gewertet wurde nach Vermögen: ' +
-          'Holzvorrat plus das Holz, das in den Figuren steckt.</p>' +
+          'Holzvorrat plus das Holz, das in den Figuren steckt.' +
+          (imTeam() ? ' In einer Mannschaft zählt zusammen, was die Mitglieder besitzen.' : '') +
+          '</p>' +
           '<ul class="score-list">' + state.players.map(function (pl) {
             return '<li><span class="dot" style="background:' + pl.color + '"></span>' +
               esc(pl.name) + ': <strong>' + G.wealth(state, pl.index) + '</strong> Holz' +
@@ -5355,7 +5697,9 @@ var Render = (function () {
   function reinerZustand(state) {
     var rein = {};
     for (var k in state) if (k !== 'board') rein[k] = state[k];
-    rein.board = { cells: state.board.cells, keys: state.board.keys, tiles: state.board.tiles };
+    // teams gehört mit: ohne sie hielte der Faden Verbündete für Gegner
+    rein.board = { cells: state.board.cells, keys: state.board.keys,
+                   tiles: state.board.tiles, teams: state.board.teams };
     return rein;
   }
 
@@ -5412,6 +5756,7 @@ var Render = (function () {
      In der Aufbauphase bleibt es zügig: 30 Bäume mit je einer Sekunde wären
      eine halbe Minute Zuschauen. */
   var MIN_THINK = 1000;
+  var kopfHoehe = 0;      // Höhe der Spielerzeile am Handy
 
   function scheduleAI() {
     if (ui.thinking || !aiLevel()) return;

@@ -91,6 +91,9 @@ select, input[type=text] {
 select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offset: 1px; }
 .player-field { display: flex; align-items: center; gap: 9px; margin-bottom: 8px; }
 .player-field .swatch { width: 16px; height: 16px; border-radius: 4px; flex: 0 0 auto; }
+/* Mannschaftswahl: schmaler als die Gegnerwahl, sie trägt nur eine Farbe */
+.team-select { width: 92px; flex: 0 0 auto; padding: 8px 6px; font-size: 13px; }
+.primary-btn:disabled { opacity: .45; cursor: not-allowed; }
 .color-name { font-size: 12px; color: var(--muted); width: 52px; flex: 0 0 auto; }
 .kind-select { width: 108px; flex: 0 0 auto; padding: 8px 6px; font-size: 13px; }
 .player-field input[type=text] { min-width: 0; }
@@ -440,7 +443,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   /* Das Brett bekommt genau die freie Fläche: unter der Kopfzeile aus Chips und
      Hinweis, über der Bedienleiste. Sonst läge das halbe Spielfeld darunter –
      und das Einpassen rechnete mit Platz, den es nicht gibt. */
-  .board { top: 78px; bottom: 54px; }
+  /* Die Spielerzeile bricht bei vielen Spielern um; ihre gemessene Höhe steht
+     in --kopf (siehe ui.js). Statuszeile und Brett weichen entsprechend aus. */
+  .board { top: calc(var(--kopf, 34px) + 44px); bottom: 54px; }
   .legend { display: none; }
 
   /* Die Seitenleiste wird zur durchsichtigen Ebene über dem Brett; nur ihre
@@ -455,11 +460,13 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .players {
     position: absolute; top: 8px; left: 8px; right: 8px; z-index: 2;
     flex-direction: row; justify-content: center; gap: 6px;
+    /* bis zu acht Spieler: die Zeile darf umbrechen, statt hinauszulaufen */
+    flex-wrap: wrap;
     padding: 0; background: none; border: 0; overflow: visible;
     pointer-events: auto;
   }
   .player-card {
-    flex: 0 0 auto; min-width: 0; gap: 6px; padding: 5px 10px; border-radius: 999px;
+    flex: 0 0 auto; min-width: 0; gap: 5px; padding: 4px 9px; border-radius: 999px;
     display: flex; align-items: center; border-left-width: 1px;
     background: rgba(24, 28, 34, .92);
   }
@@ -468,7 +475,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .player-card .wood { font-size: 14px; }
   .player-card.is-current { box-shadow: 0 0 0 2px var(--pc) inset; }
 
-  .phase-banner { top: 44px; font-size: 13px; padding: 6px 12px; }
+  .phase-banner { top: calc(var(--kopf, 34px) + 12px); font-size: 13px; padding: 6px 12px; }
 
   /* Die Kamerasteuerung ist eingeklappt, bis man sie über die Leiste aufruft */
   .board-hud {

@@ -1,27 +1,57 @@
 # Hexodus
 
-Das Hexagon-Strategiespiel als Website – für 2–4 Spieler im Hotseat-Modus an einem Gerät.
+Das Hexagon-Strategiespiel als Website – für 2 bis 8 Spieler im Hotseat-Modus an einem
+Gerät, einzeln oder in Mannschaften.
 Reine HTML/CSS/JavaScript-Umsetzung ohne Build-Schritt und ohne Abhängigkeiten:
 `index.html` im Browser öffnen und loslegen.
 
 ## Spielablauf
 
 1. **Spielfeld** – Aus zufällig aneinandergelegten 7er-Hexagon-Plättchen entsteht das Brett
-   (10 / 20 / 25 Plättchen bei 2 / 3 / 4 Spielern). Jedes Plättchen enthält Gras- und
+   (10 Plättchen bei 2 Spielern, dann 20, 25 und je 5 mehr bis 45 bei 8). Jedes enthält Gras- und
    Wasserfelder. Ringsum legt sich ein **zwei Felder dicker Wasserrand**: Das Brett hört
    damit nicht an einer geraden Kante auf, sondern liegt als Insel im Meer.
 2. **Bäume platzieren** – Alle Spieler setzen reihum je einen Baum, bis alle verteilt sind
-   (30 / 45 / 60 Bäume, gleichmäßig aufgeteilt). Wer keine Lust auf 30 Klicks hat, nutzt
+   (15 Bäume je Spieler, gleichmäßig aufgeteilt). Wer keine Lust auf 30 Klicks hat, nutzt
    *„Restliche Bäume zufällig setzen“*.
 3. **Turm & Arbeiter** – Danach setzt jeder seinen Königs-Turm und daneben seinen Arbeiter.
    Der letzte Spieler, der seinen Turm setzt, beginnt.
 4. **Partie** – Pro Zug **genau eine** Aktion: bewegen, schießen, drehen oder ausbilden.
    Wer den Königs-Turm eines Gegners schlägt, entfernt dessen komplette Armee vom Feld und
-   erbeutet sein Holz. Wer als Letzter steht, gewinnt.
+   erbeutet sein Holz. Wer als Letzter steht, gewinnt – in Mannschaften die letzte
+   Mannschaft, die noch steht.
 
 Holz kommt ausschließlich aus gefällten Bäumen und bezahlt jede neue Einheit.
 Ausgebildet wird auf freien Feldern rund um den Königs-Turm und um alle Einheiten,
 die über eine lückenlose Kette mit ihm verbunden sind.
+
+### Mannschaften
+
+Gespielt wird zu **zwei bis acht**, jeder für sich oder in **Mannschaften**: 2 gegen 2,
+3 gegen 3, 4 gegen 4 – und ebenso ungleich, etwa 3 gegen 1. Die Aufstellung steht im
+Startmenü; jeder Spieler wählt dort seine Mannschaft.
+
+Jede Mannschaft hat eine **Farbfamilie**, innerhalb der sich die Spieler durch die Helligkeit
+unterscheiden: Team Blau spielt in Blau, Hellblau, Dunkelblau und Blassblau. Wer zusammen
+gehört, ist damit auf einen Blick zu sehen, bleibt aber einzeln unterscheidbar. Grün fehlt
+mit Absicht – das ist die Wiese.
+
+Für die Regeln heißt Mannschaft:
+
+* Verbündete **schlägt man nicht**, weder im Zug noch mit dem Bogenschützen. Sie versperren
+  einander den Weg wie eigene Figuren.
+* Der **Tangolin springt über Verbündete** wie über eigene Einheiten.
+* Die **Versorgungskette bleibt jedem selbst überlassen**: Ausgebildet wird nur am eigenen
+  Turm und am eigenen Feldzeichen. Jeder wirtschaftet für sich – eine Mannschaft ist ein
+  Bündnis, keine gemeinsame Kasse.
+* Gewonnen hat die **letzte Mannschaft**, die noch steht. Fällt ein Turm, scheidet nur dieser
+  Spieler aus; seine Mannschaft spielt weiter. Wer den Turm schlägt, erbeutet dessen Holz.
+* Bei einer Wertung zählt das **Vermögen der Mannschaft** zusammen.
+
+Spielt jeder für sich, ist jeder Spieler seine eigene Mannschaft – dann rechnet und spielt
+alles wie zuvor. Auch die KI kennt die Aufstellung: Ihre Suche lässt Verbündete für dieselbe
+Seite maximieren statt gegeneinander, sie bewertet Mannschaft gegen Mannschaft, und beim
+Aufbau stellt sie ihren Turm in die Nähe der eigenen Leute und weg von den Gegnern.
 
 ### Beute
 
@@ -446,6 +476,7 @@ test/boot.js        Boot-Regeln inklusive des Beispiels von der Regelkarte
 test/beute.js       Beute beim Schlagen
 test/tangolin.js    Kettensprung: Sprungbretter, Sperren, Landeplätze
 test/versorgung.js  Feldzeichen: der Zenturio als zweiter Anker der Kette
+test/team.js        Mannschaften: Verbündete, Farbfamilien, gemeinsamer Sieg
 test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
 test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
 test/jagd.js        KI gegen einen Gegner, der gezielt den Turm jagt
@@ -513,6 +544,7 @@ node test/boot.js               # Boot-Regeln gegen die Regelkarte
 node test/beute.js              # Beute beim Schlagen
 node test/tangolin.js           # Sprungregeln des Tangolins
 node test/versorgung.js         # Feldzeichen des Zenturios als zweiter Anker
+node test/team.js               # Mannschaften: Regeln, Farben, Sieg
 node test/ki.js                 # KI-Zuggenerierung gegen das Regelwerk
 node test/simulate.js 100       # komplette Zufallspartien
 node test/kispiel.js 10         # Spielstärke der KI
