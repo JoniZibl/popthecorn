@@ -254,19 +254,32 @@ var Moves = (function () {
   }
 
   /* Versorgungskette: alle eigenen Einheiten, die über eine lückenlose Kette
-     von Nachbarfeldern mit dem Königs-Turm verbunden sind – und die Verbindungen
-     dazwischen. Nur an dieser Kette darf ausgebildet werden. */
+     von Nachbarfeldern mit einem Anker verbunden sind – und die Verbindungen
+     dazwischen. Nur an dieser Kette darf ausgebildet werden.
+
+     Anker sind zwei: der Königs-Turm und der Zenturio. Der Zenturio trägt das
+     Feldzeichen, und wo das steht, ist Nachschub – auch wenn die Kette zum
+     eigenen Turm längst gerissen ist. Aus der teuersten Figur wird damit ein
+     vorgeschobener Stützpunkt, und wer ihn schlägt, kappt dem Gegner die
+     Versorgung an der Front. Ohne Turm gibt es keine Kette: Wer seinen Turm
+     verliert, ist ohnehin aus dem Spiel. */
   function supplyChain(board, owner) {
-    var kingKey = null;
+    var kingKey = null, zentKey = null;
     for (var i = 0; i < board.keys.length; i++) {
       var c = board.cells[board.keys[i]];
-      if (c.piece && c.piece.owner === owner && c.piece.type === 'king') { kingKey = board.keys[i]; break; }
+      if (!c.piece || c.piece.owner !== owner) continue;
+      if (c.piece.type === 'king') kingKey = board.keys[i];
+      else if (c.piece.type === 'zenturio') zentKey = board.keys[i];
     }
-    if (!kingKey) return { cells: [], links: [], king: null };
+    if (!kingKey) return { cells: [], links: [], king: null, zenturio: null };
 
-    var cluster = {}, queue = [board.cells[kingKey]], cells = [], links = [];
-    cluster[kingKey] = true;
-    cells.push(board.cells[kingKey]);
+    var cluster = {}, queue = [], cells = [], links = [];
+    [kingKey, zentKey].forEach(function (k) {
+      if (!k || cluster[k]) return;
+      cluster[k] = true;
+      cells.push(board.cells[k]);
+      queue.push(board.cells[k]);
+    });
     while (queue.length) {
       var cur = queue.shift();
       var curKey = H.key(cur.q, cur.r);
@@ -279,7 +292,11 @@ var Moves = (function () {
         if (curKey < k) links.push([cur, cell]);
       });
     }
-    return { cells: cells, links: links, king: board.cells[kingKey] };
+    return {
+      cells: cells, links: links,
+      king: board.cells[kingKey],
+      zenturio: zentKey ? board.cells[zentKey] : null
+    };
   }
 
   /* Felder, auf denen ein Spieler ausbilden darf:

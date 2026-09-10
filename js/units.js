@@ -106,11 +106,16 @@ var Units = (function () {
     },
     zenturio: {
       id: 'zenturio', name: 'Zenturio', cost: 3, trainable: true, directional: false, unique: true,
-      short: 'Läuft beliebig weit in jede Richtung. Nur einmal pro Spiel.',
+      short: 'Läuft beliebig weit in jede Richtung und trägt das Feldzeichen. Nur einmal pro Spiel.',
       text: 'Der Zenturio ist die stärkste Figur im Spiel. Er kostet drei Holz und kann in jede Richtung ' +
-            'so weit es geht laufen.',
+            'so weit es geht laufen. Er trägt außerdem das Feldzeichen: An ihm darf ausgebildet werden ' +
+            'wie am Königs-Turm.',
       bullets: [
         'Der Zenturio kann nicht über Bäume springen, er darf allerdings in jede Richtung laufen.',
+        'Er ist der zweite Anker deiner Versorgungskette: An ihm und an allen Einheiten, die über eine ' +
+          'lückenlose Kette an ihm hängen, darf ausgebildet werden – auch wenn die Verbindung zum ' +
+          'eigenen Turm gerissen ist.',
+        'Damit ist er ein vorgeschobener Stützpunkt. Wer ihn schlägt, kappt dem Gegner den Nachschub.',
         'Beachte, dass jeder Spieler den Zenturio nur einmal pro Spiel ausbilden darf.'
       ]
     }

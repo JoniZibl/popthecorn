@@ -321,6 +321,13 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   stroke-dasharray: 2 9; pointer-events: none;
 }
 
+/* Anker der Versorgungskette: der Königs-Turm ist als solcher zu erkennen,
+   das Feldzeichen des Zenturios bekommt denselben gepunkteten Faden als Ring. */
+.supply-anchor {
+  fill: none; stroke-width: 3; opacity: .5;
+  stroke-dasharray: 2 9; pointer-events: none;
+}
+
 /* Der letzte Zug bleibt sichtbar – sonst weiß man nicht, was die KI getan hat */
 .last-move { fill: none; pointer-events: none; }
 .last-from { stroke: rgba(255, 255, 255, .38); stroke-width: 2.5; stroke-dasharray: 7 6; }
@@ -704,6 +711,12 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
         über eine <strong>lückenlose Kette</strong> mit ihm verbunden sind. Die Kette ist auf
         dem Brett als gepunktete Linie in deiner Farbe zu sehen. Wer seine Figuren zu weit
         auseinanderzieht, verliert die Verbindung – und kann vorn nichts mehr nachschieben.</p>
+      <p>Der <strong>Zenturio trägt das Feldzeichen</strong> und ist der zweite Anker dieser
+        Kette: An ihm und an allem, was über eine lückenlose Kette an ihm hängt, darf
+        ausgebildet werden – auch wenn die Verbindung zum eigenen Turm gerissen ist. Ein
+        gepunkteter Ring markiert ihn auf dem Brett. Damit ist die teuerste Figur des Spiels
+        ein vorgeschobener Stützpunkt, und wer sie schlägt, kappt dem Gegner den Nachschub
+        an der Front.</p>
     </section>
 
     <section class="rule-block">
@@ -954,11 +967,16 @@ var Units = (function () {
     },
     zenturio: {
       id: 'zenturio', name: 'Zenturio', cost: 3, trainable: true, directional: false, unique: true,
-      short: 'Läuft beliebig weit in jede Richtung. Nur einmal pro Spiel.',
+      short: 'Läuft beliebig weit in jede Richtung und trägt das Feldzeichen. Nur einmal pro Spiel.',
       text: 'Der Zenturio ist die stärkste Figur im Spiel. Er kostet drei Holz und kann in jede Richtung ' +
-            'so weit es geht laufen.',
+            'so weit es geht laufen. Er trägt außerdem das Feldzeichen: An ihm darf ausgebildet werden ' +
+            'wie am Königs-Turm.',
       bullets: [
         'Der Zenturio kann nicht über Bäume springen, er darf allerdings in jede Richtung laufen.',
+        'Er ist der zweite Anker deiner Versorgungskette: An ihm und an allen Einheiten, die über eine ' +
+          'lückenlose Kette an ihm hängen, darf ausgebildet werden – auch wenn die Verbindung zum ' +
+          'eigenen Turm gerissen ist.',
+        'Damit ist er ein vorgeschobener Stützpunkt. Wer ihn schlägt, kappt dem Gegner den Nachschub.',
         'Beachte, dass jeder Spieler den Zenturio nur einmal pro Spiel ausbilden darf.'
       ]
     }
@@ -1382,19 +1400,32 @@ var Moves = (function () {
   }
 
   /* Versorgungskette: alle eigenen Einheiten, die über eine lückenlose Kette
-     von Nachbarfeldern mit dem Königs-Turm verbunden sind – und die Verbindungen
-     dazwischen. Nur an dieser Kette darf ausgebildet werden. */
+     von Nachbarfeldern mit einem Anker verbunden sind – und die Verbindungen
+     dazwischen. Nur an dieser Kette darf ausgebildet werden.
+
+     Anker sind zwei: der Königs-Turm und der Zenturio. Der Zenturio trägt das
+     Feldzeichen, und wo das steht, ist Nachschub – auch wenn die Kette zum
+     eigenen Turm längst gerissen ist. Aus der teuersten Figur wird damit ein
+     vorgeschobener Stützpunkt, und wer ihn schlägt, kappt dem Gegner die
+     Versorgung an der Front. Ohne Turm gibt es keine Kette: Wer seinen Turm
+     verliert, ist ohnehin aus dem Spiel. */
   function supplyChain(board, owner) {
-    var kingKey = null;
+    var kingKey = null, zentKey = null;
     for (var i = 0; i < board.keys.length; i++) {
       var c = board.cells[board.keys[i]];
-      if (c.piece && c.piece.owner === owner && c.piece.type === 'king') { kingKey = board.keys[i]; break; }
+      if (!c.piece || c.piece.owner !== owner) continue;
+      if (c.piece.type === 'king') kingKey = board.keys[i];
+      else if (c.piece.type === 'zenturio') zentKey = board.keys[i];
     }
-    if (!kingKey) return { cells: [], links: [], king: null };
+    if (!kingKey) return { cells: [], links: [], king: null, zenturio: null };
 
-    var cluster = {}, queue = [board.cells[kingKey]], cells = [], links = [];
-    cluster[kingKey] = true;
-    cells.push(board.cells[kingKey]);
+    var cluster = {}, queue = [], cells = [], links = [];
+    [kingKey, zentKey].forEach(function (k) {
+      if (!k || cluster[k]) return;
+      cluster[k] = true;
+      cells.push(board.cells[k]);
+      queue.push(board.cells[k]);
+    });
     while (queue.length) {
       var cur = queue.shift();
       var curKey = H.key(cur.q, cur.r);
@@ -1407,7 +1438,11 @@ var Moves = (function () {
         if (curKey < k) links.push([cur, cell]);
       });
     }
-    return { cells: cells, links: links, king: board.cells[kingKey] };
+    return {
+      cells: cells, links: links,
+      king: board.cells[kingKey],
+      zenturio: zentKey ? board.cells[zentKey] : null
+    };
   }
 
   /* Felder, auf denen ein Spieler ausbilden darf:
@@ -2297,9 +2332,14 @@ var AI = (function () {
     var ctx = { enemyKing: -1, enemyPiece: -1, fbuf: [] };
     var bestK = 1e9, bestP = 1e9, myKing = s.kingAt[p];
     var have = 0;                                   // Bitmaske der eigenen Figurentypen
+    var myZent = -1;                                // Feldzeichen: zweiter Anker der Kette
     for (i = 0; i < n; i++) {
       if (s.po[i] < 0) continue;
-      if (s.po[i] === p) { have |= (1 << s.pt[i]); continue; }
+      if (s.po[i] === p) {
+        have |= (1 << s.pt[i]);
+        if (s.pt[i] === T.zenturio) myZent = i;
+        continue;
+      }
       if (myKing >= 0) {
         var dd = geo.dist[myKing * n + i];
         if (s.pt[i] === T.king && dd < bestK) { bestK = dd; ctx.enemyKing = i; }
@@ -2421,7 +2461,7 @@ var AI = (function () {
     if (capturesOnly || myKing < 0) return out;
 
     // Ausbilden: freie Felder an der mit dem Turm verbundenen Kette
-    var spots = clusterSpots(s, p, genSpots);
+    var spots = clusterSpots(s, p, genSpots, myZent);
     if (!spots.length) return out;
     for (var t = 1; t < 8; t++) {
       if (COST[t] > s.wood[p]) continue;
@@ -2442,14 +2482,18 @@ var AI = (function () {
     return out;
   }
 
-  /* Freie Felder rund um die mit dem Königs-Turm verbundene Einheitenkette */
-  function clusterSpots(s, p, spots) {
+  /* Freie Felder rund um die Einheitenkette. Anker sind der Königs-Turm und –
+     als Träger des Feldzeichens – der Zenturio; `zent` ist sein Feld oder -1.
+     Beide Aufrufer kennen es aus einem Durchlauf, den sie ohnehin machen, damit
+     hier nicht in jedem Knoten das ganze Brett abgesucht werden muss. */
+  function clusterSpots(s, p, spots, zent) {
     spots = spots || [];
     spots.length = 0;
     var king = s.kingAt[p];
     if (king < 0) return spots;
     var nb = s.geo.nb, seen = {}, stack = [king], seenSpot = {};
     seen[king] = 1;
+    if (zent >= 0 && zent !== king && s.po[zent] === p) { seen[zent] = 1; stack.push(zent); }
     while (stack.length) {
       var cur = stack.pop();
       for (var d = 0; d < 6; d++) {
@@ -2702,8 +2746,8 @@ var AI = (function () {
     if (others === 0) return WIN;
 
     var atk = ctx.atk, mob = ctx.mob, sc = ctx.sc;
-    var occ = ctx.occ, trees = ctx.trees, workerAt = ctx.workerAt;
-    atk.fill(0); mob.fill(0); sc.fill(0); workerAt.fill(-1);
+    var occ = ctx.occ, trees = ctx.trees, workerAt = ctx.workerAt, zentAt = ctx.zentAt;
+    atk.fill(0); mob.fill(0); sc.fill(0); workerAt.fill(-1); zentAt.fill(-1);
 
     // Nur für die Analyse: Anteile der einzelnen Terme mitschreiben
     var parts = ctx.explain ? (ctx.parts = []) : null;
@@ -2721,6 +2765,7 @@ var AI = (function () {
       if (o >= 0 && s.alive[o]) {
         occ[nocc++] = i;
         if (s.pt[i] === T.worker) workerAt[o] = i;
+        else if (s.pt[i] === T.zenturio) zentAt[o] = i;
       }
     }
 
@@ -2848,7 +2893,7 @@ var AI = (function () {
       }
 
       // Kann überhaupt ausgebildet werden?
-      clusterSpots(s, p, evalSpots);
+      clusterSpots(s, p, evalSpots, zentAt[p]);
       var tr = evalSpots.length ? 20 + (evalSpots.length < 4 ? evalSpots.length : 4) * 7 : -90;
       sc[p] += tr;
       part(p, 'Ausbildungsfelder', tr);
@@ -3060,6 +3105,7 @@ var AI = (function () {
       aggression: aggression || 1,
       atk: new Int8Array(s.n * s.np), mob: new Int32Array(s.np),
       sc: new Float64Array(s.np), workerAt: new Int32Array(s.np),
+      zentAt: new Int32Array(s.np),
       occ: new Int32Array(s.n), trees: new Int32Array(s.n),
       history: new Int32Array(s.n * s.n), pool: [], qpool: []
     };
@@ -4145,6 +4191,22 @@ var Render = (function () {
           x2: b.x.toFixed(2), y2: b.y.toFixed(2), stroke: ctx.chainColor || '#fff'
         }));
       });
+    }
+
+    /* Der Zenturio trägt das Feldzeichen und ist selbst ein Anker der Kette.
+       Steht er allein vorn, hat er keine einzige Linie – ohne diesen Ring sähe
+       man ihm nicht an, dass hier Nachschub ist. */
+    if (ctx.chain && ctx.chain.zenturio) {
+      var zc = ctx.chain.zenturio;
+      var zp = H.toPixel(zc, SIZE), zz = surfaceZ(zc) + 0.8;
+      var zo = (view.anchors && view.anchors[H.key(zc.q, zc.r)]) || S.project(cam, zp.x, zp.y, zz);
+      var zg = el('g', { transform: 'translate(' + zo.x.toFixed(2) + ',' + zo.y.toFixed(2) + ')' });
+      zg.appendChild(el('polygon', {
+        class: 'supply-anchor',
+        points: pts(cam, disc(zp.x, zp.y, zz, SIZE * 0.8, 18), zo),
+        stroke: ctx.chainColor || '#fff'
+      }));
+      view.layers.overlay.appendChild(zg);
     }
 
     (ctx.markers || []).forEach(function (m) { drawMarker(view, state, m); });

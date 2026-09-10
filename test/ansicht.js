@@ -80,6 +80,11 @@ var landfrei = state.board.keys.filter(function (k) { return Board.isFree(state.
   if (c) c.piece = { type: paar[0], owner: 0, facing: paar[1] };
 });
 
+/* Der Zenturio gehört dem Spieler am Zug: Gezeichnet wird die Versorgungskette
+   von ihm, und nur dessen Feldzeichen bekommt seinen Ring. */
+var zentFeld = state.board.cells[landfrei[2]];
+if (zentFeld) zentFeld.piece = { type: 'zenturio', owner: state.current, facing: 0 };
+
 // ein Boot ins Wasser legen, damit auch das gezeichnet wird
 var wasser = state.board.keys.filter(function (k) { return state.board.cells[k].terrain === 'water'; });
 if (wasser.length) state.board.cells[wasser[0]].boat = true;
@@ -157,7 +162,13 @@ ok(view.cam.pitch === Render.TILT, 'das Brett startet in der Schrägsicht');
       if (cls === 'boat-hull') boote++;
       if (cls === 'hex-side') waende++;
     });
-    ok(figuren === 6, 'alle Figuren stehen auf dem Brett (' + figuren + ')');
+    ok(figuren === 7, 'alle Figuren stehen auf dem Brett (' + figuren + ')');
+
+    // Das Feldzeichen des Zenturios ist der zweite Anker der Versorgungskette
+    var ringe = alleKnoten(view.layers.overlay).filter(function (n) {
+      return (n.attrs['class'] || '') === 'supply-anchor';
+    });
+    ok(ringe.length === 1, 'der Zenturio trägt den Ring des Feldzeichens (' + ringe.length + ')');
 
     var pfeile = 0, schilder = 0;
     alleKnoten(view.layers.scene).forEach(function (n) {

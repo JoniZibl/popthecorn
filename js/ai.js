@@ -256,9 +256,14 @@ var AI = (function () {
     var ctx = { enemyKing: -1, enemyPiece: -1, fbuf: [] };
     var bestK = 1e9, bestP = 1e9, myKing = s.kingAt[p];
     var have = 0;                                   // Bitmaske der eigenen Figurentypen
+    var myZent = -1;                                // Feldzeichen: zweiter Anker der Kette
     for (i = 0; i < n; i++) {
       if (s.po[i] < 0) continue;
-      if (s.po[i] === p) { have |= (1 << s.pt[i]); continue; }
+      if (s.po[i] === p) {
+        have |= (1 << s.pt[i]);
+        if (s.pt[i] === T.zenturio) myZent = i;
+        continue;
+      }
       if (myKing >= 0) {
         var dd = geo.dist[myKing * n + i];
         if (s.pt[i] === T.king && dd < bestK) { bestK = dd; ctx.enemyKing = i; }
@@ -380,7 +385,7 @@ var AI = (function () {
     if (capturesOnly || myKing < 0) return out;
 
     // Ausbilden: freie Felder an der mit dem Turm verbundenen Kette
-    var spots = clusterSpots(s, p, genSpots);
+    var spots = clusterSpots(s, p, genSpots, myZent);
     if (!spots.length) return out;
     for (var t = 1; t < 8; t++) {
       if (COST[t] > s.wood[p]) continue;
@@ -401,14 +406,18 @@ var AI = (function () {
     return out;
   }
 
-  /* Freie Felder rund um die mit dem Königs-Turm verbundene Einheitenkette */
-  function clusterSpots(s, p, spots) {
+  /* Freie Felder rund um die Einheitenkette. Anker sind der Königs-Turm und –
+     als Träger des Feldzeichens – der Zenturio; `zent` ist sein Feld oder -1.
+     Beide Aufrufer kennen es aus einem Durchlauf, den sie ohnehin machen, damit
+     hier nicht in jedem Knoten das ganze Brett abgesucht werden muss. */
+  function clusterSpots(s, p, spots, zent) {
     spots = spots || [];
     spots.length = 0;
     var king = s.kingAt[p];
     if (king < 0) return spots;
     var nb = s.geo.nb, seen = {}, stack = [king], seenSpot = {};
     seen[king] = 1;
+    if (zent >= 0 && zent !== king && s.po[zent] === p) { seen[zent] = 1; stack.push(zent); }
     while (stack.length) {
       var cur = stack.pop();
       for (var d = 0; d < 6; d++) {
@@ -661,8 +670,8 @@ var AI = (function () {
     if (others === 0) return WIN;
 
     var atk = ctx.atk, mob = ctx.mob, sc = ctx.sc;
-    var occ = ctx.occ, trees = ctx.trees, workerAt = ctx.workerAt;
-    atk.fill(0); mob.fill(0); sc.fill(0); workerAt.fill(-1);
+    var occ = ctx.occ, trees = ctx.trees, workerAt = ctx.workerAt, zentAt = ctx.zentAt;
+    atk.fill(0); mob.fill(0); sc.fill(0); workerAt.fill(-1); zentAt.fill(-1);
 
     // Nur für die Analyse: Anteile der einzelnen Terme mitschreiben
     var parts = ctx.explain ? (ctx.parts = []) : null;
@@ -680,6 +689,7 @@ var AI = (function () {
       if (o >= 0 && s.alive[o]) {
         occ[nocc++] = i;
         if (s.pt[i] === T.worker) workerAt[o] = i;
+        else if (s.pt[i] === T.zenturio) zentAt[o] = i;
       }
     }
 
@@ -807,7 +817,7 @@ var AI = (function () {
       }
 
       // Kann überhaupt ausgebildet werden?
-      clusterSpots(s, p, evalSpots);
+      clusterSpots(s, p, evalSpots, zentAt[p]);
       var tr = evalSpots.length ? 20 + (evalSpots.length < 4 ? evalSpots.length : 4) * 7 : -90;
       sc[p] += tr;
       part(p, 'Ausbildungsfelder', tr);
@@ -1019,6 +1029,7 @@ var AI = (function () {
       aggression: aggression || 1,
       atk: new Int8Array(s.n * s.np), mob: new Int32Array(s.np),
       sc: new Float64Array(s.np), workerAt: new Int32Array(s.np),
+      zentAt: new Int32Array(s.np),
       occ: new Int32Array(s.n), trees: new Int32Array(s.n),
       history: new Int32Array(s.n * s.n), pool: [], qpool: []
     };

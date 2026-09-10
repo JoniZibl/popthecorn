@@ -648,6 +648,22 @@ var Render = (function () {
       });
     }
 
+    /* Der Zenturio trägt das Feldzeichen und ist selbst ein Anker der Kette.
+       Steht er allein vorn, hat er keine einzige Linie – ohne diesen Ring sähe
+       man ihm nicht an, dass hier Nachschub ist. */
+    if (ctx.chain && ctx.chain.zenturio) {
+      var zc = ctx.chain.zenturio;
+      var zp = H.toPixel(zc, SIZE), zz = surfaceZ(zc) + 0.8;
+      var zo = (view.anchors && view.anchors[H.key(zc.q, zc.r)]) || S.project(cam, zp.x, zp.y, zz);
+      var zg = el('g', { transform: 'translate(' + zo.x.toFixed(2) + ',' + zo.y.toFixed(2) + ')' });
+      zg.appendChild(el('polygon', {
+        class: 'supply-anchor',
+        points: pts(cam, disc(zp.x, zp.y, zz, SIZE * 0.8, 18), zo),
+        stroke: ctx.chainColor || '#fff'
+      }));
+      view.layers.overlay.appendChild(zg);
+    }
+
     (ctx.markers || []).forEach(function (m) { drawMarker(view, state, m); });
     facingPicker(view, state, ctx);
 

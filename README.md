@@ -32,10 +32,21 @@ wirtschaftlich sinnvoll – und wer zurückliegt, kann sich zurückkämpfen.
 
 ### Versorgungskette
 
-Ausgebildet wird nur an Feldern rund um den Königs-Turm und um alle Einheiten, die über eine
+Ausgebildet wird nur an Feldern rund um einen **Anker** und um alle Einheiten, die über eine
 lückenlose Kette mit ihm verbunden sind. Diese Kette ist auf dem Brett als gepunktete Linie
 in der Farbe des Spielers am Zug zu sehen. Wer seine Figuren zu weit auseinanderzieht,
 verliert die Verbindung und kann vorn nichts mehr nachschieben.
+
+Anker sind zwei: der **Königs-Turm** – und der **Zenturio**, der das Feldzeichen trägt. Wo
+das Feldzeichen steht, ist Nachschub, auch wenn die Kette zum eigenen Turm längst gerissen
+ist. Aus der teuersten Figur des Spiels wird damit ein vorgeschobener Stützpunkt: Sie
+verlängert nicht deine Reichweite, sondern dein Hinterland. Und weil ein einzeln vorstehendes
+Feldzeichen keine einzige Verbindungslinie hätte, bekommt der Zenturio einen gepunkteten Ring
+um sein Feld – sonst sähe man ihm nicht an, was er kann.
+
+Damit hängt an ihm mehr als eine schnelle Figur: Wer den Zenturio schlägt, kappt dem Gegner
+die Versorgung an der Front. Für drei Holz und eine Ausbildung pro Partie ist das ein Preis,
+über den sich nachdenken lässt.
 
 ### Eine Partie endet immer mit einem Sieger
 
@@ -67,7 +78,7 @@ Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
 | Legionär | 2 Holz | beliebig weit vor/zurück auf seiner Achse, nicht über Bäume |
 | Bogenschütze | 2 Holz | 1 Feld ohne zu schlagen, oder Schuss auf Distanz 2 |
 | Tangolin | 2 Holz | Kettensprünge über Bäume und eigene Einheiten; schlägt beim 1-Feld-Zug |
-| Zenturio | 3 Holz | beliebig weit in jede Richtung; nur einmal pro Spiel |
+| Zenturio | 3 Holz | beliebig weit in jede Richtung; trägt das Feldzeichen; nur einmal pro Spiel |
 | Boot | 1 Holz | kein Figur, sondern ein neutrales Objekt – macht ein Wasserfeld begehbar |
 
 ### Woran man die Figuren erkennt
@@ -426,6 +437,7 @@ test/figuren.js     Zielfelder der Figuren gegen die Regelkarten
 test/boot.js        Boot-Regeln inklusive des Beispiels von der Regelkarte
 test/beute.js       Beute beim Schlagen
 test/tangolin.js    Kettensprung: Sprungbretter, Sperren, Landeplätze
+test/versorgung.js  Feldzeichen: der Zenturio als zweiter Anker der Kette
 test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
 test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
 test/jagd.js        KI gegen einen Gegner, der gezielt den Turm jagt
@@ -492,6 +504,7 @@ node test/ansicht.js            # die gezeichnete Szene, ohne Browser
 node test/boot.js               # Boot-Regeln gegen die Regelkarte
 node test/beute.js              # Beute beim Schlagen
 node test/tangolin.js           # Sprungregeln des Tangolins
+node test/versorgung.js         # Feldzeichen des Zenturios als zweiter Anker
 node test/ki.js                 # KI-Zuggenerierung gegen das Regelwerk
 node test/simulate.js 100       # komplette Zufallspartien
 node test/kispiel.js 10         # Spielstärke der KI

@@ -312,6 +312,13 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   stroke-dasharray: 2 9; pointer-events: none;
 }
 
+/* Anker der Versorgungskette: der Königs-Turm ist als solcher zu erkennen,
+   das Feldzeichen des Zenturios bekommt denselben gepunkteten Faden als Ring. */
+.supply-anchor {
+  fill: none; stroke-width: 3; opacity: .5;
+  stroke-dasharray: 2 9; pointer-events: none;
+}
+
 /* Der letzte Zug bleibt sichtbar – sonst weiß man nicht, was die KI getan hat */
 .last-move { fill: none; pointer-events: none; }
 .last-from { stroke: rgba(255, 255, 255, .38); stroke-width: 2.5; stroke-dasharray: 7 6; }
