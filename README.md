@@ -75,10 +75,10 @@ Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
 Jede Figur hat einen **eigenen Umriss**, nicht nur andere Zacken: Der Königs-Turm ist ein
 Turm mit Zinnen, der Samurai eine schräge Klinge – als Einziger diagonal, wie sein Zug. Der
 Springer ist der Pferdekopf aus dem Schach, der Legionär ein Scutum, der Tangolin eine Raute.
-Der **Zenturio** ist ein Feldzeichen: ein hoher Schaft in der Spielerfarbe, gekreuzt von vier
-dunklen Querbalken, die nach unten hin breiter werden. Er ist die höchste Figur im Spiel und
-steht wie der Königs-Turm auf einem größeren Sockel – schon am Umriss von oben bis unten
-gestreift, und damit aus jeder Kameraperspektive sofort als die stärkste Einheit zu erkennen.
+Der **Zenturio** ist ein Feldzeichen: ein hoher Schaft in der Spielerfarbe, gekreuzt von drei
+dunklen Querbalken im oberen Drittel. Er ist die höchste Figur im Spiel und
+steht wie der Königs-Turm auf einem größeren Sockel – die einzige Figur mit einem gestreiften
+Umriss und damit aus jeder Kameraperspektive sofort als die stärkste Einheit zu erkennen.
 
 **Arbeiter und Bogenschütze** behalten ihre ursprünglichen Formen: das schlichte Dreieck und
 die Spitze mit den eingezogenen Flanken. Beide waren zwischenzeitlich als Axt und als Bogen

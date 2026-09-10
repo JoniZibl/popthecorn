@@ -64,15 +64,15 @@ var Render = (function () {
     archer:    'M-9.6,-11 L-7.2,-17 L-8.4,-21.8 L0,-27.8 L8.4,-21.8 L7.2,-17 L9.6,-11 Z',
     // Tangolin: Raute – der einzige gleichmäßige Vierecker
     tangolin:  'M0,-30 L8.5,-20.5 L0,-11 L-8.5,-20.5 Z',
-    /* Zenturio: ein Feldzeichen – Schaft in der Spielerfarbe, darauf vier
-       Querbalken, oben der breiteste. Als einzige Figur zeigt er die Farbe
-       nicht nur unten, sondern über die ganze Höhe zwischen den Balken.
+    /* Zenturio: ein Feldzeichen – Schaft in der Spielerfarbe, darauf drei
+       Querbalken, oben der breiteste. Unterhalb des dritten läuft der Schaft
+       frei bis zum Sockel. Als einzige Figur zeigt er die Farbe nicht nur
+       unten, sondern über die ganze Höhe zwischen den Balken.
        Höher und breiter als alles andere auf dem Brett; das darf man der
        teuersten Figur ansehen, die es nur einmal pro Partie gibt. */
     zenturio:  'M-8.5,-34 L8.5,-34 L8.5,-27.2 L-8.5,-27.2 Z ' +
                'M-6.8,-23.5 L6.8,-23.5 L6.8,-17.5 L-6.8,-17.5 Z ' +
-               'M-5.8,-14.5 L5.8,-14.5 L5.8,-9 L-5.8,-9 Z ' +
-               'M-10,-7 L10,-7 L10,-2 L-10,-2 Z'
+               'M-5.8,-14.5 L5.8,-14.5 L5.8,-9 L-5.8,-9 Z'
   };
 
   /* Königs-Turm und Zenturio stehen auf einem größeren Sockel: Die eine Figur
