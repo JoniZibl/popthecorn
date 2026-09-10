@@ -117,13 +117,21 @@ var Moves = (function () {
      Gesucht wird in die Breite: Weil ein Sprung nichts am Brett ändert, zählt
      allein, welche Felder erreichbar sind. Jedes Feld wird deshalb genau
      einmal betreten – sonst liefe der Tangolin im Kreis, solange ein Baum in
-     Reichweite steht. */
+     Reichweite steht.
+
+     Am Zug hängt der Weg dorthin als `path`: die Zwischenlandungen von der
+     ersten bis zum Zielfeld. Die Oberfläche springt ihn einzeln ab, damit man
+     sieht, wie der Tangolin dorthin gekommen ist. Weil in die Breite gesucht
+     wird, ist der gemerkte Weg immer einer mit den wenigsten Sprüngen. */
   function chainJumps(board, from, owner, out) {
-    var seen = {};
-    seen[H.key(from.q, from.r)] = true;
+    var startKey = H.key(from.q, from.r);
+    var seen = {}, weg = {};
+    seen[startKey] = true;
+    weg[startKey] = [];
     var queue = [{ q: from.q, r: from.r }];
     while (queue.length) {
       var pos = queue.shift();
+      var posWeg = weg[H.key(pos.q, pos.r)];
       for (var d = 0; d < 6; d++) {
         var over = B.at(board, H.add(pos, H.DIRS[d]));
         if (!over) continue;
@@ -137,8 +145,9 @@ var Moves = (function () {
         var k = H.key(land.q, land.r);
         if (seen[k]) continue;
         seen[k] = true;
+        weg[k] = posWeg.concat([k]);
         queue.push({ q: land.q, r: land.r });
-        out.push(act('jump', land));
+        out.push(act('jump', land, { path: weg[k] }));
       }
     }
   }

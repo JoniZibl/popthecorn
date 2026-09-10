@@ -385,7 +385,9 @@ var Game = (function () {
     clearEvents(state);
     noteEvent(state, 'lastMove', {
       fromKey: H.key(fromCell.q, fromCell.r), toKey: H.key(target.q, target.r),
-      type: piece.type, owner: state.current, kind: action.kind
+      type: piece.type, owner: state.current, kind: action.kind,
+      // Kettensprung: die Zwischenlandungen, damit die Anzeige sie einzeln abspringt
+      path: action.path || null
     });
     var plan = M.waterPlan(state.board, piece, fromCell, target);
     if (action.cost) {

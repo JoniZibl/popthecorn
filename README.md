@@ -222,6 +222,14 @@ er vom Regelwerk. So kann kein KI-Zug an den Regeln vorbei.
 Damit nachvollziehbar bleibt, was gerade passiert ist – gerade gegen die KI:
 
 * **Figuren gleiten** von ihrem alten Feld heran, statt zu springen.
+* **Der Tangolin springt seine Kette einzeln ab.** Ein Zug von ihm besteht aus mehreren
+  Sprüngen, und in einem Rutsch herübergeschoben sieht man nur Anfang und Ende – nicht, über
+  welche Felder er gekommen ist und warum das erlaubt war. Er setzt deshalb auf jeder
+  Zwischenlandung auf, hält dort kurz an und springt neu ab, jeder Sprung im Bogen. Der Weg
+  hängt als `path` am Zug, den das Regelwerk erzeugt: Weil in die Breite gesucht wird, ist es
+  immer der Weg mit den wenigsten Sprüngen. Eine lange Kette dauert damit länger als die
+  Sekunde, die der Rechner mindestens überlegt – er wartet deshalb, bis der letzte Sprung
+  gelandet ist, sonst zöge er mitten hinein und der Rest der Kette wäre weg.
 * Der **letzte Zug bleibt markiert**: gestrichelt das Startfeld, weiß das Zielfeld.
 * Eine **geschlagene Figur** vergeht mit einem roten Ring **an ihrem Todesfeld**.
 * Beim **Baumfällen** steigt ein „+1 🌲" **genau über dem gefällten Baum** auf, der Holzstand

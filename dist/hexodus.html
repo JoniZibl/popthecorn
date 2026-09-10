@@ -1263,13 +1263,21 @@ var Moves = (function () {
      Gesucht wird in die Breite: Weil ein Sprung nichts am Brett ändert, zählt
      allein, welche Felder erreichbar sind. Jedes Feld wird deshalb genau
      einmal betreten – sonst liefe der Tangolin im Kreis, solange ein Baum in
-     Reichweite steht. */
+     Reichweite steht.
+
+     Am Zug hängt der Weg dorthin als `path`: die Zwischenlandungen von der
+     ersten bis zum Zielfeld. Die Oberfläche springt ihn einzeln ab, damit man
+     sieht, wie der Tangolin dorthin gekommen ist. Weil in die Breite gesucht
+     wird, ist der gemerkte Weg immer einer mit den wenigsten Sprüngen. */
   function chainJumps(board, from, owner, out) {
-    var seen = {};
-    seen[H.key(from.q, from.r)] = true;
+    var startKey = H.key(from.q, from.r);
+    var seen = {}, weg = {};
+    seen[startKey] = true;
+    weg[startKey] = [];
     var queue = [{ q: from.q, r: from.r }];
     while (queue.length) {
       var pos = queue.shift();
+      var posWeg = weg[H.key(pos.q, pos.r)];
       for (var d = 0; d < 6; d++) {
         var over = B.at(board, H.add(pos, H.DIRS[d]));
         if (!over) continue;
@@ -1283,8 +1291,9 @@ var Moves = (function () {
         var k = H.key(land.q, land.r);
         if (seen[k]) continue;
         seen[k] = true;
+        weg[k] = posWeg.concat([k]);
         queue.push({ q: land.q, r: land.r });
-        out.push(act('jump', land));
+        out.push(act('jump', land, { path: weg[k] }));
       }
     }
   }
@@ -1911,7 +1920,9 @@ var Game = (function () {
     clearEvents(state);
     noteEvent(state, 'lastMove', {
       fromKey: H.key(fromCell.q, fromCell.r), toKey: H.key(target.q, target.r),
-      type: piece.type, owner: state.current, kind: action.kind
+      type: piece.type, owner: state.current, kind: action.kind,
+      // Kettensprung: die Zwischenlandungen, damit die Anzeige sie einzeln abspringt
+      path: action.path || null
     });
     var plan = M.waterPlan(state.board, piece, fromCell, target);
     if (action.cost) {
@@ -5167,6 +5178,55 @@ var Render = (function () {
     setTimeout(weg, ms + 60);
   }
 
+  /* ---------------- Kettensprung des Tangolins ----------------
+     Ein Zug des Tangolins besteht aus mehreren Sprüngen. Ihn in einem Rutsch
+     herüberzuschieben zeigt nur Anfang und Ende – man sieht nicht, über welche
+     Felder er gekommen ist und warum das erlaubt war. Er springt deshalb jede
+     Zwischenlandung einzeln an, hält dort kurz an und setzt dann neu ab. */
+  var HUEPF_MS = 240;        // ein Sprung
+  var HUEPF_HALT = 110;      // Halt auf jeder Zwischenlandung
+  var HUEPF_MAX = 2600;      // eine lange Kette darf trotzdem nicht ewig dauern
+  var HUEPF_HOCH = 15;       // wie hoch der Bogen über dem Brett führt
+
+  /* Die Standpunkte des Zuges: Startfeld, dann jede Landung bis zum Ziel.
+     Ohne Weg am Zug (jede andere Figur) gibt es hier nichts zu tun. */
+  function huepfPunkte(board, mv, start) {
+    if (!mv.path || mv.path.length < 2) return null;
+    var punkte = [start];
+    for (var i = 0; i < mv.path.length; i++) {
+      var p = Render.cellPixel(view, board, mv.path[i]);
+      if (!p) return null;
+      punkte.push(p);
+    }
+    return punkte;
+  }
+
+  function huepfDauer(spruenge) {
+    return Math.min(HUEPF_MAX, spruenge * (HUEPF_MS + HUEPF_HALT));
+  }
+
+  /* Je Sprung drei Bilder: Absprung, Scheitel, Landung – danach steht die Figur
+     bis zum nächsten Absprung still. Alle Angaben sind Versätze zum Zielfeld,
+     denn dort steht die Figur bereits, wenn die Animation läuft. */
+  function huepfBilder(punkte, ziel) {
+    var n = punkte.length - 1, je = 1 / n, bilder = [];
+    function schieb(p, hoch) {
+      return 'translate(' + (p.x - ziel.x).toFixed(1) + 'px,' +
+             (p.y - ziel.y - (hoch || 0)).toFixed(1) + 'px)';
+    }
+    for (var i = 0; i < n; i++) {
+      var von = punkte[i], nach = punkte[i + 1], t = i * je;
+      var scheitel = { x: (von.x + nach.x) / 2, y: (von.y + nach.y) / 2 };
+      bilder.push({ offset: t, transform: schieb(von), easing: 'cubic-bezier(.3,0,.7,.4)' });
+      bilder.push({ offset: t + je * 0.35, transform: schieb(scheitel, HUEPF_HOCH),
+                    easing: 'cubic-bezier(.3,.6,.7,1)' });
+      bilder.push({ offset: t + je * 0.68, transform: schieb(nach), easing: 'linear' });
+      if (i < n - 1) bilder.push({ offset: t + je * 0.99, transform: schieb(nach), easing: 'linear' });
+    }
+    bilder.push({ offset: 1, transform: 'translate(0,0)' });
+    return bilder;
+  }
+
   function playEffects() {
     if (!state || reducedMotion()) { ui.shownEvent = state ? state.moveNo : 0; return; }
     if (state.moveNo === ui.shownEvent) return;
@@ -5190,10 +5250,20 @@ var Render = (function () {
       var a = Render.cellPixel(view, board, mv.fromKey);
       var b = Render.cellPixel(view, board, mv.toKey);
       if (node && a && b) {
-        run(node, [
-          { transform: 'translate(' + (a.x - b.x) + 'px,' + (a.y - b.y) + 'px)' },
-          { transform: 'translate(0,0)' }
-        ], { duration: 300, easing: 'cubic-bezier(.25,.9,.3,1)' });
+        var stationen = huepfPunkte(board, mv, a);
+        if (stationen) {
+          var dauer = huepfDauer(stationen.length - 1);
+          run(node, huepfBilder(stationen, b), { duration: dauer, easing: 'linear' });
+          /* Eine lange Kette dauert länger als die Sekunde, die der Rechner
+             mindestens überlegt. Ohne diese Sperre zöge er mitten im Sprung –
+             das Brett würde neu gezeichnet und der Rest der Kette wäre weg. */
+          ui.animUntil = Date.now() + dauer + 80;
+        } else {
+          run(node, [
+            { transform: 'translate(' + (a.x - b.x) + 'px,' + (a.y - b.y) + 'px)' },
+            { transform: 'translate(0,0)' }
+          ], { duration: 300, easing: 'cubic-bezier(.25,.9,.3,1)' });
+        }
       }
     }
 
@@ -5363,7 +5433,10 @@ var Render = (function () {
          zwei Sekunden lang ein und man kann das Brett nicht einmal schieben. */
       denke(state, state.current, level, function (desc, err) {
         // Denkzeit anrechnen: gewartet wird nur, was zur Sekunde noch fehlt
-        var rest = Math.max(0, MIN_THINK - (Date.now() - started));
+        // Gewartet wird, was zur Sekunde noch fehlt – und was eine laufende
+        // Sprungkette auf dem Brett noch braucht.
+        var rest = Math.max(0, MIN_THINK - (Date.now() - started),
+                            (ui.animUntil || 0) - Date.now());
         setTimeout(function () { finishAiTurn(level, desc, err); }, rest);
       });
     }, setup ? 45 : 60);

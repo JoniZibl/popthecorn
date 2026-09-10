@@ -75,6 +75,28 @@ feld(b3, 5, 0).tree = true;          // dritter Sprung: (4,0) → (6,0)
 var a3 = M.forPiece(b3, t3, 0);
 ok(!!sprung(a3, 6, 0), 'das Ende der Kette ist erreichbar');
 
+console.log('\nAm Zug hängt der Weg dorthin');
+var b3b = brett(8, 4);
+var t3b = stelle(b3b, 0, 0, 'tangolin', 0);
+stelle(b3b, 1, 0, 'samurai', 0);
+stelle(b3b, 3, 0, 'archer', 0);
+feld(b3b, 5, 0).tree = true;
+var kette = sprung(M.forPiece(b3b, t3b, 0), 6, 0);
+gleich('drei Landungen, in der Reihenfolge des Sprungs', kette && kette.path,
+       ['2,0', '4,0', '6,0']);
+var kurz = sprung(M.forPiece(b3b, t3b, 0), 2, 0);
+gleich('der erste Sprung nennt nur sein eigenes Feld', kurz && kurz.path, ['2,0']);
+
+console.log('\nDer Weg landet im Spielzustand, damit die Anzeige ihn abspringen kann');
+var stw = G.create(['Eins', 'Zwei'], [null, null]);
+stw.board = b3b;
+stw.phase = 'play';
+stw.current = 0;
+stelle(b3b, 0, 3, 'king', 1);
+stelle(b3b, 7, 3, 'king', 0);
+G.perform(stw, t3b, sprung(M.forPiece(b3b, t3b, 0), 6, 0));
+gleich('lastMove trägt den Weg', stw.lastMove && stw.lastMove.path, ['2,0', '4,0', '6,0']);
+
 console.log('\nEin Gegner mitten in der Kette sperrt sie ab');
 var b4 = brett(8, 4);
 var t4 = stelle(b4, 0, 0, 'tangolin', 0);
