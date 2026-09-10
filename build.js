@@ -5,6 +5,10 @@ var fs = require('fs');
 var path = require('path');
 
 var root = __dirname;
+
+// Reihenfolge wie in index.html – der Rechenfaden braucht sie genauso
+var WORKER_MODULE = ['js/hex.js', 'js/units.js', 'js/board.js',
+                     'js/moves.js', 'js/game.js', 'js/ai.js'];
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 
 function read(file) { return fs.readFileSync(path.join(root, file), 'utf8'); }
@@ -51,7 +55,13 @@ var out = head + '\n' +
   '<style>\n' + cssFiles.map(read).join('\n') + '\n</style>\n\n' +
   body + '\n\n' +
   jsFiles.map(function (f) {
-    return '<script>\n/* ' + f + ' */\n' + guard(read(f)) + '\n</script>';
+    /* Die Bausteine, die der Computergegner braucht, bekommen ein Merkmal.
+       In der Einzeldatei gibt es keine js/aiworker.js zum Laden – der
+       Rechenfaden wird dort aus genau diesen eingebetteten Quelltexten
+       zusammengesetzt. */
+    var merkmal = WORKER_MODULE.indexOf(f) >= 0
+      ? ' data-modul="' + f.replace(/^js\//, '').replace(/\.js$/, '') + '"' : '';
+    return '<script' + merkmal + '>\n/* ' + f + ' */\n' + guard(read(f)) + '\n</script>';
   }).join('\n');
 
 fs.mkdirSync(path.join(root, 'dist'), { recursive: true });

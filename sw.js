@@ -16,6 +16,7 @@ var SHELL = [
   './', './index.html', './css/style.css',
   './js/hex.js', './js/units.js', './js/board.js', './js/moves.js',
   './js/game.js', './js/ai.js', './js/scene.js', './js/render.js', './js/ui.js',
+  './js/aiworker.js',
   './manifest.webmanifest', './icon-192.png', './icon-512.png'
 ];
 

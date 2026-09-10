@@ -159,12 +159,35 @@ Die KI ist keine Zugliste, sondern eine Suche mit Stellungsbewertung:
 Die Stufen unterscheiden sich in Rechenzeit und Suchtiefe: *leicht* rechnet 0,15 s und
 kommt auf Suchtiefe 2, *normal* 0,45 s und Tiefe 4, *stark* 2 s und Tiefe 7.
 
-Die Suche rechnet **in Häppchen** und gibt dem Browser zwischendurch die Kontrolle zurück.
-Ohne das blockierte die starke Stufe den Hauptthread zwei Sekunden am Stück – die Seite ließ
-sich in der Zeit nicht einmal verschieben. Ein einzelner tiefer Suchast lässt sich nicht
-unterbrechen; dauert er länger als **220 ms**, wird die angefangene Suchtiefe verworfen und
-das Ergebnis der letzten fertigen Tiefe genommen. Die längste Blockade sinkt dadurch von
-2000 ms auf 220 ms, bei einer Suchtiefe weniger.
+### Die Suche rechnet in einem eigenen Faden
+
+Gerechnet wird in einem **Web Worker** (`js/aiworker.js`). Die Oberfläche läuft nebenher
+weiter: Man kann das Brett drehen, kippen und schieben, während die KI nachdenkt.
+
+Vorher lief die Suche im Faden der Oberfläche. Damit die Seite bedienbar blieb, rechnete sie
+in Häppchen und verwarf eine angefangene Suchtiefe, sobald ein einzelner Suchast länger als
+220 ms brauchte – ein einzelner tiefer Ast lässt sich nicht unterbrechen. Bei vier Spielern
+waren das trotzdem rund **dreißig Blockaden von je 220 ms** pro Zug, und genau die sieht man
+als Ruckeln. Gemessen mit vier starken Gegnern: vorher 33 Blockaden, zusammen 6,5 Sekunden;
+jetzt **keine einzige**, und ein Neuaufbau der Szene beim Drehen kostet 10–15 ms, also ein
+Bild.
+
+Nebenbei wird die KI dadurch etwas stärker: Im eigenen Faden stört langes Rechnen niemanden,
+die Suche braucht keine Notbremse mehr und verwirft keine angefangene Tiefe.
+
+Zwei Wege in den Faden: Liegt das Spiel als Dateisammlung, wird `js/aiworker.js` geladen. Ist
+es die Einzeldatei, gibt es diese Datei nicht – dann wird der Faden aus den eingebetteten
+Bausteinen zusammengesetzt, die `build.js` mit `data-modul` gekennzeichnet hat. Wo beides
+scheitert, rechnet die Suche wie früher in Häppchen weiter; unter jedem Weg steht derselbe
+Rückfallweg, damit ein Browser ohne Worker das Spiel nicht verliert, sondern nur die
+Flüssigkeit.
+
+Der Zustand geht als Kopie hinüber – ohne den Geometrie-Zwischenspeicher, den die KI ans
+Brett hängt: Er ist groß, wird drüben ohnehin neu gebaut, und mitzuschicken hieße, ihn bei
+jedem Zug zu kopieren. Jede Frage trägt eine Kennung; wer eine neue Partie beginnt, während
+noch gerechnet wird, bekommt die alte Antwort nicht untergeschoben. Der Faden wird bei einer
+neuen Partie beendet, sonst müsste ihr erster Zug warten, bis die alte Frage fertig gekaut
+ist.
 
 Zwischen Zugbeginn und ausgeführtem Zug vergeht **mindestens eine Sekunde**, damit die KI
 wie ein nachdenkender Mitspieler wirkt. Rechnet sie ohnehin länger – *stark* nimmt sich bis
@@ -396,6 +419,7 @@ js/board.js         Spielfeld-Erzeugung aus 7er-Plättchen samt Wasserrand
 js/moves.js         Regelwerk: legale Züge, Schüsse, Ausbildungsfelder
 js/game.js          Spielzustand, Aufbauphasen, Zugabwicklung, Ausscheiden
 js/ai.js            Computergegner: Suche, Bewertung, Aufbaustrategie
+js/aiworker.js      lässt den Computergegner in einem eigenen Faden rechnen
 js/scene.js         Kamera: Drehung, Neigung, Perspektive, Licht
 js/render.js        3D-Darstellung von Brett, Bäumen und Figuren in SVG
 js/ui.js            Steuerung, Seitenleiste, Regelwerk

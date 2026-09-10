@@ -68,6 +68,7 @@
   }
 
   function startGame(names, kinds) {
+    beendeDenker();
     state = G.create(names, kinds);
     ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null,
            thinking: false, shownEvent: 0, woodShown: null,
@@ -909,6 +910,112 @@
     return (p && !p.eliminated) ? p.ai : null;
   }
 
+  /* ---------------- Rechenfaden für den Computergegner ----------------
+
+     Die Suche lief im selben Faden wie die Oberfläche. Damit die Seite
+     bedienbar blieb, rechnete sie in Häppchen und verwarf eine angefangene
+     Suchtiefe, sobald ein einzelner Suchast länger als 220 ms brauchte. Bei
+     vier Spielern waren das trotzdem gut dreißig Blockaden von je 220 ms je
+     Zug – und genau die sieht man als Ruckeln.
+
+     Jetzt rechnet der Computergegner in einem eigenen Faden. Die Oberfläche
+     bleibt flüssig, und die Suche darf am Stück laufen, also auch tiefer.
+
+     Zwei Wege dorthin: Liegt das Spiel als Dateisammlung, wird js/aiworker.js
+     geladen. Ist es die Einzeldatei, gibt es diese Datei nicht – dann wird der
+     Faden aus den eingebetteten Bausteinen zusammengesetzt, die build.js mit
+     `data-modul` gekennzeichnet hat.
+
+     Und wo beides scheitert – eine Datei von der Festplatte lässt keinen Faden
+     aus einem Blob zu –, bleibt es beim Rechnen in Häppchen. Deshalb steht
+     unter jedem Weg hier derselbe Rückfallweg. */
+
+  var denker = null, denkerId = 0, denkerAus = false;
+
+  /* Kurzer Rumpf, der im Faden auf Fragen wartet. Er steht auch in
+     js/aiworker.js – dort für die Dateisammlung, hier für die Einzeldatei. */
+  var DENKER_RUMPF = '\nself.onmessage = function (e) {\n' +
+    '  var d = e.data;\n' +
+    '  try { self.postMessage({ id: d.id, desc: AI.chooseMove(d.state, d.me, d.level) }); }\n' +
+    '  catch (err) { self.postMessage({ id: d.id, fehler: String((err && err.message) || err) }); }\n' +
+    '};\n';
+
+  function holeDenker() {
+    if (denker || denkerAus) return denker;
+    try {
+      var teile = document.querySelectorAll('script[data-modul]');
+      if (teile.length) {
+        var quelle = [];
+        for (var i = 0; i < teile.length; i++) quelle.push(teile[i].textContent, '\n');
+        quelle.push(DENKER_RUMPF);
+        denker = new Worker(URL.createObjectURL(new Blob(quelle, { type: 'text/javascript' })));
+      } else {
+        denker = new Worker('js/aiworker.js');
+      }
+    } catch (e) {
+      denkerAus = true;
+      denker = null;
+    }
+    return denker;
+  }
+
+  /* Der Zustand für den Faden: alles außer dem Geometrie-Zwischenspeicher, den
+     die KI ans Brett hängt. Er ist groß, wird drüben ohnehin neu gebaut, und
+     mitzuschicken hieße, ihn bei jedem Zug zu kopieren. */
+  function reinerZustand(state) {
+    var rein = {};
+    for (var k in state) if (k !== 'board') rein[k] = state[k];
+    rein.board = { cells: state.board.cells, keys: state.board.keys, tiles: state.board.tiles };
+    return rein;
+  }
+
+  /* Eine neue Partie beendet den laufenden Faden. Sonst rechnet er die Frage
+     der alten Partie zu Ende – Antworten daraus werden zwar an der Kennung
+     erkannt und weggeworfen, aber der erste Zug der neuen Partie müsste
+     warten, bis der Faden wieder frei ist. */
+  function beendeDenker() {
+    if (!denker) return;
+    try { denker.terminate(); } catch (e) { /* schon tot */ }
+    denker = null;
+  }
+
+  function denke(state, me, level, done) {
+    var w = holeDenker();
+    if (!w) return AI.chooseMoveSliced(state, me, level, done);
+
+    var id = ++denkerId, erledigt = false;
+    function zurueck(desc, fehler) {
+      if (erledigt) return;
+      erledigt = true;
+      done(desc, fehler);
+    }
+    function selberRechnen() {
+      if (erledigt) return;
+      erledigt = true;
+      AI.chooseMoveSliced(state, me, level, done);
+    }
+
+    w.onmessage = function (e) {
+      // Antwort auf eine ältere Frage (neue Partie begonnen): wegwerfen
+      if (!e.data || e.data.id !== id) return;
+      zurueck(e.data.desc || null, e.data.fehler ? new Error(e.data.fehler) : null);
+    };
+    w.onerror = function () {
+      denkerAus = true;
+      denker = null;
+      try { w.terminate(); } catch (x) { /* schon tot */ }
+      selberRechnen();
+    };
+
+    try {
+      w.postMessage({ id: id, state: reinerZustand(state), me: me, level: level });
+    } catch (e) {
+      denkerAus = true;
+      denker = null;
+      selberRechnen();
+    }
+  }
+
   /* Ist die KI am Zug, vergeht bis zu ihrem Zug mindestens eine Sekunde – so
      wirkt sie wie ein Mitspieler, der nachdenkt, statt sofort zuzuschlagen.
      Rechnet sie länger (starke Stufe), wird nicht zusätzlich gewartet.
@@ -934,7 +1041,7 @@
       /* Die Suche rechnet in Häppchen und gibt dem Browser zwischendurch die
          Kontrolle zurück – sonst friert die Seite bei der starken Stufe
          zwei Sekunden lang ein und man kann das Brett nicht einmal schieben. */
-      AI.chooseMoveSliced(state, state.current, level, function (desc, err) {
+      denke(state, state.current, level, function (desc, err) {
         // Denkzeit anrechnen: gewartet wird nur, was zur Sekunde noch fehlt
         var rest = Math.max(0, MIN_THINK - (Date.now() - started));
         setTimeout(function () { finishAiTurn(level, desc, err); }, rest);
