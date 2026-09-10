@@ -11,6 +11,7 @@ function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
 
 function invariants(state, where) {
   var kings = {}, byType = {};
+
   // Ein Schlag trifft nie die eigene Seite
   var letzte = state.lastCapture;
   if (letzte && G.allied(state.teams, letzte.by, letzte.owner)) {
@@ -78,6 +79,21 @@ function setup(playerCount, teams) {
   }
   if (state.phase !== 'play') throw new Error('Aufbau nicht beendet');
   invariants(state, 'Aufbau');
+  /* Türme halten beim Setzen Abstand: Im Umkreis von drei Feldern um einen Turm
+     darf kein zweiter stehen. Später im Spiel darf der König laufen – dann gilt
+     die Forderung nicht mehr. Auf einem sehr engen Brett rückt sie herunter;
+     worauf, steht in state.__gap. */
+  var tuerme = state.board.keys.map(function (k) { return state.board.cells[k]; })
+    .filter(function (c) { return c.piece && c.piece.type === 'king'; });
+  var soll = state.__gap || 4;
+  for (var a = 0; a < tuerme.length; a++) {
+    for (var b = a + 1; b < tuerme.length; b++) {
+      var d = H.distance(tuerme[a], tuerme[b]);
+      if (d < soll) {
+        throw new Error('Aufbau: zwei Königs-Türme im Abstand ' + d + ' (gefordert ' + soll + ')');
+      }
+    }
+  }
   return state;
 }
 

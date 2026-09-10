@@ -15,7 +15,8 @@ Reine HTML/CSS/JavaScript-Umsetzung ohne Build-Schritt und ohne Abhängigkeiten:
    (15 Bäume je Spieler, gleichmäßig aufgeteilt). Wer keine Lust auf 30 Klicks hat, nutzt
    *„Restliche Bäume zufällig setzen“*.
 3. **Turm & Arbeiter** – Danach setzt jeder seinen Königs-Turm und daneben seinen Arbeiter.
-   Der letzte Spieler, der seinen Turm setzt, beginnt.
+   Die Türme halten Abstand: Im **Umkreis von drei Feldern** um einen Turm darf kein zweiter
+   stehen. Der letzte Spieler, der seinen Turm setzt, beginnt.
 4. **Partie** – Pro Zug **genau eine** Aktion: bewegen, schießen, drehen oder ausbilden.
    Wer den Königs-Turm eines Gegners schlägt, entfernt dessen komplette Armee vom Feld und
    erbeutet sein Holz. Wer als Letzter steht, gewinnt – in Mannschaften die letzte

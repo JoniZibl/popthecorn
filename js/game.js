@@ -281,7 +281,7 @@ var Game = (function () {
   }
 
   /* Königs-Turm braucht ein freies Nachbarfeld für den Arbeiter und
-     hält Abstand zu bereits gesetzten Türmen. */
+     hält drei Felder Abstand zu bereits gesetzten Türmen. */
   function canPlaceKing(state, cell) {
     if (!B.isFree(cell)) return false;
     var hasSpot = H.neighbors(cell).some(function (nb) { return B.isFree(B.at(state.board, nb)); });
@@ -289,14 +289,55 @@ var Game = (function () {
     return !kingTooClose(state, cell);
   }
 
-  function kingTooClose(state, cell) {
-    var minDist = state.players.length > 2 ? 3 : 4;
-    var board = state.board;
+  /* Türme halten Abstand: Im Umkreis von drei Feldern um einen Königs-Turm darf
+     kein zweiter stehen. Verboten ist damit jede Distanz unter 4. */
+  var KING_GAP = 4;
+
+  function kingsOnBoard(state) {
+    var out = [], board = state.board;
     for (var i = 0; i < board.keys.length; i++) {
       var c = board.cells[board.keys[i]];
-      if (c.piece && c.piece.type === 'king' && H.distance(c, cell) < minDist) return true;
+      if (c.piece && c.piece.type === 'king') out.push(c);
     }
-    return false;
+    return out;
+  }
+
+  function farEnough(kings, cell, minDist) {
+    for (var i = 0; i < kings.length; i++) {
+      if (H.distance(kings[i], cell) < minDist) return false;
+    }
+    return true;
+  }
+
+  /* Welchen Abstand dieses Brett hergibt. Gefordert sind drei Felder; ist das
+     Brett dafür zu eng oder zu zugewachsen – acht Türme und 120 Bäume auf einer
+     Insel –, rückt die Forderung so weit herunter, bis überhaupt ein Feld übrig
+     bleibt. Ohne dieses Nachgeben stünde der nächste Spieler vor einem Brett
+     ohne einen einzigen erlaubten Platz und käme nicht weiter.
+
+     Gerechnet wird einmal je Turm, nicht je Feld: Die Oberfläche fragt für jedes
+     Feld einzeln nach, ob es belegt werden darf. */
+  function kingGap(state) {
+    var kings = kingsOnBoard(state);
+    if (state.__gapCount === kings.length && state.__gap) return state.__gap;
+    var board = state.board, gap = 1, d, i;
+    for (d = KING_GAP; d > 1; d--) {
+      var passt = false;
+      for (i = 0; i < board.keys.length && !passt; i++) {
+        var c = board.cells[board.keys[i]];
+        if (!B.isFree(c)) continue;
+        if (!H.neighbors(c).some(function (nb) { return B.isFree(B.at(board, nb)); })) continue;
+        if (farEnough(kings, c, d)) passt = true;
+      }
+      if (passt) { gap = d; break; }
+    }
+    state.__gapCount = kings.length;
+    state.__gap = gap;
+    return gap;
+  }
+
+  function kingTooClose(state, cell) {
+    return !farEnough(kingsOnBoard(state), cell, kingGap(state));
   }
 
   function placeKing(state, q, r) {
@@ -663,6 +704,7 @@ var Game = (function () {
     create: create, log: log,
     placeTree: placeTree, autoPlaceTrees: autoPlaceTrees,
     canPlaceKing: canPlaceKing, placeKing: placeKing, placeWorker: placeWorker,
+    KING_GAP: KING_GAP, kingGap: kingGap,
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,

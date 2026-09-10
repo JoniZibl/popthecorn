@@ -825,7 +825,7 @@
       panel.innerHTML = '<h3>Türme &amp; Arbeiter</h3>' +
         '<p class="hint">' + (state.awaitWorker
           ? 'Der Arbeiter muss direkt neben dem eigenen Turm stehen.'
-          : 'Wähle ein freies Feld mit Abstand zu den anderen Türmen. Der letzte Spieler, der seinen Turm setzt, beginnt.') +
+          : 'Wähle ein freies Feld – im Umkreis von 3 Feldern um einen anderen Königs-Turm geht es nicht. Der letzte Spieler, der seinen Turm setzt, beginnt.') +
         '</p>';
       return;
     }
