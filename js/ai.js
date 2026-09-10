@@ -847,12 +847,16 @@ var AI = (function () {
 
       // Ohne Holz kann der Turm nicht einen einzigen Schritt ausweichen
       var mobile = s.wood[p] >= 1;
-      var escapes = 0, guards = atk[p * n + king], krow = king * n;
+      var escapes = 0, guards = 0, krow = king * n;
+      // Gedeckt wird der Turm von der eigenen Seite – Verbündete zählen mit
+      for (var g2 = 0; g2 < np; g2++) {
+        if (s.alive[g2] && allied(s, g2, p)) guards += atk[g2 * n + king];
+      }
       for (var d = 0; d < 6; d++) {
         var j = geo.nb[king * 6 + d];
         if (j < 0 || !landable(s, j) || s.pt[j] >= 0) continue;
         var hostile = 0;
-        for (var q2 = 0; q2 < np; q2++) if (q2 !== p && s.alive[q2]) hostile += atk[q2 * n + j];
+        for (var q2 = 0; q2 < np; q2++) if (s.alive[q2] && !allied(s, q2, p)) hostile += atk[q2 * n + j];
         if (!hostile) escapes++;
       }
 
@@ -862,7 +866,7 @@ var AI = (function () {
       var danger = 0, soonest = 99;
       for (k = 0; k < nocc; k++) {
         var fc = occ[k];
-        if (s.po[fc] === p) continue;
+        if (allied(s, s.po[fc], p)) continue;   // die eigene Seite bedroht nicht
         var ft = s.pt[fc];
         var need = dist[krow + fc] - THREAT_RANGE[ft];
         if (need < 0) need = 0;

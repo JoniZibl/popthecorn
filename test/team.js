@@ -188,6 +188,36 @@ var alle = {};
 st8er.players.forEach(function (p) { alle[p.color] = true; });
 ok(Object.keys(alle).length === 8, 'trotzdem acht unterscheidbare Farben');
 
+console.log('\nDie KI haelt Verbuendete nicht fuer Gegner');
+/* Die Stellungsbewertung fuehrt ihre Posten einzeln mit. Geprueft wird genau
+   das, was in einer Mannschaftspartie schieflaufen kann: Steht die eigene Seite
+   um meinen Turm herum, darf daraus kein Druck entstehen, sie soll ihn decken,
+   und die Felder, die sie bestreicht, bleiben Fluchtfelder. Sonst weicht der
+   Turm vor den eigenen Leuten aus und die echten Gefahren gehen im Rauschen
+   unter. */
+var bt = brett(16, 8, TEAMS);
+stelle(bt, 2, 2, 'king', 0);            // mein Turm
+stelle(bt, 3, 2, 'worker', 1);          // Verbuendeter direkt daneben
+stelle(bt, 2, 3, 'samurai', 1);
+stelle(bt, 4, 3, 'legionaer', 1);
+stelle(bt, 14, 7, 'king', 2);           // Gegner ausser Reichweite
+stelle(bt, 13, 7, 'worker', 2);
+stelle(bt, 15, 5, 'king', 3);
+stelle(bt, 1, 0, 'king', 1);
+var stt = zustand(bt, TEAMS, 2);
+var st_s = AI.snapshot(stt);
+var ctxT = AI.makeContext(st_s, 0, 100, 1);
+ctxT.explain = true;
+AI.evaluate(st_s, 0, ctxT);
+function posten(name) {
+  var e = ctxT.parts.filter(function (x) { return x.p === 0 && x.name === name; })[0];
+  return e ? e.v : 0;
+}
+gleich('kein Turmdruck durch die eigene Seite', posten('Turmdruck'), 0);
+ok(posten('Turmdeckung') > 0, 'der Verbuendete deckt den Turm (' + posten('Turmdeckung') + ')');
+ok(posten('Fluchtfelder') >= 78,
+   'Felder, die der Verbuendete bestreicht, bleiben Fluchtfelder (' + posten('Fluchtfelder') + ')');
+
 console.log('\nEine ganze Partie 2 gegen 2 mit Computergegnern');
 var partie = G.create(['A', 'B', 'C', 'D'], ['leicht', 'leicht', 'leicht', 'leicht'], [0, 0, 1, 1]);
 var schutz = 0;

@@ -54,6 +54,20 @@ alles wie zuvor. Auch die KI kennt die Aufstellung: Ihre Suche lässt Verbündet
 Seite maximieren statt gegeneinander, sie bewertet Mannschaft gegen Mannschaft, und beim
 Aufbau stellt sie ihren Turm in die Nähe der eigenen Leute und weg von den Gegnern.
 
+Das muss die **Stellungsbewertung** genauso durchziehen, und dort steckte anfangs ein Fehler:
+Die Frage „wie viele Züge braucht jede Feindfigur bis zu meinem Turm?" überging nur die
+*eigenen* Figuren – die des Verbündeten zählten als anrückende Gegner. Weil Verbündete
+naturgemäß nebeneinander stehen, sah die KI dauernd Gefahr, wo keine war; die echten
+Bedrohungen gingen in diesem Rauschen unter. Dazu kam: Ein Verbündeter, der den Turm deckte,
+zählte nicht als Deckung, und Felder, die er bestrich, galten als unsicher statt als
+Fluchtfelder. Alle drei Stellen fragen jetzt nach der *Seite*, nicht nach dem Spieler.
+
+Messbar war das deutlich: In Mannschaftsstellungen wich die Bewertung im Mittel um 98
+Hundertstel Holz ab, in 8 % der Stellungen um mehr als eine ganze Figur, und in 4 % wählte
+die KI deshalb einen anderen Zug. Bei „jeder für sich" ist der Unterschied exakt null – die
+Korrektur rührt nichts an, was ohne Mannschaften gilt. `test/team.js` hält die drei Posten
+seither einzeln fest.
+
 ### Beute
 
 Wer eine Figur schlägt, erhält die **Hälfte ihrer Ausbildungskosten** als Holz zurück
