@@ -1,6 +1,7 @@
-/* Der Tangolin schlägt beim Überspringen – und darf danach weiterspringen,
-   wie beim Schlagen im Damespiel. Geprüft wird das Regelwerk aus moves.js
-   samt Ausführung in game.js. Aufruf: node test/tangolin.js */
+/* Der Tangolin springt über Bäume und eigene Einheiten – nie über einen
+   Gegner. Geschlagen wird nur beim normalen Zug auf ein Nachbarfeld.
+   Geprüft wird das Regelwerk aus moves.js samt Ausführung in game.js.
+   Aufruf: node test/tangolin.js */
 global.Hex = require('../js/hex.js');
 global.Units = require('../js/units.js');
 global.Board = require('../js/board.js');
@@ -39,103 +40,105 @@ function stelle(board, q, r, typ, spieler) {
 function sprung(acts, q, r) {
   return acts.filter(function (a) { return a.kind === 'jump' && a.q === q && a.r === r; })[0];
 }
+function schlag(acts, q, r) {
+  return acts.filter(function (a) { return a.kind === 'capture' && a.q === q && a.r === r; })[0];
+}
 
 /* Richtung 0 ist Südost: (q+1, r). Zwei Schritte in dieselbe Richtung führen
    also von (0,0) über (1,0) nach (2,0). */
 
-console.log('Ein Gegner wird übersprungen und dabei geschlagen');
+console.log('Über einen Gegner springt der Tangolin nicht');
 var b1 = brett(6, 3);
 var tang = stelle(b1, 0, 0, 'tangolin', 0);
 stelle(b1, 1, 0, 'samurai', 1);
 var a1 = M.forPiece(b1, tang, 0);
-var s1 = sprung(a1, 2, 0);
-ok(!!s1, 'der Sprung über den Gegner steht zur Wahl');
-gleich('und nennt die geschlagene Figur', s1 && s1.captures, ['1,0']);
+ok(!sprung(a1, 2, 0), 'das Feld hinter dem Gegner ist nicht erreichbar');
+ok(!!schlag(a1, 1, 0), 'den Gegner nebenan schlägt er aber');
 
-console.log('\nEigene Figuren und Bäume werden übersprungen, aber nicht geschlagen');
+console.log('\nEigene Figuren und Bäume sind Sprungbretter');
 var b2 = brett(6, 3);
 var t2 = stelle(b2, 0, 0, 'tangolin', 0);
 stelle(b2, 1, 0, 'worker', 0);
 feld(b2, 0, 1).tree = true;          // Richtung 5 (Süd): (q, r+1)
 var a2 = M.forPiece(b2, t2, 0);
 var eigener = sprung(a2, 2, 0), baum = sprung(a2, 0, 2);
-ok(eigener && !eigener.captures, 'über die eigene Figur: kein Schlag');
-ok(baum && !baum.captures, 'über den Baum: kein Schlag');
+ok(!!eigener, 'über die eigene Figur geht es weiter');
+ok(!!baum, 'über den Baum ebenso');
+ok(!eigener.captures && !baum.captures, 'ein Sprung schlägt nie etwas');
 
-console.log('\nEine Kette nimmt mehrere Gegner mit');
+console.log('\nEine Kette aus eigenen Figuren trägt beliebig weit');
 var b3 = brett(8, 4);
 var t3 = stelle(b3, 0, 0, 'tangolin', 0);
-stelle(b3, 1, 0, 'samurai', 1);      // erster Sprung: (0,0) → (2,0)
-stelle(b3, 3, 0, 'archer', 1);       // zweiter Sprung: (2,0) → (4,0)
-stelle(b3, 5, 0, 'springer', 1);     // dritter Sprung: (4,0) → (6,0)
+stelle(b3, 1, 0, 'samurai', 0);      // erster Sprung: (0,0) → (2,0)
+stelle(b3, 3, 0, 'archer', 0);       // zweiter Sprung: (2,0) → (4,0)
+feld(b3, 5, 0).tree = true;          // dritter Sprung: (4,0) → (6,0)
 var a3 = M.forPiece(b3, t3, 0);
-var kette = sprung(a3, 6, 0);
-ok(!!kette, 'das Ende der Kette ist erreichbar');
-gleich('alle drei Gegner werden geschlagen', kette && kette.captures.slice().sort(),
-       ['1,0', '3,0', '5,0']);
+ok(!!sprung(a3, 6, 0), 'das Ende der Kette ist erreichbar');
 
-console.log('\nEine geschlagene Figur wird nicht zweimal geschlagen');
-ok(kette && kette.captures.length === new Set(kette.captures).size, 'keine Doppelung in der Liste');
-
-console.log('\nBei mehreren Wegen zählt der mit den meisten Schlägen');
-/* Ziel (2,2) ist zweimal erreichbar: über den Baum bei (1,1) – ohne Schlag –
-   oder über die Gegner bei (1,0) und (2,1). */
-var b4 = brett(6, 5);
+console.log('\nEin Gegner mitten in der Kette sperrt sie ab');
+var b4 = brett(8, 4);
 var t4 = stelle(b4, 0, 0, 'tangolin', 0);
-feld(b4, 1, 1).tree = true;
-stelle(b4, 1, 0, 'samurai', 1);
-stelle(b4, 2, 1, 'archer', 1);
+stelle(b4, 1, 0, 'samurai', 0);      // erster Sprung: (0,0) → (2,0)
+stelle(b4, 3, 0, 'archer', 1);       // Gegner – hier ist Schluss
+feld(b4, 5, 0).tree = true;
 var a4 = M.forPiece(b4, t4, 0);
-var weg = sprung(a4, 2, 2);
-ok(!!weg, 'das Ziel ist erreichbar');
-ok(weg && weg.captures && weg.captures.length === 2,
-   'gewählt wird der Weg mit zwei Schlägen (' + (weg && weg.captures ? weg.captures.length : 0) + ')');
+ok(!!sprung(a4, 2, 0), 'bis vor den Gegner kommt er');
+ok(!sprung(a4, 4, 0), 'über den Gegner hinweg nicht');
+ok(!sprung(a4, 6, 0), 'und dahinter erst recht nicht');
 
-console.log('\nWasser bleibt unüberwindlich');
+console.log('\nBesetzte Felder sind keine Landeplätze');
 var b5 = brett(6, 3);
 var t5 = stelle(b5, 0, 0, 'tangolin', 0);
-feld(b5, 1, 0).terrain = 'water';
-stelle(b5, 1, 0, 'samurai', 1);      // Gegner im Boot auf dem Wasser
+stelle(b5, 1, 0, 'worker', 0);
+stelle(b5, 2, 0, 'legionaer', 1);    // Landefeld belegt
 var a5 = M.forPiece(b5, t5, 0);
-ok(!sprung(a5, 2, 0), 'über einen Gegner auf dem Wasser springt er nicht');
+ok(!sprung(a5, 2, 0), 'auf einer gegnerischen Figur landet er nicht');
 
-console.log('\nAusführen: Figuren verschwinden, Beute wird gutgeschrieben');
+console.log('\nWasser bleibt unüberwindlich');
+var b6 = brett(6, 3);
+var t6 = stelle(b6, 0, 0, 'tangolin', 0);
+feld(b6, 1, 0).terrain = 'water';
+feld(b6, 1, 0).tree = false;
+stelle(b6, 1, 0, 'samurai', 0);      // eigene Figur im Boot auf dem Wasser
+var a6 = M.forPiece(b6, t6, 0);
+ok(!sprung(a6, 2, 0), 'über Wasser springt er auch nicht mit Sprungbrett');
+
+console.log('\nAusführen: der Sprung setzt um, ohne jemanden zu schlagen');
 var state = G.create(['Eins', 'Zwei'], [null, null]);
 state.board = brett(8, 4);
 state.phase = 'play';
 state.current = 0;
 state.players[0].wood = 0;
 var tg = stelle(state.board, 0, 0, 'tangolin', 0);
-stelle(state.board, 1, 0, 'samurai', 1);     // Kosten 1 → Beute 1
-stelle(state.board, 3, 0, 'zenturio', 1);    // Kosten 3 → Beute 2
-stelle(state.board, 0, 3, 'king', 1);        // Turm abseits, damit niemand ausscheidet
+stelle(state.board, 1, 0, 'worker', 0);
+stelle(state.board, 3, 0, 'samurai', 1);   // steht neben dem Landefeld
+stelle(state.board, 0, 3, 'king', 1);
 stelle(state.board, 5, 3, 'king', 0);
-var zug = sprung(M.forPiece(state.board, tg, 0), 4, 0);
-ok(!!zug && zug.captures.length === 2, 'Kettensprung über beide Gegner gefunden');
+var zug = sprung(M.forPiece(state.board, tg, 0), 2, 0);
+ok(!!zug, 'der Sprung über den eigenen Arbeiter steht zur Wahl');
 G.perform(state, tg, zug);
-ok(!feld(state.board, 1, 0).piece && !feld(state.board, 3, 0).piece,
-   'beide geschlagenen Figuren sind vom Brett');
-ok(!!feld(state.board, 4, 0).piece && feld(state.board, 4, 0).piece.type === 'tangolin',
-   'der Tangolin steht am Ende der Kette');
-gleich('Beute: 1 + 2 Holz', state.players[0].wood, 3);
-ok(state.lastCaptures.length === 2, 'beide Schläge sind für die Anzeige vermerkt');
+ok(!!feld(state.board, 1, 0).piece, 'der übersprungene Arbeiter steht noch');
+ok(!!feld(state.board, 3, 0).piece, 'der Gegner in der Nähe ebenso');
+ok(!!feld(state.board, 2, 0).piece && feld(state.board, 2, 0).piece.type === 'tangolin',
+   'der Tangolin steht auf dem Zielfeld');
+gleich('kein Holz aus dem Sprung', state.players[0].wood, 0);
+ok(!state.lastCapture, 'kein Schlag vermerkt');
 
-console.log('\nFällt ein Königs-Turm mitten in der Kette, scheidet sein Spieler aus');
+console.log('\nGeschlagen wird beim Zug auf das Nachbarfeld');
 var st2 = G.create(['Eins', 'Zwei'], [null, null]);
 st2.board = brett(8, 4);
 st2.phase = 'play';
 st2.current = 0;
-st2.players[1].wood = 5;
+st2.players[0].wood = 0;
 var tg2 = stelle(st2.board, 0, 0, 'tangolin', 0);
-stelle(st2.board, 1, 0, 'king', 1);          // erster Sprung schlägt den Turm
-stelle(st2.board, 3, 0, 'samurai', 1);       // stünde als Nächstes an
+stelle(st2.board, 1, 0, 'zenturio', 1);    // Kosten 3 → Beute 2
+stelle(st2.board, 0, 3, 'king', 1);
 stelle(st2.board, 5, 3, 'king', 0);
-var zug2 = sprung(M.forPiece(st2.board, tg2, 0), 4, 0);
-ok(!!zug2, 'die Kette über Turm und Samurai steht zur Wahl');
-G.perform(st2, tg2, zug2);
-ok(st2.players[1].eliminated, 'Spieler Zwei ist ausgeschieden');
-ok(!feld(st2.board, 3, 0).piece, 'seine übrigen Figuren sind mit vom Brett');
-ok(st2.players[0].wood >= 5, 'sein Holz ist erbeutet (' + st2.players[0].wood + ')');
+var hieb = schlag(M.forPiece(st2.board, tg2, 0), 1, 0);
+ok(!!hieb, 'der Schlag auf das Nachbarfeld steht zur Wahl');
+G.perform(st2, tg2, hieb);
+ok(feld(st2.board, 1, 0).piece.type === 'tangolin', 'er steht auf dem Feld des Geschlagenen');
+gleich('Beute: 2 Holz', st2.players[0].wood, 2);
 
 console.log(fehler ? '\n' + fehler + ' Prüfung(en) fehlgeschlagen.' : '\nAlle Prüfungen bestanden.');
 process.exit(fehler ? 1 : 0);

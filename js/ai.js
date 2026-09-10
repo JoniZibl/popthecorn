@@ -191,76 +191,38 @@ var AI = (function () {
   var genSpots = [];
 
   /* ---------------- Kettensprünge des Tangolins ----------------
-     Dieselbe Regel wie in moves.js: über Bäume, eigene Einheiten und Gegner,
-     nie über Wasser; wer übersprungen wird, fällt, danach darf weitergesprungen
-     werden. Je Zielfeld wird der Weg mit den meisten Schlägen gemerkt.
+     Dieselbe Regel wie in moves.js: über Bäume und eigene Einheiten, nie über
+     Wasser und nie über eine gegnerische Figur. Ein Sprung schlägt nichts und
+     ändert nichts am Brett – gesucht wird deshalb in die Breite, und jedes Feld
+     wird genau einmal betreten. Weicht das hier vom Regelwerk ab, spielt die KI
+     Züge, die es gar nicht gibt – test/ki.js vergleicht beide Generatoren Zug
+     für Zug. */
+  var chainStamp = null, chainMark = 0, chainList = [], chainQueue = [];
 
-     Gesucht wird in die Tiefe, mit denselben zwei Grenzen wie im Regelwerk:
-     eine gefallene Figur ist vom Brett, und ein Feld wird im selben Weg nicht
-     zweimal betreten. Weicht das hier vom Regelwerk ab, spielt die KI Züge, die
-     es gar nicht gibt – test/ki.js vergleicht beide Generatoren Zug für Zug.
-
-     Der Weg steckt nicht im Zug (der ist eine Zahl aus Art, Von und Nach),
-     sondern wird beim Ausführen noch einmal gesucht. Das kostet wenig, weil
-     Kettensprünge selten sind, und hält die Zugdarstellung schmal. */
-  var chainStamp = null, chainPath = null, chainDead = null, chainCaps = null,
-      chainMark = 0, chainList = [], chainNodes = 0;
-  var KEINE_BEUTE = [];
-
-  function chainStep(s, pos, p, beute) {
-    if (++chainNodes > 4000) return;         // Notbremse gegen entartete Stellungen
-    var nb = s.geo.nb;
-    for (var d = 0; d < 6; d++) {
-      var over = nb[pos * 6 + d];
-      if (over < 0 || s.terrain[over] === 1) continue;      // nie über Wasser
-      var besetzt = s.pt[over] >= 0 && chainDead[over] !== chainMark;
-      if (!s.tree[over] && !besetzt) continue;
-
-      var land = nb[over * 6 + d];
-      if (!dryLand(s, land)) continue;
-      if (s.pt[land] >= 0 && chainDead[land] !== chainMark) continue;
-      if (chainPath[land] === chainMark) continue;
-
-      var schlaegt = besetzt && s.po[over] !== p;
-      var neu = schlaegt ? beute.concat([over]) : beute;
-      if (chainStamp[land] !== chainMark) {
-        chainStamp[land] = chainMark;
-        chainCaps[land] = neu;
-        chainList.push(land);
-      } else if (neu.length > chainCaps[land].length) {
-        chainCaps[land] = neu;
-      }
-
-      chainPath[land] = chainMark;
-      if (schlaegt) chainDead[over] = chainMark;
-      chainStep(s, land, p, neu);
-      if (schlaegt) chainDead[over] = 0;
-      chainPath[land] = 0;
-    }
-  }
-
-  /* Liefert die erreichbaren Zielfelder; chainCaps[ziel] hält dazu die
-     geschlagenen Felder. Gültig bis zum nächsten Aufruf. */
   function chainSearch(s, from, p) {
-    var n = s.n;
-    if (!chainStamp || chainStamp.length < n) {
-      chainStamp = new Int32Array(n);
-      chainPath = new Int32Array(n);
-      chainDead = new Int32Array(n);
-      chainCaps = new Array(n);
-    }
+    var n = s.n, nb = s.geo.nb;
+    if (!chainStamp || chainStamp.length < n) chainStamp = new Int32Array(n);
     chainMark++;
     chainList.length = 0;
-    chainNodes = 0;
-    chainPath[from] = chainMark;
-    chainStep(s, from, p, KEINE_BEUTE);
-    chainPath[from] = 0;
+    chainQueue.length = 0;
+    chainStamp[from] = chainMark;
+    chainQueue.push(from);
+    while (chainQueue.length) {
+      var pos = chainQueue.pop();
+      for (var d = 0; d < 6; d++) {
+        var over = nb[pos * 6 + d];
+        if (over < 0 || s.terrain[over] === 1) continue;      // nie über Wasser
+        // Übersprungen werden dürfen nur Bäume und eigene Einheiten
+        if (!s.tree[over] && !(s.pt[over] >= 0 && s.po[over] === p)) continue;
+        var land = nb[over * 6 + d];
+        if (!dryLand(s, land) || s.pt[land] >= 0) continue;
+        if (chainStamp[land] === chainMark) continue;
+        chainStamp[land] = chainMark;
+        chainQueue.push(land);
+        chainList.push(land);
+      }
+    }
     return chainList;
-  }
-
-  function chainCapturesFor(s, from, to, p) {
-    chainSearch(s, from, p);
-    return (chainStamp[to] === chainMark) ? chainCaps[to] : KEINE_BEUTE;
   }
 
   /* Blickrichtungen, die für eine Richtungsfigur in Frage kommen:
@@ -392,12 +354,9 @@ var AI = (function () {
           if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
           else if (s.po[j] !== p) out.push(mk(KIND_CAPTURE, i, j, KEEP));
         }
-        // Kettensprünge: in der Ruhesuche zählen nur die, die etwas schlagen
-        var ziele = chainSearch(s, i, p);
-        for (var ci = 0; ci < ziele.length; ci++) {
-          var zl = ziele[ci];
-          if (capturesOnly && chainCaps[zl].length === 0) continue;
-          out.push(mk(KIND_CHAIN, i, zl, KEEP));
+        if (!capturesOnly) {                            // Kettensprünge schlagen nichts
+          var ziele = chainSearch(s, i, p);
+          for (var ci = 0; ci < ziele.length; ci++) out.push(mk(KIND_CHAIN, i, ziele[ci], KEEP));
         }
 
       } else if (type === T.king) {
@@ -499,15 +458,11 @@ var AI = (function () {
 
   /* ---------------- Zug ausführen und zurücknehmen ---------------- */
 
-  /* Eine Figur vom Brett nehmen – für den Schlag, den Schuss und für jede
-     Figur, die ein Kettensprung unterwegs mitnimmt. Alles Nötige zum
-     Zurücknehmen landet in `u`; ein Kettensprung schlägt mehrere, deshalb
-     sind es Listen und keine einzelnen Felder.
+  /* Eine Figur vom Brett nehmen – für den Schlag und für den Schuss. Alles
+     Nötige zum Zurücknehmen landet in `u`.
 
      Fällt ein Königs-Turm, scheidet sein Spieler aus: seine ganze Armee kommt
-     vom Brett und sein Holz wechselt den Besitzer. Innerhalb einer Kette kann
-     dadurch ein Feld schon leer sein, das später noch drankäme – deshalb prüft
-     der Aufrufer vorher, ob dort überhaupt noch etwas steht. */
+     vom Brett und sein Holz wechselt den Besitzer. */
   function takeAt(s, idx, p, u) {
     var t = s.pt[idx], o = s.po[idx];
     if (!u.taken) u.taken = [];
@@ -555,15 +510,6 @@ var AI = (function () {
 
     // Geschlagene Figur einsammeln (Schuss und Schlag)
     if (kind === KIND_CAPTURE || kind === KIND_SHOOT) takeAt(s, to, p, u);
-
-    /* Kettensprung: erst fällt, was übersprungen wird – auch das Landefeld wird
-       dadurch frei, falls dort eine geschlagene Figur stand. */
-    if (kind === KIND_CHAIN) {
-      var beute = chainCapturesFor(s, from, to, p);
-      for (var bi = 0; bi < beute.length; bi++) {
-        if (s.pt[beute[bi]] >= 0) takeAt(s, beute[bi], p, u);
-      }
-    }
 
     if (kind === KIND_SHOOT) return u;                 // Bogenschütze bleibt stehen
 
@@ -1387,7 +1333,6 @@ var AI = (function () {
            DIRECTIONAL: DIRECTIONAL, KIND_MOVE: KIND_MOVE, KIND_CAPTURE: KIND_CAPTURE,
            KIND_HARVEST: KIND_HARVEST, KIND_SHOOT: KIND_SHOOT, KIND_TRAIN: KIND_TRAIN,
            KIND_ROTATE: KIND_ROTATE, KIND_CHAIN: KIND_CHAIN, KEEP: KEEP, INF: INF, WIN: WIN,
-           chainCapturesFor: chainCapturesFor,
            mk: mk, mvKind: mvKind, mvFrom: mvFrom, mvTo: mvTo, mvExtra: mvExtra,
            geometry: geometry, snapshot: snapshot, landable: landable,
            nextAlive: nextAlive, hasType: hasType,
