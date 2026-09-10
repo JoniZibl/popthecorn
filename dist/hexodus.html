@@ -3641,8 +3641,7 @@ var Render = (function () {
      Brett ist so ein Aufsatz gut zehn Bildpunkte hoch, und was sich erst aus
      der Nähe unterscheidet, unterscheidet sich im Spiel gar nicht. Deshalb:
      ein Turm mit Zinnen, eine schräge Klinge, ein Pferdekopf, ein Schild, eine
-     Raute – und für den Zenturio der Helm mit dem Querbusch, an dem man den
-     Zenturio bei den Römern erkannt hat.
+     Raute – und für den Zenturio ein Feldzeichen aus Schaft und Querbalken.
 
      Arbeiter und Bogenschütze behalten ihre ursprünglichen Formen: das
      schlichte Dreieck und die Spitze mit den eingezogenen Flanken. Beide
@@ -3672,17 +3671,36 @@ var Render = (function () {
     archer:    'M-9.6,-11 L-7.2,-17 L-8.4,-21.8 L0,-27.8 L8.4,-21.8 L7.2,-17 L9.6,-11 Z',
     // Tangolin: Raute – der einzige gleichmäßige Vierecker
     tangolin:  'M0,-30 L8.5,-20.5 L0,-11 L-8.5,-20.5 Z',
-    // Zenturio: Helm mit gezacktem Querbusch, an dem man ihn bei den Römern
-    // erkannte – ein Umriss, die höchste und breiteste Figur im Spiel
-    zenturio:  'M-9.5,-11 L-8.5,-16 C-8,-20.5 -6,-22.5 -4,-23.5 ' +
-               'L-5.5,-30 L-2,-31.5 L0,-28.5 L2,-31.5 L5.5,-30 L4,-23.5 ' +
-               'C6,-22.5 8,-20.5 8.5,-16 L9.5,-11 Z'
+    /* Zenturio: ein Feldzeichen – Schaft in der Spielerfarbe, darauf vier
+       Querbalken, oben der breiteste. Als einzige Figur zeigt er die Farbe
+       nicht nur unten, sondern über die ganze Höhe zwischen den Balken.
+       Höher und breiter als alles andere auf dem Brett; das darf man der
+       teuersten Figur ansehen, die es nur einmal pro Partie gibt. */
+    zenturio:  'M-8.5,-34 L8.5,-34 L8.5,-27.2 L-8.5,-27.2 Z ' +
+               'M-6.8,-23.5 L6.8,-23.5 L6.8,-17.5 L-6.8,-17.5 Z ' +
+               'M-5.8,-14.5 L5.8,-14.5 L5.8,-9 L-5.8,-9 Z ' +
+               'M-10,-7 L10,-7 L10,-2 L-10,-2 Z'
   };
 
   /* Königs-Turm und Zenturio stehen auf einem größeren Sockel: Die eine Figur
      entscheidet die Partie, die andere gibt es nur einmal – das darf man ihnen
      ansehen, ohne die Silhouette zu vergrößern. */
   var BASE_SCALE = { king: 1.14, zenturio: 1.14 };
+
+  /* Der Schaft trägt bei den meisten Figuren nur den Aufsatz und bleibt kurz.
+     Beim Zenturio läuft er als Stange durch bis unter den obersten Balken –
+     sonst hingen seine Querbalken in der Luft. */
+  var STEM_STD = { y: -14, h: 13 };
+  var STEM = { zenturio: { y: -34, h: 33 } };
+
+  function stemFor(type) { return STEM[type] || STEM_STD; }
+
+  function stemNode(type, color) {
+    var st = stemFor(type);
+    return el('rect', {
+      class: 'piece-stem', x: -4.2, y: st.y, width: 8.4, height: st.h, rx: 1.8, fill: color
+    });
+  }
 
   /* Etwas größer als das Feld es verlangt: Am Handy ist eine Figur nur noch
      gut zehn Bildpunkte hoch, und woran man sie erkennt, sind diese Punkte. */
@@ -3953,9 +3971,7 @@ var Render = (function () {
     var stand = el('g', {
       class: 'piece-stand', transform: 'scale(' + (k * PIECE_SCALE).toFixed(3) + ')'
     });
-    stand.appendChild(el('rect', {
-      class: 'piece-stem', x: -4.2, y: -14, width: 8.4, height: 13, rx: 1.8, fill: color
-    }));
+    stand.appendChild(stemNode(piece.type, color));
     stand.appendChild(el('path', { class: 'piece-head', d: HEADS[piece.type], stroke: color }));
     g.appendChild(stand);
   }
@@ -4295,10 +4311,9 @@ var Render = (function () {
     if (!HEADS[type]) return null;
     var fx = effectAt(view, board, key, 'ghost', true);
     if (!fx) return null;
-    var stand = el('g', { transform: 'scale(' + fx.k.toFixed(3) + ')' });
-    stand.appendChild(el('rect', {
-      class: 'piece-stem', x: -3.6, y: -12, width: 7.2, height: 11, rx: 1.6, fill: color
-    }));
+    // dieselben Maße wie auf dem Brett – sonst schrumpft die Figur im Sterben
+    var stand = el('g', { transform: 'scale(' + (fx.k * PIECE_SCALE).toFixed(3) + ')' });
+    stand.appendChild(stemNode(type, color));
     stand.appendChild(el('path', { class: 'piece-head', d: HEADS[type], stroke: color }));
     fx.inner.appendChild(stand);
     return fx;
@@ -4351,7 +4366,8 @@ var Render = (function () {
       '<polygon class="icon-hex" points="' + hexPts + '"/>' +
       '<g transform="translate(0,11) scale(0.66)">' +
       '<ellipse class="icon-shadow" cx="0" cy="0" rx="10" ry="3.4"/>' +
-      '<rect class="piece-stem" x="-4.2" y="-14" width="8.4" height="13" rx="1.8" fill="' + color + '"/>' +
+      '<rect class="piece-stem" x="-4.2" y="' + stemFor(type).y + '" width="8.4" height="' +
+        stemFor(type).h + '" rx="1.8" fill="' + color + '"/>' +
       '<path class="piece-head" d="' + HEADS[type] + '" stroke="' + color + '"/>' +
       '</g></svg>';
   }
