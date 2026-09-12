@@ -1053,6 +1053,19 @@
      herüberzuschieben zeigt nur Anfang und Ende – man sieht nicht, über welche
      Felder er gekommen ist und warum das erlaubt war. Er springt deshalb jede
      Zwischenlandung einzeln an, hält dort kurz an und setzt dann neu ab. */
+  /* Wie lange eine Figur für ihren Weg braucht. Gerechnet wird in Feldern, nicht
+     in Bildpunkten: So zieht jede Figur gleich schnell, egal wie weit der
+     Betrachter gerade herausgezoomt hat. Nach oben gedeckelt, damit niemand
+     einer Figur beim Reisen zusehen muss. */
+  var ZUG_GRUND = 280;       // ein Feld
+  var ZUG_JE_FELD = 80;      // jedes weitere
+  var ZUG_MAX = 1000;
+
+  function zugDauer(felder) {
+    if (!(felder > 1)) return ZUG_GRUND;
+    return Math.min(ZUG_MAX, ZUG_GRUND + (felder - 1) * ZUG_JE_FELD);
+  }
+
   var HUEPF_MS = 240;        // ein Sprung
   var HUEPF_HALT = 110;      // Halt auf jeder Zwischenlandung
   var HUEPF_MAX = 2600;      // eine lange Kette darf trotzdem nicht ewig dauern
@@ -1131,10 +1144,16 @@
              das Brett würde neu gezeichnet und der Rest der Kette wäre weg. */
           ui.animUntil = Date.now() + dauer + 80;
         } else {
+          /* Die Dauer hängt an der Strecke, nicht am Zug: Ein Zenturio quer
+             über die Insel gleitet dorthin, statt in derselben Dritteltelsekunde
+             wie ein Arbeiter anzukommen, der ein Feld weitergeht. */
+          var weit = H.distance(board.cells[mv.fromKey], board.cells[mv.toKey]);
+          var dauerZug = zugDauer(weit);
           run(node, [
             { transform: 'translate(' + (a.x - b.x) + 'px,' + (a.y - b.y) + 'px)' },
             { transform: 'translate(0,0)' }
-          ], { duration: 300, easing: 'cubic-bezier(.25,.9,.3,1)' });
+          ], { duration: dauerZug, easing: 'cubic-bezier(.33,0,.25,1)' });
+          ui.animUntil = Date.now() + dauerZug + 80;
         }
       }
     }

@@ -281,7 +281,12 @@ er vom Regelwerk. So kann kein KI-Zug an den Regeln vorbei.
 
 Damit nachvollziehbar bleibt, was gerade passiert ist – gerade gegen die KI:
 
-* **Figuren gleiten** von ihrem alten Feld heran, statt zu springen.
+* **Figuren gleiten** von ihrem alten Feld heran, statt zu springen – und zwar **so lange,
+  wie ihr Weg ist**: 280 ms für ein Feld, 80 ms für jedes weitere, bei einer Sekunde gedeckelt.
+  Ein Zenturio quer über die Insel zieht damit sichtbar dorthin, statt in derselben
+  Dritteltelsekunde anzukommen wie ein Arbeiter, der ein Feld weitergeht. Gerechnet wird in
+  Feldern, nicht in Bildpunkten: So ist jede Figur gleich schnell, egal wie weit man gerade
+  herausgezoomt hat.
 * **Der Tangolin springt seine Kette einzeln ab.** Ein Zug von ihm besteht aus mehreren
   Sprüngen, und in einem Rutsch herübergeschoben sieht man nur Anfang und Ende – nicht, über
   welche Felder er gekommen ist und warum das erlaubt war. Er setzt deshalb auf jeder
