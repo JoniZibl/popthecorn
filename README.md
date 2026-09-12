@@ -406,9 +406,11 @@ mitwandert, oder wenn ein Finger liegen bleibt und nur der andere wegzieht.
 * **Figur gedrückt halten** → ihre möglichen Zielfelder erscheinen als hohle Ringe in der
   Farbe ihres Besitzers; ein voller Ring markiert die gehaltene Figur. Das gilt auch für die
   Figuren der **Gegner**: Hexodus liegt offen da, und wer wissen will, was ihn bedroht, soll
-  nachsehen können, statt die Regelkarte auswendig zu lernen. Die Vorschau ist reine Auskunft
-  – sie wählt nichts aus, führt nichts aus und verschwindet beim Loslassen. Wer stattdessen
-  das Brett schiebt, bricht sie ab; ein kurzer Tipp wählt weiterhin die Figur aus.
+  nachsehen können, statt die Regelkarte auswendig zu lernen. Die Vorschau ist reine Auskunft:
+  Sie wählt nichts aus und führt nichts aus. Nach dem Loslassen **bleibt sie stehen**, damit
+  man sie in Ruhe ansehen kann – weggeräumt wird sie erst, wenn man das nächste Mal ans Brett
+  fasst, und dieser Klick wirkt dabei ganz normal. Wer während des Haltens das Brett schiebt,
+  bricht sie ab; ein kurzer Tipp wählt weiterhin die Figur aus.
 * **Ausbilden** → Einheit in der Seitenleiste wählen, dann ein rosa markiertes Feld anklicken.
 * **Richtungsfiguren** (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet
   werden; eine Drehung ohne Bewegung kostet den ganzen Zug.

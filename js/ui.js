@@ -33,7 +33,8 @@
   /* ---------------- Zugvorschau: Figur gedrückt halten ----------------
      Wer eine Figur gedrückt hält – die eigene oder eine gegnerische –, sieht,
      wohin sie ziehen könnte. Das ist reine Auskunft: Es wird nichts ausgewählt
-     und nichts gezogen, beim Loslassen verschwindet es wieder.
+     und nichts gezogen. Die Vorschau bleibt nach dem Loslassen stehen, damit
+     man sie in Ruhe ansehen kann; der nächste Griff ans Brett räumt sie weg.
 
      Gegnerische Figuren gehören ausdrücklich dazu. Hexodus liegt offen da; wer
      wissen will, was ihn bedroht, soll nachsehen können, statt die Regelkarte
@@ -62,7 +63,10 @@
   function vorschauDaten() {
     if (!ui || !ui.preview || !state || state.phase !== 'play') return null;
     var cell = state.board.cells[ui.preview];
-    if (!cell || !cell.piece) return null;
+    /* Die Figur kann inzwischen gezogen oder gefallen sein – dann gibt es
+       nichts mehr zu zeigen. Neu gezeichnet wird deswegen nicht: Wir stecken
+       gerade selbst im Zeichnen. */
+    if (!cell || !cell.piece) { ui.preview = null; return null; }
     var owner = state.players[cell.piece.owner];
     return {
       key: ui.preview,
@@ -406,6 +410,11 @@
         };
         moved = false;
 
+        /* Eine stehende Vorschau räumt der nächste Griff ans Brett weg – der
+           Klick selbst läuft ganz normal weiter. Wer das Brett anfasst, meint
+           das Brett. */
+        endeVorschau();
+
         /* Gedrückt halten zeigt die Zielfelder der Figur darunter. Die Uhr
            läuft nur, solange der Finger stillhält – wer schiebt, meint das
            Brett, und wer kurz tippt, meint die Auswahl. */
@@ -414,7 +423,10 @@
         if (haltKey && !drag.facing && !drag.turn) {
           halteUhr = setTimeout(function () {
             halteUhr = null;
-            if (!moved && drag && drag.id === e.pointerId) zeigeVorschau(haltKey);
+            if (!moved && drag && drag.id === e.pointerId) {
+              drag.vorschau = true;         // dieser Druck hat sie geöffnet
+              zeigeVorschau(haltKey);
+            }
           }, VORSCHAU_MS);
         }
       } else if (count() === 2) {
@@ -491,8 +503,10 @@
       delete pointers[e.pointerId];
       if (count() < 2) pinch = null;
       stoppeHalten();
-      // War eine Vorschau zu sehen, war das Drücken eine Frage – kein Klick
-      var warVorschau = endeVorschau();
+      /* Hat dieser Druck die Vorschau geöffnet, war er eine Frage und kein
+         Klick. Die Vorschau bleibt danach stehen – weggeräumt wird sie erst,
+         wenn jemand das nächste Mal ans Brett fasst. */
+      var warVorschau = drag && drag.id === e.pointerId && drag.vorschau;
 
       var wasDrag = drag && drag.id === e.pointerId;
       var hit = wasDrag ? drag.key : null;
@@ -620,6 +634,7 @@
       state.selected = null;
       ui.mode = 'idle';
       ui.trainType = null;
+      ui.preview = null;        // Escape räumt auch die Zugvorschau weg
       refresh();
     }
   }
