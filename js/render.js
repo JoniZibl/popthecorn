@@ -172,7 +172,10 @@ var Render = (function () {
     var layers = {};
     // scene trägt Felder, Bäume und Figuren gemeinsam – nur zusammen lassen
     // sie sich nach Tiefe sortieren. Alles Weitere liegt darüber.
-    ['scene', 'overlay', 'fxUnder', 'markers', 'effects'].forEach(function (n) {
+    /* 'lift' trägt die Figur, die gerade zieht: Auf ihrem Weg käme sie sonst
+       hinter Plättchen zu liegen, die weiter vorn stehen als ihr Zielfeld –
+       das Brett wird ja von hinten nach vorn gemalt. */
+    ['scene', 'overlay', 'fxUnder', 'markers', 'lift', 'effects'].forEach(function (n) {
       layers[n] = el('g', { class: 'layer-' + n });
       root.appendChild(layers[n]);
     });
@@ -186,7 +189,7 @@ var Render = (function () {
   }
 
   function clear(view) {
-    ['scene', 'overlay', 'markers'].forEach(function (k) {
+    ['scene', 'overlay', 'markers', 'lift'].forEach(function (k) {
       var l = view.layers[k];
       while (l.firstChild) l.removeChild(l.firstChild);
     });
@@ -538,7 +541,17 @@ var Render = (function () {
       title.textContent = Units.DEFS[cell.piece.type].name + ' – ' + owner.name;
       inner.appendChild(title);
       pg.appendChild(inner);
-      g.appendChild(pg);
+      if (ctx.lift === item.k) {
+        /* Sie zieht gerade: über das Brett damit, mit derselben Verschiebung,
+           die sonst ihre Feldgruppe trägt. */
+        var hoch = el('g', {
+          transform: 'translate(' + o.x.toFixed(2) + ',' + o.y.toFixed(2) + ')'
+        });
+        hoch.appendChild(pg);
+        view.layers.lift.appendChild(hoch);
+      } else {
+        g.appendChild(pg);
+      }
     }
 
     view.layers.scene.appendChild(g);
@@ -821,8 +834,10 @@ var Render = (function () {
     return fx;
   }
 
+  /* Die Figur kann im Brett stehen oder gerade darüber ziehen – gesucht wird
+     deshalb im ganzen Baum, nicht nur in der Szene. */
   function pieceAt(view, key) {
-    return view.layers.scene.querySelector('.piece[data-key="' + key + '"] .piece-anim');
+    return view.root.querySelector('.piece[data-key="' + key + '"] .piece-anim');
   }
 
   /* Figuren-Symbol als HTML-String – für Regelkarten und Startbildschirm.

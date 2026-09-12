@@ -287,6 +287,12 @@ Damit nachvollziehbar bleibt, was gerade passiert ist – gerade gegen die KI:
   Dritteltelsekunde anzukommen wie ein Arbeiter, der ein Feld weitergeht. Gerechnet wird in
   Feldern, nicht in Bildpunkten: So ist jede Figur gleich schnell, egal wie weit man gerade
   herausgezoomt hat.
+
+  Solange sie zieht, wird sie in einer **eigenen Ebene über dem Brett** gezeichnet. Das Brett
+  entsteht von hinten nach vorn, und jede Figur gehört zur Gruppe ihres Feldes – unterwegs käme
+  sie sonst hinter Plättchen zu liegen, die weiter vorn stehen als ihr Zielfeld, und
+  verschwände mitten in der Bewegung. Gemerkt wird das im Zustand, nicht im Baum: Auch wenn
+  zwischendurch neu gezeichnet wird, landet sie wieder oben.
 * **Der Tangolin springt seine Kette einzeln ab.** Ein Zug von ihm besteht aus mehreren
   Sprüngen, und in einem Rutsch herübergeschoben sieht man nur Anfang und Ende – nicht, über
   welche Felder er gekommen ist und warum das erlaubt war. Er setzt deshalb auf jeder

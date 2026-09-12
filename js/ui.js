@@ -10,7 +10,7 @@
 
   var state = null;
   var view = null;
-  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null,
+  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null, lift: null,
              thinking: false, shownEvent: 0, woodShown: null,
              sheetOpen: false, sheetAuto: false, sheetMove: null };
 
@@ -206,7 +206,7 @@
   function startGame(names, kinds, teams) {
     beendeDenker();
     state = G.create(names, kinds, teams);
-    ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null,
+    ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null, lift: null,
            thinking: false, shownEvent: 0, woodShown: null,
            sheetOpen: false, sheetAuto: false, sheetMove: null };
     $('#screen-menu').classList.add('hidden');
@@ -1011,7 +1011,7 @@
       ? M.supplyChain(state.board, state.current) : null;
     Render.draw(view, state, {
       markers: ui.markers, placeable: ui.placeable, lastMove: state.lastMove,
-      facing: ui.facing, preview: vorschauDaten(),
+      facing: ui.facing, preview: vorschauDaten(), lift: liftKey(),
       chain: chain, chainColor: state.players[state.current].color
     });
     renderPlayers();
@@ -1060,6 +1060,24 @@
   var ZUG_GRUND = 280;       // ein Feld
   var ZUG_JE_FELD = 80;      // jedes weitere
   var ZUG_MAX = 1000;
+
+  /* Solange eine Figur zieht, wird sie über dem Brett gezeichnet statt in ihrem
+     Feld – sonst verschwände sie unterwegs hinter näher stehenden Plättchen.
+     Gemerkt wird das im Zustand und nicht im Baum: Zwischendurch kann neu
+     gezeichnet werden, und dann muss sie wieder oben landen. */
+  function hebeFigur(key, dauer) {
+    ui.lift = { key: key, bis: Date.now() + dauer + 60 };
+    refresh();
+    setTimeout(function () {
+      if (ui && ui.lift && ui.lift.key === key) { ui.lift = null; refresh(); }
+    }, dauer + 60);
+  }
+
+  function liftKey() {
+    if (!ui || !ui.lift) return null;
+    if (Date.now() > ui.lift.bis) { ui.lift = null; return null; }
+    return ui.lift.key;
+  }
 
   function zugDauer(felder) {
     if (!(felder > 1)) return ZUG_GRUND;
@@ -1131,30 +1149,37 @@
     // Ziehende Figur von ihrem alten Feld heranfahren lassen
     var mv = state.lastMove;
     if (mv && mv.kind !== 'shoot') {
-      var node = Render.pieceAt(view, mv.toKey);
       var a = Render.cellPixel(view, board, mv.fromKey);
       var b = Render.cellPixel(view, board, mv.toKey);
-      if (node && a && b) {
+      if (a && b) {
         var stationen = huepfPunkte(board, mv, a);
-        if (stationen) {
-          var dauer = huepfDauer(stationen.length - 1);
-          run(node, huepfBilder(stationen, b), { duration: dauer, easing: 'linear' });
-          /* Eine lange Kette dauert länger als die Sekunde, die der Rechner
-             mindestens überlegt. Ohne diese Sperre zöge er mitten im Sprung –
-             das Brett würde neu gezeichnet und der Rest der Kette wäre weg. */
-          ui.animUntil = Date.now() + dauer + 80;
-        } else {
+        var dauer = stationen
+          ? huepfDauer(stationen.length - 1)
           /* Die Dauer hängt an der Strecke, nicht am Zug: Ein Zenturio quer
              über die Insel gleitet dorthin, statt in derselben Dritteltelsekunde
              wie ein Arbeiter anzukommen, der ein Feld weitergeht. */
-          var weit = H.distance(board.cells[mv.fromKey], board.cells[mv.toKey]);
-          var dauerZug = zugDauer(weit);
-          run(node, [
-            { transform: 'translate(' + (a.x - b.x) + 'px,' + (a.y - b.y) + 'px)' },
-            { transform: 'translate(0,0)' }
-          ], { duration: dauerZug, easing: 'cubic-bezier(.33,0,.25,1)' });
-          ui.animUntil = Date.now() + dauerZug + 80;
+          : zugDauer(H.distance(board.cells[mv.fromKey], board.cells[mv.toKey]));
+
+        /* Erst über das Brett heben, dann loslaufen: Unterwegs käme die Figur
+           sonst hinter Plättchen zu liegen, die weiter vorn stehen als ihr
+           Zielfeld. Das Neuzeichnen hängt sie in die obere Ebene, danach steht
+           sie an derselben Stelle – nur eben über allem. */
+        hebeFigur(mv.toKey, dauer);
+        var node = Render.pieceAt(view, mv.toKey);
+        if (node) {
+          if (stationen) {
+            run(node, huepfBilder(stationen, b), { duration: dauer, easing: 'linear' });
+          } else {
+            run(node, [
+              { transform: 'translate(' + (a.x - b.x) + 'px,' + (a.y - b.y) + 'px)' },
+              { transform: 'translate(0,0)' }
+            ], { duration: dauer, easing: 'cubic-bezier(.33,0,.25,1)' });
+          }
         }
+        /* Ein langer Zug dauert länger als die Sekunde, die der Rechner
+           mindestens überlegt. Ohne diese Sperre zöge er mitten hinein – das
+           Brett würde neu gezeichnet und der Rest der Bewegung wäre weg. */
+        ui.animUntil = Date.now() + dauer + 80;
       }
     }
 
