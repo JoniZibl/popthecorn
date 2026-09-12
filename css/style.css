@@ -384,6 +384,17 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   opacity: 1; stroke: rgba(255, 255, 255, .9); stroke-width: 2.2;
 }
 
+/* Zugvorschau: eine Figur gedrückt halten zeigt ihre Zielfelder. Hohle Ringe
+   in der Farbe des Besitzers – nichts davon ist anklickbar, es ist Auskunft. */
+.vorschau {
+  fill: none; stroke-width: 2.6; opacity: .9;
+  stroke-dasharray: 5 4; pointer-events: none;
+}
+.vorschau-schlag { stroke-dasharray: none; stroke-width: 3.4; }
+.vorschau-quelle {
+  fill: none; stroke-width: 3; opacity: .95; pointer-events: none;
+}
+
 .marker { cursor: pointer; }
 .marker-hex { fill: transparent; }
 .marker-dot { fill: #f2fff0; stroke: #23301e; stroke-width: 1.4; }

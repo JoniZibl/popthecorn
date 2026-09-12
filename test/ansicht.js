@@ -105,12 +105,23 @@ state.selected = koenig;
 var markierungen = Game.actionsFor(state, state.board.cells[koenig]);
 if (markierungen.length) markierungen[0].cost = 1;
 
+/* Zugvorschau: Gedrückt halten zeigt die Zielfelder einer Figur – hier die des
+   Springers, damit auch eine Figur mit Blickrichtung geprüft ist. */
+var vorschauFeld = state.board.keys.filter(function (k) {
+  var c = state.board.cells[k];
+  return c.piece && c.piece.type === 'springer';
+})[0];
+var vorschauZuege = vorschauFeld
+  ? umgebung.Moves.forPiece(state.board, state.board.cells[vorschauFeld], 3) : [];
+
 var kontext = {
   markers: markierungen,
   placeable: null,
   lastMove: { fromKey: koenig, toKey: koenig },
   chain: umgebung.Moves.supplyChain(state.board, state.current),
-  chainColor: '#3b82f6'
+  chainColor: '#3b82f6',
+  preview: vorschauFeld
+    ? { key: vorschauFeld, color: '#eab308', actions: vorschauZuege } : null
 };
 
 /* ---------------- Prüfungen ---------------- */
@@ -169,6 +180,19 @@ ok(view.cam.pitch === Render.TILT, 'das Brett startet in der Schrägsicht');
     });
     ok(figuren === 7, 'alle Figuren stehen auf dem Brett (' + figuren + ')');
 
+    // Zugvorschau: ein Ring je Zielfeld, dazu einer um die Figur selbst
+    var vorRinge = alleKnoten(view.layers.markers).filter(function (n) {
+      return /(^| )vorschau( |$)/.test(n.attrs['class'] || '');
+    });
+    var vorQuelle = alleKnoten(view.layers.markers).filter(function (n) {
+      return (n.attrs['class'] || '') === 'vorschau-quelle';
+    });
+    ok(vorRinge.length === vorschauZuege.length,
+       'die Vorschau zeigt jedes Zielfeld (' + vorRinge.length + ' von ' + vorschauZuege.length + ')');
+    ok(vorQuelle.length === 1, 'die gehaltene Figur ist markiert');
+    ok(vorRinge.every(function (n) { return n.attrs.stroke === '#eab308'; }),
+       'die Ringe tragen die Farbe des Besitzers');
+
     // Spuren gefallener Figuren liegen auf ihrem Feld
     var splitter = alleKnoten(view.layers.scene).filter(function (n) {
       return (n.attrs['class'] || '') === 'scar';
@@ -200,8 +224,12 @@ ok(view.cam.pitch === Render.TILT, 'das Brett startet in der Schrägsicht');
     } else {
       ok(waende > 0, 'die Platte zeigt ihre Kanten (' + waende + ' Wände)');
     }
-    ok(view.layers.markers.children.length === kontext.markers.length,
-       'alle Zugmarkierungen liegen auf dem Brett');
+    // In derselben Ebene liegt auch die Zugvorschau – gezählt werden nur Marker
+    var echteMarker = view.layers.markers.children.filter(function (n) {
+      return /(^| )marker( |$)/.test(n.attrs['class'] || '');
+    });
+    ok(echteMarker.length === kontext.markers.length,
+       'alle Zugmarkierungen liegen auf dem Brett (' + echteMarker.length + ')');
   });
 
 console.log('\nDraufsicht deckt sich mit dem flachen Brett');

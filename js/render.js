@@ -717,9 +717,42 @@ var Render = (function () {
     }
 
     (ctx.markers || []).forEach(function (m) { drawMarker(view, state, m); });
+    drawPreview(view, state, ctx);
     facingPicker(view, state, ctx);
 
     applyView(view);
+  }
+
+  /* Zugvorschau: Wohin könnte diese Figur ziehen? Hohle Ringe auf jedem
+     erreichbaren Feld, in der Farbe ihres Besitzers – bewusst anders als die
+     gefüllten Punkte der echten Zugmarkierungen, damit niemand versucht,
+     darauf zu klicken. Sie nehmen auch keine Klicks an.
+
+     Gezeichnet wird zuletzt, über allem anderen: Die Vorschau ist eine Frage,
+     die gerade gestellt wird, und soll das Brett kurz überlagern. */
+  function drawPreview(view, state, ctx) {
+    var vs = ctx.preview;
+    if (!vs) return;
+    var cam = view.cam, board = state.board;
+
+    function ring(key, cls, weite) {
+      var cell = board.cells[key];
+      if (!cell) return;
+      var p = H.toPixel(cell, SIZE), z = surfaceZ(cell) + 0.9;
+      var o = (view.anchors && view.anchors[key]) || S.project(cam, p.x, p.y, z);
+      var g = el('g', { transform: 'translate(' + o.x.toFixed(2) + ',' + o.y.toFixed(2) + ')' });
+      g.appendChild(el('polygon', {
+        class: cls, stroke: vs.color,
+        points: pts(cam, hexRing(p.x, p.y, z, weite), o)
+      }));
+      view.layers.markers.appendChild(g);
+    }
+
+    ring(vs.key, 'vorschau-quelle', 0.93);
+    (vs.actions || []).forEach(function (a) {
+      var schlag = (a.kind === 'capture' || a.kind === 'shoot');
+      ring(H.key(a.q, a.r), 'vorschau' + (schlag ? ' vorschau-schlag' : ''), 0.78);
+    });
   }
 
   /* ---------------- Vergängliche Effekte ---------------- */

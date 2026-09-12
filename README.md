@@ -403,6 +403,12 @@ mitwandert, oder wenn ein Finger liegen bleibt und nur der andere wegzieht.
 
 * **Figur anklicken** → mögliche Züge werden markiert (weiß = Zug, roter Ring = schlagen,
   orange = Baum fällen, rotes Kreuz = Schuss, rosa = Ausbildungsfeld).
+* **Figur gedrückt halten** → ihre möglichen Zielfelder erscheinen als hohle Ringe in der
+  Farbe ihres Besitzers; ein voller Ring markiert die gehaltene Figur. Das gilt auch für die
+  Figuren der **Gegner**: Hexodus liegt offen da, und wer wissen will, was ihn bedroht, soll
+  nachsehen können, statt die Regelkarte auswendig zu lernen. Die Vorschau ist reine Auskunft
+  – sie wählt nichts aus, führt nichts aus und verschwindet beim Loslassen. Wer stattdessen
+  das Brett schiebt, bricht sie ab; ein kurzer Tipp wählt weiterhin die Figur aus.
 * **Ausbilden** → Einheit in der Seitenleiste wählen, dann ein rosa markiertes Feld anklicken.
 * **Richtungsfiguren** (Springer, Legionär) dürfen nach ihrem Zug kostenlos neu ausgerichtet
   werden; eine Drehung ohne Bewegung kostet den ganzen Zug.

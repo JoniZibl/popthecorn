@@ -10,7 +10,7 @@
 
   var state = null;
   var view = null;
-  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null,
+  var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null,
              thinking: false, shownEvent: 0, woodShown: null,
              sheetOpen: false, sheetAuto: false, sheetMove: null };
 
@@ -28,6 +28,47 @@
     var seen = {};
     for (var i = 0; i < state.teams.length; i++) seen[state.teams[i]] = true;
     return Object.keys(seen).length < state.teams.length;
+  }
+
+  /* ---------------- Zugvorschau: Figur gedrückt halten ----------------
+     Wer eine Figur gedrückt hält – die eigene oder eine gegnerische –, sieht,
+     wohin sie ziehen könnte. Das ist reine Auskunft: Es wird nichts ausgewählt
+     und nichts gezogen, beim Loslassen verschwindet es wieder.
+
+     Gegnerische Figuren gehören ausdrücklich dazu. Hexodus liegt offen da; wer
+     wissen will, was ihn bedroht, soll nachsehen können, statt die Regelkarte
+     auswendig zu lernen. Gerechnet wird mit dem Holz des Besitzers, sonst
+     zeigte die Vorschau Züge, die er sich gar nicht leisten kann. */
+  var VORSCHAU_MS = 380;
+
+  function zeigeVorschau(key) {
+    if (!state || state.phase !== 'play' || !ui) return;
+    var cell = state.board.cells[key];
+    if (!cell || !cell.piece) return;
+    if (ui.preview === key) return;
+    ui.preview = key;
+    refresh();
+  }
+
+  /* Beendet die Vorschau. Liefert true, wenn eine zu sehen war – der Aufrufer
+     verschluckt dann den Klick: Das lange Drücken war eine Frage, keine Wahl. */
+  function endeVorschau() {
+    if (!ui || !ui.preview) return false;
+    ui.preview = null;
+    refresh();
+    return true;
+  }
+
+  function vorschauDaten() {
+    if (!ui || !ui.preview || !state || state.phase !== 'play') return null;
+    var cell = state.board.cells[ui.preview];
+    if (!cell || !cell.piece) return null;
+    var owner = state.players[cell.piece.owner];
+    return {
+      key: ui.preview,
+      color: owner.color,
+      actions: M.forPiece(state.board, cell, owner.wood)
+    };
   }
 
   /* ---------------- Startmenü ---------------- */
@@ -161,7 +202,7 @@
   function startGame(names, kinds, teams) {
     beendeDenker();
     state = G.create(names, kinds, teams);
-    ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null,
+    ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null,
            thinking: false, shownEvent: 0, woodShown: null,
            sheetOpen: false, sheetAuto: false, sheetMove: null };
     $('#screen-menu').classList.add('hidden');
@@ -325,6 +366,11 @@
     var drag = null;        // Verschieben mit einem Zeiger
     var pinch = null;       // Zoomen mit zwei Fingern
     var moved = false;
+    var halteUhr = null;    // läuft, solange jemand eine Figur gedrückt hält
+
+    function stoppeHalten() {
+      if (halteUhr) { clearTimeout(halteUhr); halteUhr = null; }
+    }
 
     function count() { return Object.keys(pointers).length; }
 
@@ -359,8 +405,22 @@
           facing: ziel ? ziel.getAttribute('data-facing') : null
         };
         moved = false;
+
+        /* Gedrückt halten zeigt die Zielfelder der Figur darunter. Die Uhr
+           läuft nur, solange der Finger stillhält – wer schiebt, meint das
+           Brett, und wer kurz tippt, meint die Auswahl. */
+        stoppeHalten();
+        var haltKey = drag.key;
+        if (haltKey && !drag.facing && !drag.turn) {
+          halteUhr = setTimeout(function () {
+            halteUhr = null;
+            if (!moved && drag && drag.id === e.pointerId) zeigeVorschau(haltKey);
+          }, VORSCHAU_MS);
+        }
       } else if (count() === 2) {
         // zweiter Finger: Verschieben abbrechen, Zoom und Drehung beginnen
+        stoppeHalten();
+        endeVorschau();
         drag = null;
         moved = true;
         var c = centerOf();
@@ -411,7 +471,11 @@
       }
       if (!drag || e.pointerId !== drag.id) return;
       var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
-      if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+      if (Math.abs(dx) + Math.abs(dy) > 6) {
+        moved = true;
+        stoppeHalten();
+        endeVorschau();      // wer schiebt, will das Brett, nicht die Auskunft
+      }
       if (drag.turn) {
         // nach unten ziehen legt das Brett flach zum Betrachter
         queueOrbit(drag.yaw + dx * 0.35, drag.pitch - dy * 0.3);
@@ -426,12 +490,15 @@
       if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
       delete pointers[e.pointerId];
       if (count() < 2) pinch = null;
+      stoppeHalten();
+      // War eine Vorschau zu sehen, war das Drücken eine Frage – kein Klick
+      var warVorschau = endeVorschau();
 
       var wasDrag = drag && drag.id === e.pointerId;
       var hit = wasDrag ? drag.key : null;
       var richtung = wasDrag ? drag.facing : null;
       if (wasDrag) drag = null;
-      if (count() > 0 || !wasDrag || moved) return;
+      if (count() > 0 || !wasDrag || moved || warVorschau) return;
       if (richtung !== null && richtung !== undefined) handleFacingClick(+richtung);
       else if (hit) handleCellClick(hit);
       else deselect();
@@ -441,6 +508,8 @@
       if (svg.hasPointerCapture(e.pointerId)) svg.releasePointerCapture(e.pointerId);
       delete pointers[e.pointerId];
       if (count() < 2) pinch = null;
+      stoppeHalten();
+      endeVorschau();
       if (drag && drag.id === e.pointerId) drag = null;
     });
 
@@ -927,7 +996,7 @@
       ? M.supplyChain(state.board, state.current) : null;
     Render.draw(view, state, {
       markers: ui.markers, placeable: ui.placeable, lastMove: state.lastMove,
-      facing: ui.facing,
+      facing: ui.facing, preview: vorschauDaten(),
       chain: chain, chainColor: state.players[state.current].color
     });
     renderPlayers();
