@@ -388,9 +388,13 @@ var Render = (function () {
 
   /* Figur: Sockel am Boden, Silhouette aufrecht darauf – wie eine Spielfigur,
      die man aufs Brett stellt. */
-  function pieceGlyph(g, cam, o, cx, cy, z, piece, color, k) {
+  /* `boden` nimmt auf, was auf dem Feld liegen bleibt – der Schatten. Wer
+     springt, hebt nur seinen Körper; der Schatten wandert mit, bleibt aber
+     unten. Ohne die Trennung stiege er mit, und aus dem Sprung würde ein
+     Schweben. Fehlt die Gruppe, landet alles wie bisher zusammen. */
+  function pieceGlyph(g, cam, o, cx, cy, z, piece, color, k, boden) {
     var b = BASE_SCALE[piece.type] || 1;
-    groundShadow(g, cam, o, cx, cy, z, SIZE * 0.34 * b, 'piece-shadow');
+    groundShadow(boden || g, cam, o, cx, cy, z, SIZE * 0.34 * b, 'piece-shadow');
     g.appendChild(el('polygon', {
       class: 'piece-base', points: pts(cam, disc(cx, cy, z + 0.6, SIZE * 0.30 * b, 12), o)
     }));
@@ -533,10 +537,16 @@ var Render = (function () {
       // hervorgehobener Pfeil, wohin sie blickt – zwei Pfeilsätze übereinander
       // wären nur Gewirr.
       var waehlt = ctx.facing && ctx.facing.key === item.k;
+      /* Zwei Gruppen: Was auf dem Boden liegt (Schatten, Richtungspfeil) und
+         was steht (Sockel und Figur). Beim Sprung hebt nur die zweite ab. */
+      var boden = el('g', { class: 'piece-boden' });
+      var koerper = el('g', { class: 'piece-koerper' });
       if (Units.DEFS[cell.piece.type].directional && !waehlt) {
-        facingArrow(inner, cam, o, cx, cy, z, cell.piece, owner.color);
+        facingArrow(boden, cam, o, cx, cy, z, cell.piece, owner.color);
       }
-      pieceGlyph(inner, cam, o, cx, cy, z, cell.piece, owner.color, o.k);
+      pieceGlyph(koerper, cam, o, cx, cy, z, cell.piece, owner.color, o.k, boden);
+      inner.appendChild(boden);
+      inner.appendChild(koerper);
       var title = el('title');
       title.textContent = Units.DEFS[cell.piece.type].name + ' – ' + owner.name;
       inner.appendChild(title);
@@ -840,6 +850,12 @@ var Render = (function () {
     return view.root.querySelector('.piece[data-key="' + key + '"] .piece-anim');
   }
 
+  /* Nur der stehende Teil – Sockel und Figur, ohne Schatten und Richtungspfeil.
+     Ihn hebt der Sprungbogen an, während der Schatten am Boden mitwandert. */
+  function bodyAt(view, key) {
+    return view.root.querySelector('.piece[data-key="' + key + '"] .piece-koerper');
+  }
+
   /* Figuren-Symbol als HTML-String – für Regelkarten und Startbildschirm.
      Gezeichnet wird dieselbe Figur wie auf dem Brett, nur flach und von der
      Seite: Wer das Symbol in der Seitenleiste antippt, muss die Figur auf dem
@@ -868,6 +884,6 @@ var Render = (function () {
            applyView: applyView, orbit: orbit, setPitch: setPitch, setCamera: setCamera,
            isFlat: isFlat,
            pieceIcon: pieceIcon, ghost: ghost, floatText: floatText, pulse: pulse,
-           pieceAt: pieceAt, cellPixel: cellPixel,
+           pieceAt: pieceAt, bodyAt: bodyAt, cellPixel: cellPixel,
            SIZE: SIZE, FLAT: FLAT, TILT: TILT };
 })();

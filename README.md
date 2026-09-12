@@ -288,6 +288,13 @@ Damit nachvollziehbar bleibt, was gerade passiert ist – gerade gegen die KI:
   Feldern, nicht in Bildpunkten: So ist jede Figur gleich schnell, egal wie weit man gerade
   herausgezoomt hat.
 
+* **Der Springer fliegt.** Er setzt über die Felder dazwischen hinweg, also rutscht er nicht
+  hindurch, sondern beschreibt einen **Bogen**: Waagerecht läuft er seinen Weg wie jede andere
+  Figur, senkrecht hebt ihn eine Parabel an und setzt ihn wieder ab. Angehoben wird dabei nur
+  sein **Körper** – Schatten und Richtungspfeil bleiben am Boden und wandern flach mit. Ohne
+  diese Trennung stiege der Schatten mit, und aus dem Sprung würde ein Schweben. Jede Figur ist
+  dafür in zwei Gruppen geteilt: was auf dem Feld liegt und was darauf steht.
+
   Solange sie zieht, wird sie in einer **eigenen Ebene über dem Brett** gezeichnet. Das Brett
   entsteht von hinten nach vorn, und jede Figur gehört zur Gruppe ihres Feldes – unterwegs käme
   sie sonst hinter Plättchen zu liegen, die weiter vorn stehen als ihr Zielfeld, und

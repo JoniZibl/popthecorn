@@ -1079,6 +1079,38 @@
     return ui.lift.key;
   }
 
+  /* Wer springt, fliegt: Der Springer setzt über die Felder dazwischen hinweg,
+     also soll er auch über sie hinwegfliegen statt hindurchzurutschen. Die Liste
+     steht hier, damit eine weitere Figur ein Wort Arbeit ist. */
+  var SPRINGT = { springer: true };
+
+  function sprungHoehe(felder) {
+    return 10 + Math.min(felder, 4) * 5;     // 2 Felder: 20, 3 Felder: 25
+  }
+
+  /* Der senkrechte Teil des Sprungs. Die Figur läuft ihren Weg wie jede andere;
+     zusätzlich hebt eine Parabel ihren Körper an und setzt ihn wieder ab:
+     4·u·(1−u) ist null an beiden Enden und eins in der Mitte.
+
+     Angehoben wird nur der Körper – Schatten und Richtungspfeil bleiben am
+     Boden und wandern flach mit. Ohne diese Trennung stiege der Schatten mit,
+     und aus dem Sprung würde ein Schweben.
+
+     Abgetastet wird in zwölf Stufen. Mit nur drei Bildern liefe die Figur ein
+     Dreieck ab: Zwischen zwei Bildern wird geradlinig überblendet, aus dem
+     Scheitel würde eine Spitze. */
+  function hubBilder(hoehe) {
+    var bilder = [], stufen = 12;
+    for (var i = 0; i <= stufen; i++) {
+      var u = i / stufen;
+      bilder.push({
+        offset: u,
+        transform: 'translateY(' + (-hoehe * 4 * u * (1 - u)).toFixed(1) + 'px)'
+      });
+    }
+    return bilder;
+  }
+
   function zugDauer(felder) {
     if (!(felder > 1)) return ZUG_GRUND;
     return Math.min(ZUG_MAX, ZUG_GRUND + (felder - 1) * ZUG_JE_FELD);
@@ -1170,10 +1202,17 @@
           if (stationen) {
             run(node, huepfBilder(stationen, b), { duration: dauer, easing: 'linear' });
           } else {
+            var kurve = 'cubic-bezier(.33,0,.25,1)';
             run(node, [
               { transform: 'translate(' + (a.x - b.x) + 'px,' + (a.y - b.y) + 'px)' },
               { transform: 'translate(0,0)' }
-            ], { duration: dauer, easing: 'cubic-bezier(.33,0,.25,1)' });
+            ], { duration: dauer, easing: kurve });
+            // Wer springt, hebt dabei ab – derselbe Zeitverlauf, nur senkrecht
+            if (SPRINGT[mv.type]) {
+              var weite = H.distance(board.cells[mv.fromKey], board.cells[mv.toKey]);
+              run(Render.bodyAt(view, mv.toKey), hubBilder(sprungHoehe(weite)),
+                  { duration: dauer, easing: kurve });
+            }
           }
         }
         /* Ein langer Zug dauert länger als die Sekunde, die der Rechner

@@ -180,6 +180,22 @@ ok(view.cam.pitch === Render.TILT, 'das Brett startet in der Schrägsicht');
     });
     ok(figuren === 7, 'alle Figuren stehen auf dem Brett (' + figuren + ')');
 
+    /* Jede Figur ist in Boden und Körper geteilt: Beim Sprung hebt nur der
+       Körper ab, der Schatten bleibt unten. */
+    var koerper = alleKnoten(view.layers.scene).filter(function (n) {
+      return (n.attrs['class'] || '') === 'piece-koerper';
+    });
+    var boeden = alleKnoten(view.layers.scene).filter(function (n) {
+      return (n.attrs['class'] || '') === 'piece-boden';
+    });
+    ok(koerper.length === figuren && boeden.length === figuren,
+       'jede Figur hat Boden- und Körpergruppe (' + boeden.length + '/' + koerper.length + ')');
+    var schattenImBoden = boeden.filter(function (g2) {
+      return alleKnoten(g2).some(function (n) { return (n.attrs['class'] || '') === 'piece-shadow'; });
+    });
+    ok(schattenImBoden.length === figuren,
+       'der Schatten liegt in der Bodengruppe (' + schattenImBoden.length + ')');
+
     // Zugvorschau: ein Ring je Zielfeld, dazu einer um die Figur selbst
     var vorRinge = alleKnoten(view.layers.markers).filter(function (n) {
       return /(^| )vorschau( |$)/.test(n.attrs['class'] || '');
