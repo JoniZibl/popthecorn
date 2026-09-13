@@ -576,6 +576,247 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   .unit-strip { grid-template-columns: 1fr 1fr; }
 }
 
+/* ======================================================================
+   Wetterkarten
+   ======================================================================
+   Am Tisch liegt die Karte offen in der Mitte, und man sieht dem Wetter an,
+   was es ist. Hier auch: Die Karte liegt in der Ecke, und das Brett bekommt
+   die Stimmung dazu. Das ist keine Zierde – wer aufs Brett schaut, soll ohne
+   Lesen merken, dass diese Runde anders läuft.
+
+   Zwei Wege, beide billig genug fürs Handy:
+   * Die Farben der Felder kommen aus ein paar Füllregeln – kein Filter über
+     dem ganzen Brett, der bei jedem Neuzeichnen neu gerastert werden müsste.
+   * Darüber liegt eine eigene Ebene mit ein paar Dutzend Teilchen (Schnee,
+     Regen, Funken) und einem getönten Schleier. Sie nimmt keine Berührungen
+     an und wird nur beim Kartenwechsel neu gebaut. */
+
+/* ---------- Die offene Karte ---------- */
+.wetter-karte {
+  position: absolute; left: 12px; top: 12px; z-index: 4; width: 212px;
+  background: rgba(18, 22, 28, .95);
+  border: 1px solid var(--line); border-left: 4px solid var(--kf, #7dd3fc);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .5);
+  transform-origin: 50% 50%;
+}
+.wetter-karte.hidden { display: none; }
+.karte-flaeche {
+  display: flex; gap: 10px; align-items: flex-start; width: 100%;
+  padding: 10px 12px; text-align: left;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--kf) 16%, transparent), transparent 70%);
+  border: 0; color: var(--text); cursor: pointer;
+}
+.karte-icon { font-size: 22px; line-height: 1.15; flex: 0 0 auto; }
+.karte-wort { min-width: 0; }
+.karte-gruppe {
+  display: block; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted);
+}
+.karte-name { display: block; font-size: 15px; color: var(--kf, #fff); line-height: 1.25; }
+.karte-kurz { display: block; font-size: 12px; color: var(--muted); line-height: 1.4; margin-top: 3px; }
+.karte-lang {
+  display: none; padding: 0 12px 12px; font-size: 12.5px; line-height: 1.55; color: var(--muted);
+}
+.karte-lang p { margin: 0 0 8px; }
+.karte-lang p:last-child { margin-bottom: 0; }
+.karte-folge { color: var(--kf); }
+.wetter-karte.is-offen .karte-lang { display: block; }
+.wetter-karte.is-offen { width: 264px; }
+
+/* Dieselbe Karte im Regelwerk – dort liegt sie offen und ohne Knopf */
+.wetter-galerie {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px; margin-top: 16px;
+}
+.wetter-karte.ist-galerie { position: static; width: auto; box-shadow: none; }
+.wetter-karte.ist-galerie .karte-flaeche { cursor: default; }
+.wetter-karte.ist-galerie .karte-lang { display: block; }
+
+/* In der Schublade am Handy verdeckt das Brett – die Karte steht deshalb
+   auch über den Aktionen */
+.panel-wetter {
+  display: flex; gap: 10px; align-items: center; margin: 2px 0 12px; padding: 8px 10px;
+  border: 1px solid var(--line); border-left: 4px solid var(--kf); border-radius: 10px;
+  background: rgba(255, 255, 255, .03); font-size: 12px; color: var(--muted); line-height: 1.45;
+}
+.panel-wetter strong { color: var(--kf); font-size: 13px; }
+
+/* ---------- Stimmung über dem Brett ---------- */
+.wetter-fx { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; }
+.wetter-fx .fx { position: absolute; display: block; will-change: transform; }
+
+/* Schleier: eine getönte Fläche, die dem ganzen Brett die Jahreszeit gibt */
+.wetter-fx::before { content: ''; position: absolute; inset: 0; pointer-events: none; }
+.fx-frost::before       { background: rgba(125, 211, 252, .16); }
+.fx-nebel::before       { background: rgba(226, 232, 240, .22); }
+.fx-klar::before        { background: rgba(253, 224, 71, .10); }
+.fx-windstille::before  { background: rgba(252, 211, 77, .08); }
+.fx-trockenheit::before { background: rgba(251, 191, 36, .13); }
+.fx-hunger::before      { background: rgba(148, 163, 184, .17); }
+.fx-markt::before       { background: rgba(245, 158, 11, .10); }
+.fx-feldlager::before   { background: radial-gradient(60% 55% at 50% 62%, rgba(251, 146, 60, .22), transparent 70%); }
+.fx-belagerung::before  { box-shadow: inset 0 0 150px 45px rgba(60, 0, 0, .5); }
+.fx-schlamm::before     { background: rgba(120, 72, 20, .20); }
+.fx-marsch::before      { background: rgba(96, 165, 250, .08); }
+.fx-windbruch::before   { background: rgba(168, 162, 158, .12); }
+.fx-wuchs::before       { background: rgba(134, 239, 172, .10); }
+.fx-musterung::before   { background: rgba(167, 139, 250, .10); }
+.fx-aufbruch::before    { background: radial-gradient(70% 60% at 50% 45%, rgba(252, 211, 77, .16), transparent 72%); }
+
+/* Schnee und Regen fallen, Funken steigen, Böen fegen quer */
+.fx-flocke {
+  width: 5px; height: 5px; border-radius: 50%; background: #fff; opacity: .7;
+  animation-name: wetter-fallen; animation-timing-function: linear; animation-iteration-count: infinite;
+  transform: scale(var(--gr, 1));
+}
+.fx-tropfen {
+  width: 2px; height: 15px; border-radius: 2px; opacity: .45;
+  background: linear-gradient(180deg, rgba(190, 225, 245, 0), rgba(190, 225, 245, .95));
+  animation-name: wetter-regnen; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+.fx-funke {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--kf, #fff); box-shadow: 0 0 9px var(--kf, #fff); opacity: .8;
+  animation-name: wetter-steigen; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+}
+.fx-muenze {
+  font-size: 15px; opacity: .85; font-style: normal;
+  animation-name: wetter-steigen; animation-timing-function: ease-in-out; animation-iteration-count: infinite;
+}
+.fx-boe {
+  width: 130px; height: 2px; border-radius: 2px; opacity: .0;
+  background: linear-gradient(90deg, transparent, var(--kf, #fff), transparent);
+  animation-name: wetter-wehen; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+.fx-schwade {
+  width: 60%; height: 48%; left: -30%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(232, 238, 246, .55), transparent 72%);
+  filter: blur(16px);
+  animation-name: wetter-ziehen; animation-timing-function: linear; animation-iteration-count: infinite;
+}
+.fx-glanz {
+  left: 0 !important; top: 0 !important; width: 100%; height: 100%;
+  background: radial-gradient(52% 44% at 72% 16%, var(--kf, #fff), transparent 70%);
+  opacity: .16;
+  animation: wetter-atmen 7s ease-in-out infinite;
+}
+.fx-flimmer {
+  left: 0 !important; top: 0 !important; width: 100%; height: 220%;
+  background: repeating-linear-gradient(180deg, rgba(255, 236, 179, .05) 0 4px, transparent 4px 18px);
+  filter: blur(1.5px);
+  animation: wetter-flimmern 5s linear infinite;
+}
+.fx-glut {
+  left: 0 !important; top: 0 !important; width: 100%; height: 100%;
+  background: radial-gradient(34% 30% at 50% 62%, rgba(255, 170, 70, .30), transparent 70%);
+  animation: wetter-atmen 4.5s ease-in-out infinite;
+}
+.fx-vignette { display: none; }   /* die Tönung macht den Schleier schon */
+
+@keyframes wetter-fallen {
+  from { transform: translate3d(0, -12vh, 0) scale(var(--gr, 1)); }
+  to   { transform: translate3d(26px, 108vh, 0) scale(var(--gr, 1)); }
+}
+@keyframes wetter-regnen {
+  from { transform: translate3d(0, -14vh, 0); }
+  to   { transform: translate3d(-40px, 110vh, 0); }
+}
+@keyframes wetter-steigen {
+  0%   { transform: translate3d(0, 14px, 0) scale(.5); opacity: 0; }
+  35%  { opacity: .85; }
+  100% { transform: translate3d(6px, -70px, 0) scale(1); opacity: 0; }
+}
+@keyframes wetter-wehen {
+  0%   { transform: translate3d(-30vw, 0, 0); opacity: 0; }
+  12%  { opacity: .45; }
+  88%  { opacity: .45; }
+  100% { transform: translate3d(115vw, 0, 0); opacity: 0; }
+}
+@keyframes wetter-ziehen {
+  from { transform: translate3d(-10vw, 0, 0); }
+  to   { transform: translate3d(115vw, 0, 0); }
+}
+@keyframes wetter-atmen {
+  0%, 100% { opacity: .10; }
+  50%      { opacity: .26; }
+}
+@keyframes wetter-flimmern {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(0, -14px, 0); }
+}
+
+/* ---------- Das Brett selbst ---------- */
+/* Gefroren: Das Wasser wird zur hellen Fläche, das Ufer bekommt einen weißen
+   Saum. Genau die Karte, bei der man aufs Wasser darf – das soll man sehen. */
+.w-frost .hex-shape.ton-w0 { fill: #a9d8e8; }
+.w-frost .hex-shape.ton-w1 { fill: #b6e0ee; }
+.w-frost .hex-shape.ton-w2 { fill: #9dcfe1; }
+.w-frost .hex-shape.ton-w3 { fill: #c0e7f3; }
+.w-frost .water-rim { stroke: rgba(255, 255, 255, .55); }
+.w-frost .boat-hull { fill: #9a7350; }
+
+/* Trocken, schlammig, verschneit: der Boden wechselt die Farbe */
+.w-trockenheit .hex-shape.ton-g0 { fill: #cbbf62; }
+.w-trockenheit .hex-shape.ton-g1 { fill: #c3b65a; }
+.w-trockenheit .hex-shape.ton-g2 { fill: #d5c96e; }
+.w-trockenheit .hex-shape.ton-g3 { fill: #bfb154; }
+.w-schlamm .hex-shape.ton-g0 { fill: #7f8a5d; }
+.w-schlamm .hex-shape.ton-g1 { fill: #77835a; }
+.w-schlamm .hex-shape.ton-g2 { fill: #879165; }
+.w-schlamm .hex-shape.ton-g3 { fill: #6f7c52; }
+.w-hunger .hex-shape.ton-g0 { fill: #c4d0c2; }
+.w-hunger .hex-shape.ton-g1 { fill: #bccabb; }
+.w-hunger .hex-shape.ton-g2 { fill: #ced9cc; }
+.w-hunger .hex-shape.ton-g3 { fill: #b5c4b4; }
+.w-hunger .tree-top2 { fill: #4f7a5c; }
+/* Neuer Wuchs: das Grün steht im Saft */
+.w-wuchs .hex-shape.ton-g0 { fill: #7fd06a; }
+.w-wuchs .hex-shape.ton-g1 { fill: #75c95f; }
+.w-wuchs .hex-shape.ton-g2 { fill: #8cdc76; }
+.w-wuchs .hex-shape.ton-g3 { fill: #6dc257; }
+/* Windbruch: der Wald ist grau vom Staub */
+.w-windbruch .tree-top { fill: #7f9d78; }
+.w-windbruch .tree-top2 { fill: #6a8a66; }
+
+/* Die Karten, die den Nachschub betreffen, heben die Kette hervor */
+.w-feldlager .supply-link { opacity: .95; stroke-width: 6; stroke-dasharray: 2 7; }
+.w-feldlager .supply-anchor { opacity: .9; }
+.w-belagerung .supply-anchor { opacity: .95; stroke-width: 4; }
+.w-belagerung .supply-link { opacity: .3; }
+
+/* Nebel nimmt dem Brett die Härte, klare Sicht gibt sie ihm zurück */
+.w-nebel .hex-shape { stroke: rgba(0, 0, 0, .12); }
+.w-klar .hex-shape { stroke: rgba(0, 0, 0, .45); }
+
+/* Karten, die etwas am Brett verändert haben, zeigen es kurz an */
+.pulse-wetter { stroke: var(--kf, #fff); stroke-width: 5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wetter-fx .fx { animation: none !important; display: none; }
+}
+
+/* ---------- Am Handy ---------- */
+@media (max-width: 900px) {
+  /* Oben sitzen Spielerchips und Statuszeile – die Karte liegt unten links,
+     über der Bedienleiste, und bleibt mit einem Daumen erreichbar. */
+  .wetter-karte {
+    left: 8px; top: auto; bottom: 58px; width: 178px;
+    border-radius: 12px;
+  }
+  .wetter-karte.is-offen { width: calc(100% - 16px); max-height: 52%; overflow: auto; }
+  .karte-flaeche { padding: 8px 10px; gap: 8px; }
+  /* Die Runde steht schon in der Statuszeile – auf der schmalen Karte
+     bräche sie die Kopfzeile um */
+  .karte-runde { display: none; }
+  .karte-icon { font-size: 19px; }
+  .karte-name { font-size: 14px; }
+  .karte-kurz { font-size: 11.5px; }
+  /* Die Kamerasteuerung fährt über der Karte auf – dann tritt sie beiseite */
+  .board-wrap:has(.board-hud.is-open) .wetter-karte { opacity: .2; }
+  .wetter-galerie { grid-template-columns: 1fr; }
+}
+
 </style>
 
 <header class="topbar">
@@ -622,6 +863,14 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
         <option value="teams">Mannschaften</option>
       </select>
     </label>
+    <label class="field">
+      <span>Spielweise</span>
+      <select id="play-mode">
+        <option value="standard">Standard</option>
+        <option value="wetter">Mit Wetterkarten</option>
+      </select>
+    </label>
+    <p id="mode-info" class="hint small"></p>
     <div id="player-fields"></div>
     <p id="setup-info" class="hint"></p>
     <button id="start-game" class="primary-btn">Spiel starten</button>
@@ -646,9 +895,14 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 
 <!-- ---------- Spielbildschirm ---------- -->
 <main id="screen-game" class="screen game hidden">
-  <div class="board-wrap">
+  <div id="board-wrap" class="board-wrap">
     <div id="board" class="board"></div>
+    <!-- Stimmung zum Wetter: Nebel, Schnee, Regen, Funken. Reine Anzeige,
+         nimmt keine Berührungen an. -->
+    <div id="wetter-fx" class="wetter-fx" aria-hidden="true"></div>
     <div id="phase-banner" class="phase-banner"></div>
+    <!-- Die offene Wetterkarte. Antippen klappt den Regeltext auf. -->
+    <div id="wetter-karte" class="wetter-karte hidden"></div>
     <div class="board-hud">
       <button id="zoom-in" class="hud-btn" title="Vergrößern">+</button>
       <button id="zoom-out" class="hud-btn" title="Verkleinern">−</button>
@@ -795,6 +1049,27 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
       <p>Dann gewinnt, wer das größte <strong>Vermögen</strong> hat: Holzvorrat plus das Holz,
         das in den eigenen Figuren steckt. Bei Gleichstand entscheiden nacheinander die Zahl
         der Figuren, der Holzvorrat und wer zuletzt etwas bewegt hat.</p>
+    </section>
+
+    <section class="rule-block" id="wetter-regeln">
+      <h3>Spielweise „Mit Wetterkarten“</h3>
+      <p>Eine eigene Spielweise – das <strong>Standardspiel bleibt unverändert</strong>. Wer sie
+        im Startmenü wählt, deckt zu Beginn jeder Runde die oberste Karte des Wetterstapels auf.
+        Sie liegt offen am Brett, bis die Runde herum ist, und gilt für <strong>alle Spieler
+        gleichermaßen</strong>. Danach kommt sie auf den Ablagestapel; ist der Stapel leer, wird
+        die Ablage gemischt und neu aufgelegt.</p>
+      <ul>
+        <li>Die Karte gilt für <strong>alle</strong> – nur der Aufbruch gilt für den,
+          der ihn aufdeckt.</li>
+        <li>Jede Karte verändert eine <strong>ganze Regel-Schicht</strong> – Gelände, Sicht,
+          Wirtschaft, Nachschub oder Bewegung –, nie nur eine einzelne Figur.</li>
+        <li>Keine Karte erfindet Holz: Der Vorrat an Bäumen, Holz und Figuren bleibt endlich.</li>
+        <li>Was eine Karte am Brett verändert – gefallene und nachgewachsene Bäume, eingerückte
+          Arbeiter –, bleibt <strong>dauerhaft</strong> stehen.</li>
+        <li>Dreimal <strong>Ruhe vor dem Sturm</strong> liegt im Stapel – ohne sie kippte jede
+          Runde das Brett.</li>
+      </ul>
+      <div id="wetter-karten" class="wetter-galerie"></div>
     </section>
 
     <div id="rule-cards" class="rule-cards"></div>
@@ -1209,6 +1484,365 @@ var Board = (function () {
 if (typeof module !== 'undefined') { module.exports = Board; }
 
 </script>
+<script data-modul="wetter">
+/* js/wetter.js */
+/* Hexodus – Wetterkarten (eigene Spielweise)
+
+   Das Standardspiel bleibt, wie es ist. Wer mit Wetter spielt, deckt zu Beginn
+   jeder Runde eine Karte auf. Sie liegt offen, bis die Runde herum ist, und
+   gilt für **alle** Spieler gleichermaßen.
+
+   Jede Karte verändert eine ganze Regel-Schicht – Gelände, Sicht, Wirtschaft,
+   Nachschub, Bewegung –, nie nur eine einzelne Figur. Eine Karte, die genau
+   einer Figur etwas verbietet, wäre eine Strafe und kein Wetter.
+
+   Alles hier ist so gebaut, dass es auch auf einem Tisch aus Pappe
+   funktioniert:
+
+   * Eine Regel, kein Nachrechnen pro Figur. Die Karte liegt offen, man liest ab.
+   * Keine Marker, die man am Rundenende wieder einsammeln muss.
+   * Kein Vorrat, den es nicht gibt: Holz, Bäume und Figuren sind endlich –
+     keine Karte verdoppelt Einkommen.
+   * Prüfbar durch Hinsehen statt durch Erinnern.
+   * Was eine Karte am Brett verändert, bleibt dauerhaft; nichts wird zurückgedreht.
+
+   Technisch ist eine Karte zweierlei:
+
+   * `effekt` – Zahlen und Schalter, die **beide** Zuggeneratoren lesen
+     (js/moves.js für das Regelwerk, js/ai.js für die Suche des Computer-
+     gegners). Die Wirkung hängt am Brett (`board.wetter`), genau wie die
+     Mannschaften: Zugerzeugen bekommt nur das Brett zu sehen.
+   * `sofort` – eine einmalige Änderung am Brett beim Aufdecken (Bäume fallen,
+     Bäume wachsen, Arbeiter rücken ein). Sie geschieht einmal und bleibt. */
+var Wetter = (function () {
+  'use strict';
+
+  var H = (typeof Hex !== 'undefined') ? Hex : require('./hex.js');
+  var B = (typeof Board !== 'undefined') ? Board : require('./board.js');
+
+  /* Die Wirkung „kein Wetter“. Jede Karte beschreibt nur, was sie daran
+     ändert – so steht an einer Stelle, was es überhaupt für Stellschrauben
+     gibt, und eine neue Karte kann nichts vergessen. */
+  var NEUTRAL = {
+    id: null,
+    bootPreis: 1,          // was ein Boot kostet (Frost: 0)
+    schuss: 2,             // Schussweite des Bogenschützen (Nebel 1, Klare Sicht 3)
+    maxWeite: 0,           // 0 = unbegrenzt; Schlamm: kein Zug weiter als 2 Felder
+    extraFeld: false,      // Marschbefehl: Schrittfiguren gehen ein Feld weiter
+    freieRichtung: false,  // Windstille: Springer und Legionär ziehen in jede Richtung
+    kosten: 0,             // Markt: -1 auf jede Ausbildung
+    keineAusbildung: false,// Hungerwinter
+    luecke: false,         // Feldlager: die Versorgungskette überspringt ein Feld
+    radius: 0,            // Belagerung: Nachschub nur so weit um Turm und Feldzeichen
+    faellenFrei: false     // Trockenheit: Fällen kostet den Zug nicht
+  };
+
+  /* Wirkung, die gerade am Brett hängt. Ohne Wetter (Standardspiel, alte
+     Spielstände) ist das die neutrale – dann rechnet alles wie bisher. */
+  function wirkung(board) {
+    return (board && board.wetter) || NEUTRAL;
+  }
+
+  function mische(effekt) {
+    var w = {};
+    for (var k in NEUTRAL) w[k] = NEUTRAL[k];
+    for (var e in (effekt || {})) w[e] = effekt[e];
+    return w;
+  }
+
+  /* ---------------- Einmalige Änderungen am Brett ---------------- */
+
+  /* Windbruch: Jeder Baum, der allein steht, fällt – und sein Holz bekommt
+     niemand. Ein Baum, der Nachbarn hat, steht im Windschatten. Der Wald wird
+     dadurch lichter und klumpiger: Kettensprünge werden seltener, Sichtachsen
+     länger. */
+  function windbruch(state) {
+    var board = state.board, weg = [];
+    board.keys.forEach(function (k) {
+      var c = board.cells[k];
+      if (!c.tree) return;
+      var nachbar = H.neighbors(c).some(function (nb) {
+        var n = B.at(board, nb);
+        return n && n.tree;
+      });
+      if (!nachbar) weg.push(c);
+    });
+    weg.forEach(function (c) { c.tree = false; });
+    return {
+      text: weg.length
+        ? weg.length + (weg.length === 1 ? ' einzelner Baum fällt.' : ' einzeln stehende Bäume fallen.')
+        : 'Kein Baum steht allein – es bleibt alles stehen.',
+      felder: weg.map(function (c) { return H.key(c.q, c.r); })
+    };
+  }
+
+  /* Neuer Wuchs: Wo zwei Bäume nebeneinanderstehen, wächst dazwischen ein
+     dritter. Das ist das Gegenstück zum Windbruch und der einzige Weg, auf dem
+     neues Holz ins Spiel kommt – ohne dass eine Karte Einkommen verdoppelt.
+     Gedeckelt, weil auch am Tisch nur eine Handvoll Bäume im Vorrat liegt. */
+  var WUCHS_MAX = 8;
+
+  function neuerWuchs(state) {
+    var board = state.board, neu = [];
+    board.keys.forEach(function (k) {
+      if (neu.length >= WUCHS_MAX) return;
+      var c = board.cells[k];
+      if (c.terrain !== 'grass' || c.tree || c.piece || c.boat) return;
+      var n = 0;
+      H.neighbors(c).forEach(function (nb) {
+        var x = B.at(board, nb);
+        if (x && x.tree) n++;
+      });
+      if (n >= 2) neu.push(c);
+    });
+    neu.forEach(function (c) { c.tree = true; });
+    return {
+      text: neu.length
+        ? neu.length + (neu.length === 1 ? ' Baum wächst nach.' : ' Bäume wachsen nach.')
+        : 'Nirgends stehen zwei Bäume beieinander – nichts wächst.',
+      felder: neu.map(function (c) { return H.key(c.q, c.r); })
+    };
+  }
+
+  /* Musterung: Wer keinen Arbeiter mehr hat, bekommt einen gestellt. Der
+     Arbeiter ist die einzige Quelle für Holz – ohne ihn ist eine Partie
+     gelaufen, auch wenn der Turm noch steht. Die Karte ist also kein Geschenk
+     an den Führenden, sondern eine Hand für den, dem sie ausgegangen ist.
+     Gestellt wird nur, wer noch eine Figur im Vorrat hat: Von jeder Figur darf
+     ohnehin nur eine im Spiel sein. */
+  function musterung(state, hilfe) {
+    var geholfen = [], felder = [];
+    state.players.forEach(function (pl) {
+      if (pl.eliminated) return;
+      if (hilfe.hatTyp(state, pl.index, 'worker')) return;
+      var feld = hilfe.nachschubFeld(state, pl.index);
+      if (!feld) return;
+      feld.piece = { type: 'worker', owner: pl.index, facing: 0 };
+      geholfen.push(pl.index);
+      felder.push(H.key(feld.q, feld.r));
+    });
+    return {
+      text: geholfen.length
+        ? geholfen.map(function (i) { return state.players[i].name; }).join(', ') +
+          (geholfen.length === 1 ? ' bekommt einen Arbeiter gestellt.'
+                                 : ' bekommen einen Arbeiter gestellt.')
+        : 'Alle haben ihren Arbeiter – niemand rückt nach.',
+      felder: felder
+    };
+  }
+
+  /* ---------------- Die Karten ---------------- */
+
+  /* `menge` ist die Zahl der Karten im Stapel. Die starken Schwünge liegen
+     einmal darin, die ruhigen Zahlenkarten zweimal, und dreimal „Ruhe vor dem
+     Sturm“ sorgt dafür, dass nicht jede Runde das Brett umkippt. */
+  var KARTEN = [
+    /* --- Gelände --- */
+    {
+      id: 'frost', name: 'Frost', icon: '❄️', farbe: '#7dd3fc', gruppe: 'Gelände', menge: 1,
+      kurz: 'Das Wasser trägt: Boote kosten nichts.',
+      text: 'Über Nacht ist das Wasser hart geworden. Wer diese Runde aufs Wasser zieht, ' +
+            'bekommt sein Boot umsonst – für jedes Feld, so oft er will. Inseln, Buchten und ' +
+            'ganze Küstenlinien stehen plötzlich offen; wer sich hinter dem Wasser sicher ' +
+            'wähnte, ist es nicht mehr.',
+      effekt: { bootPreis: 0 }
+    },
+    {
+      id: 'windbruch', name: 'Windbruch', icon: '🍃', farbe: '#a8a29e', gruppe: 'Gelände', menge: 1,
+      kurz: 'Jeder Baum ohne Nachbarbaum fällt – ohne Holz für irgendwen.',
+      text: 'Ein Sturm geht über die Insel. Jeder Baum, der allein steht, wird umgeworfen; ' +
+            'sein Holz bekommt niemand – es liegt zersplittert im Unterholz. Bäume mit ' +
+            'Nachbarn stehen im Windschatten und bleiben. Der Wald wird lichter und ' +
+            'klumpiger: weniger Sprungbretter für den Tangolin, längere Sichtachsen.',
+      effekt: null, sofort: windbruch
+    },
+    {
+      id: 'wuchs', name: 'Neuer Wuchs', icon: '🌱', farbe: '#86efac', gruppe: 'Gelände', menge: 1,
+      kurz: 'Zwischen zwei Bäumen wächst ein neuer – höchstens acht.',
+      text: 'Regen und Sonne zur rechten Zeit. Auf jedem freien Grasfeld, das an mindestens ' +
+            'zwei Bäume grenzt, wächst ein neuer Baum – bis der Vorrat von acht erschöpft ist. ' +
+            'Das Gegenstück zum Windbruch und der einzige Weg, auf dem neues Holz ins Spiel ' +
+            'kommt. Neue Bäume versperren allerdings auch Wege und Ausbildungsfelder.',
+      effekt: null, sofort: neuerWuchs
+    },
+
+    /* --- Sicht --- */
+    {
+      id: 'nebel', name: 'Nebel', icon: '🌫️', farbe: '#cbd5e1', gruppe: 'Sicht', menge: 2,
+      kurz: 'Bogenschützen treffen nur ein Feld weit.',
+      text: 'Milchige Schwaden liegen über der Insel. Der Bogenschütze sieht kaum weiter als ' +
+            'bis zum Nachbarfeld und trifft diese Runde nur auf Distanz 1. Wer sich sonst ' +
+            'vorsichtig außerhalb seiner Reichweite hält, darf heranrücken.',
+      effekt: { schuss: 1 }
+    },
+    {
+      id: 'klar', name: 'Klare Sicht', icon: '☀️', farbe: '#fde047', gruppe: 'Sicht', menge: 1,
+      kurz: 'Bogenschützen treffen drei Felder weit.',
+      text: 'Ein Tag ohne Dunst, die Luft steht still und klar. Der Bogenschütze trifft diese ' +
+            'Runde auf Distanz 3 statt 2 – über Bäume und Wasser hinweg wie immer. Jede ' +
+            'Stellung, die gestern noch außer Reichweite lag, liegt heute darin.',
+      effekt: { schuss: 3 }
+    },
+    {
+      id: 'windstille', name: 'Windstille', icon: '🪶', farbe: '#fcd34d', gruppe: 'Sicht', menge: 1,
+      kurz: 'Springer und Legionär ziehen in jede Richtung.',
+      text: 'Keine Fahne rührt sich, kein Wimpel zeigt irgendwohin. Springer und Legionär sind ' +
+            'diese Runde nicht an ihre Blickrichtung gebunden und ziehen in jede der sechs ' +
+            'Richtungen. Ihre Pfeile bleiben, wo sie stehen – gedreht wird nichts, es ist nur ' +
+            'einmal gleich, wohin sie zeigen.',
+      effekt: { freieRichtung: true }
+    },
+
+    /* --- Wirtschaft --- */
+    {
+      id: 'trockenheit', name: 'Trockenheit', icon: '🌾', farbe: '#fbbf24', gruppe: 'Wirtschaft', menge: 2,
+      kurz: 'Bäume fällen kostet keinen Zug.',
+      text: 'Das Holz ist staubtrocken und fällt fast von selbst. Der Arbeiter fällt einen Baum ' +
+            'und ist danach noch am Zug – so oft, wie Bäume neben ihm stehen. Es entsteht kein ' +
+            'Holz aus dem Nichts: Jeder Baum gibt genau ein Holz wie immer, es geht nur schneller.',
+      effekt: { faellenFrei: true }
+    },
+    {
+      id: 'markt', name: 'Fahrender Markt', icon: '🛒', farbe: '#f59e0b', gruppe: 'Wirtschaft', menge: 1,
+      kurz: 'Jede Ausbildung kostet 1 Holz weniger (mindestens 1).',
+      text: 'Händler sind auf der Insel gelandet und verkaufen unter Preis. Jede Einheit kostet ' +
+            'diese Runde ein Holz weniger, mindestens aber eines. Der Zenturio für zwei Holz ' +
+            'statt drei ist die Gelegenheit, auf die man ein paar Runden gewartet hat.',
+      effekt: { kosten: -1 }
+    },
+    {
+      id: 'hunger', name: 'Hungerwinter', icon: '🌨️', farbe: '#94a3b8', gruppe: 'Wirtschaft', menge: 1,
+      kurz: 'Diese Runde bildet niemand aus.',
+      text: 'Die Vorräte sind knapp, in den Lagern wird nicht ausgebildet. Diese Runde entsteht ' +
+            'keine einzige neue Einheit – bei niemandem. Gefällt, gezogen und geschlagen wird ' +
+            'weiter; wer Holz sammelt, sammelt es für die nächste Runde.',
+      effekt: { keineAusbildung: true }
+    },
+
+    /* --- Nachschub --- */
+    {
+      id: 'feldlager', name: 'Feldlager', icon: '⛺', farbe: '#fb923c', gruppe: 'Nachschub', menge: 1,
+      kurz: 'Die Kette überspringt ein Feld ohne Figur.',
+      text: 'Läufer tragen den Nachschub über die Lücke. Die Versorgungskette darf diese Runde ' +
+            'ein Feld überspringen: Zwei eigene Figuren mit genau einem Feld ohne Figur ' +
+            'dazwischen gelten als verbunden – ob dort Gras, ein Baum oder Wasser liegt, ist ' +
+            'gleich. Steht eine fremde Figur in der Lücke, reißt die Kette doch. Wer seine ' +
+            'Reihe verloren hat, kann vorn wieder ausbilden – nur diese eine Runde lang.',
+      effekt: { luecke: true }
+    },
+    {
+      id: 'belagerung', name: 'Belagerung', icon: '🛡️', farbe: '#ef4444', gruppe: 'Nachschub', menge: 1,
+      kurz: 'Nachschub nur im Umkreis von 3 Feldern um Turm und Feldzeichen.',
+      text: 'Die Wege sind abgeschnitten. Ausgebildet wird diese Runde nur an Feldern, die ' +
+            'höchstens drei Felder von einem eigenen Königs-Turm oder Feldzeichen entfernt ' +
+            'liegen – wie lang die Kette auch sein mag. Lange Ketten quer über die Insel nützen ' +
+            'nichts; wer vorn nachschieben will, braucht den Zenturio dort.',
+      effekt: { radius: 3 }
+    },
+    {
+      id: 'musterung', name: 'Musterung', icon: '🪓', farbe: '#a78bfa', gruppe: 'Nachschub', menge: 1,
+      kurz: 'Wer keinen Arbeiter mehr hat, bekommt einen gestellt.',
+      text: 'Es wird gemustert: Jeder Spieler ohne Arbeiter bekommt einen an seinen Turm oder an ' +
+            'sein Feldzeichen gestellt – umsonst. Der Arbeiter ist die einzige Quelle für Holz; ' +
+            'wem er ausgegangen ist, dem ist die Partie sonst gelaufen, auch wenn sein Turm noch ' +
+            'steht. Wer seinen Arbeiter hat, bekommt nichts.',
+      effekt: null, sofort: musterung
+    },
+
+    /* --- Bewegung und Tempo --- */
+    {
+      id: 'schlamm', name: 'Schlamm', icon: '🌧️', farbe: '#a16207', gruppe: 'Bewegung', menge: 2,
+      kurz: 'Kein Zug führt weiter als 2 Felder.',
+      text: 'Regen hat den Boden aufgeweicht. Kein Zug führt diese Runde weiter als zwei Felder ' +
+            'vom Startfeld weg: Legionär und Zenturio bleiben nach zwei Feldern stecken, der ' +
+            'Springer springt nur die kurze Weite, und der Tangolin kommt über einen einzigen ' +
+            'Sprung nicht hinaus. Schritte über ein Feld merken den Schlamm nicht.',
+      effekt: { maxWeite: 2 }
+    },
+    {
+      id: 'marsch', name: 'Marschbefehl', icon: '🥁', farbe: '#60a5fa', gruppe: 'Bewegung', menge: 2,
+      kurz: 'Schrittfiguren ziehen 2 Felder, der Springer bis zu 4.',
+      text: 'Die Trommel gibt den Takt vor. Arbeiter, Bogenschütze, Tangolin und Königs-Turm ' +
+            'ziehen diese Runde zwei Felder geradeaus statt eines – das Feld dazwischen muss ' +
+            'frei sein, marschiert wird, nicht gesprungen. Der Springer springt 2, 3 oder 4 ' +
+            'Felder weit. Gefällt wird weiter nur vom Nachbarfeld aus; Legionär, Zenturio und ' +
+            'Samurai sind ohnehin weit unterwegs.',
+      effekt: { extraFeld: true }
+    },
+    {
+      id: 'aufbruch', name: 'Aufbruch', icon: '📯', farbe: '#fcd34d', gruppe: 'Bewegung', menge: 1,
+      kurz: 'Wer die Karte aufdeckt, hat zwei Züge.',
+      text: 'Das Horn ruft zum Aufbruch. Der Spieler, der diese Karte aufdeckt – also der, der ' +
+            'die Runde eröffnet –, führt zwei Aktionen nacheinander aus statt einer. Alle ' +
+            'anderen ziehen wie immer. Die einzige Karte, die nicht für alle gleich gilt; ' +
+            'dafür liegt sie nur einmal im Stapel.',
+      effekt: null, sofort: null, extraZug: 1
+    },
+
+    /* --- Füllkarte --- */
+    {
+      id: 'ruhe', name: 'Ruhe vor dem Sturm', icon: '🌙', farbe: '#64748b', gruppe: 'Ruhe', menge: 3,
+      kurz: 'Nichts passiert. Es wird gespielt wie immer.',
+      text: 'Ein stiller Tag. Keine Regel ändert sich, diese Runde wird gespielt wie im ' +
+            'Standardspiel. Drei dieser Karten liegen im Stapel – ohne sie kippte jede Runde ' +
+            'das Brett, und aus einem Strategiespiel mit einer Prise Glück würde ein Glücksspiel.',
+      effekt: null
+    }
+  ];
+
+  var NACH_ID = {};
+  KARTEN.forEach(function (k) { NACH_ID[k.id] = k; });
+
+  function karte(id) { return NACH_ID[id] || null; }
+
+  /* Der Stapel: jede Karte so oft, wie ihre Menge sagt. */
+  function stapel() {
+    var out = [];
+    KARTEN.forEach(function (k) {
+      for (var i = 0; i < k.menge; i++) out.push(k.id);
+    });
+    return out;
+  }
+
+  function mischen(liste, zufall) {
+    var r = zufall || Math.random;
+    for (var i = liste.length - 1; i > 0; i--) {
+      var j = Math.floor(r() * (i + 1));
+      var t = liste[i]; liste[i] = liste[j]; liste[j] = t;
+    }
+    return liste;
+  }
+
+  /* Wirkung einer Karte – das, was ans Brett gehängt wird. */
+  function wirkungVon(id) {
+    var k = karte(id);
+    if (!k) return NEUTRAL;
+    var w = mische(k.effekt);
+    w.id = id;
+    return w;
+  }
+
+  /* ---------------- Kleine Regelhelfer ----------------
+     Sie stehen hier, damit Regelwerk und Computergegner dieselbe Rechnung
+     benutzen – und nicht zwei Stellen dasselbe leicht verschieden auslegen. */
+
+  /* Was eine Einheit gerade kostet. Unter 1 fällt keine Karte: Umsonst gibt es
+     auch auf dem fahrenden Markt nichts. */
+  function kosten(grund, w) {
+    if (!grund) return grund;
+    return Math.max(1, grund + ((w && w.kosten) || 0));
+  }
+
+  return {
+    NEUTRAL: NEUTRAL, KARTEN: KARTEN, WUCHS_MAX: WUCHS_MAX,
+    wirkung: wirkung, wirkungVon: wirkungVon, karte: karte,
+    stapel: stapel, mischen: mischen, kosten: kosten
+  };
+})();
+
+if (typeof module !== 'undefined') { module.exports = Wetter; }
+
+</script>
 <script data-modul="moves">
 /* js/moves.js */
 /* Hexodus – Regelwerk: legale Aktionen jeder Figur */
@@ -1217,6 +1851,13 @@ var Moves = (function () {
 
   var H = (typeof Hex !== 'undefined') ? Hex : require('./hex.js');
   var B = (typeof Board !== 'undefined') ? Board : require('./board.js');
+  var W = (typeof Wetter !== 'undefined') ? Wetter : require('./wetter.js');
+
+  /* Das Wetter hängt am Brett, genau wie die Mannschaften: Zugerzeugen
+     bekommt nur das Brett zu sehen und muss trotzdem wissen, was gerade
+     gilt. Im Standardspiel ist das die neutrale Wirkung – dann rechnet
+     hier alles wie eh und je. */
+  function wetter(board) { return W.wirkung(board); }
 
   function isWater(cell) { return !!cell && cell.terrain === 'water'; }
 
@@ -1228,12 +1869,13 @@ var Moves = (function () {
   /* Was kostet der Schritt von `from` nach `to`? -1 heißt: nicht möglich.
      Wasser ist nur mit Boot begehbar: entweder fährt das Boot der Figur mit,
      oder es liegt schon eines da, oder es wird für 1 Holz gekauft. */
-  function stepCost(from, to, wood) {
+  function stepCost(from, to, wood, w) {
     if (!enterable(to)) return -1;
     if (to.terrain !== 'water') return 0;
     if (isWater(from)) return 0;
     if (to.boat) return 0;
-    return wood >= 1 ? 1 : -1;
+    var preis = w ? w.bootPreis : 1;        // Frost: das Wasser trägt umsonst
+    return wood >= preis ? preis : -1;
   }
 
   /* Richtung von `from` nach `to`, falls beide auf einer Geraden liegen. */
@@ -1269,12 +1911,13 @@ var Moves = (function () {
      aufgenommen, wo bleiben sie liegen? */
   function waterPlan(board, piece, from, to) {
     var path = pathCells(board, piece, from, to);
+    var preis = wetter(board).bootPreis;
     var carrying = isWater(from), cost = 0, takes = [], drops = [], prev = from;
     for (var i = 0; i < path.length; i++) {
       var c = path[i];
       if (isWater(c)) {
         if (!carrying) {
-          if (c.boat) takes.push(c); else cost++;
+          if (c.boat) takes.push(c); else cost += preis;
           carrying = true;
         }
       } else if (carrying) {
@@ -1290,11 +1933,11 @@ var Moves = (function () {
      keines liegt, wird ein Boot gekauft und bleibt dort liegen – auch auf den
      Zwischenlandungen, denn der Tangolin lässt es zurück, wenn er weiterspringt. */
   function jumpPlan(board, action) {
-    var cost = 0, drops = [];
+    var cost = 0, drops = [], preis = wetter(board).bootPreis;
     (action.path || []).forEach(function (k) {
       var c = board.cells[k];
       if (!c || c.terrain !== 'water' || c.boat) return;
-      cost++;
+      cost += preis;
       drops.push(c);
     });
     return { cost: cost, takes: [], drops: drops, endOnWater: false };
@@ -1322,18 +1965,22 @@ var Moves = (function () {
   /* Gleitende Bewegung (Legionär, Zenturio): läuft, bis etwas im Weg ist.
      Wasser kostet ein Boot je Abschnitt, den die Figur von Land aus betritt. */
   function slide(board, from, dirs, owner, wood, out) {
+    var w = wetter(board);
     dirs.forEach(function (d) {
       var cur = { q: from.q, r: from.r };
-      var carrying = isWater(from), cost = 0;
+      var carrying = isWater(from), cost = 0, schritte = 0;
       for (;;) {
+        // Schlamm: nach zwei Feldern bleibt auch der Zenturio stecken
+        if (w.maxWeite && schritte >= w.maxWeite) break;
+        schritte++;
         cur = H.add(cur, H.DIRS[d]);
         var cell = B.at(board, cur);
         if (!cell || cell.tree) break;
         if (cell.terrain === 'water') {
           if (!carrying) {
             if (!cell.boat) {
-              if (cost + 1 > wood) break;      // kein Holz mehr für ein Boot
-              cost++;
+              if (cost + w.bootPreis > wood) break;   // kein Holz mehr für ein Boot
+              cost += w.bootPreis;
             }
             carrying = true;
           }
@@ -1369,6 +2016,7 @@ var Moves = (function () {
      Ein Feld wird im selben Weg nicht zweimal betreten; sonst liefe der
      Tangolin im Kreis, solange ein Baum in Reichweite steht. */
   function chainJumps(board, from, owner, wood, out) {
+    var w = wetter(board);
     var best = {};                       // Zielfeld → bester gefundener Weg
     var pfad = {};
     pfad[H.key(from.q, from.r)] = true;
@@ -1403,7 +2051,7 @@ var Moves = (function () {
           opfer = landKey;                                        // Gegner wird geschlagen
         }
         // Wasser betritt nur, wer dort ein Boot hat oder eines kauft
-        var preis = (land.terrain === 'water' && !land.boat) ? 1 : 0;
+        var preis = (land.terrain === 'water' && !land.boat) ? w.bootPreis : 0;
         if (kosten + preis > wood) continue;
 
         var neuWeg = weg.concat([landKey]);
@@ -1412,7 +2060,10 @@ var Moves = (function () {
         if (besser(kand, best[landKey])) best[landKey] = kand;
 
         pfad[landKey] = true;
-        suche(land, neuWeg, neuBeute, kosten + preis);
+        // Schlamm: über einen einzigen Sprung kommt er nicht hinaus
+        if (!w.maxWeite || neuWeg.length * 2 < w.maxWeite) {
+          suche(land, neuWeg, neuBeute, kosten + preis);
+        }
         pfad[landKey] = false;
       }
     }
@@ -1429,13 +2080,23 @@ var Moves = (function () {
 
   /* Sprung auf ein festes Zielfeld – Bäume, Wasser und Figuren dazwischen
      spielen keine Rolle (Samurai, Springer). Landen auf Wasser braucht ein Boot. */
-  function leapTo(board, from, vec, owner, wood, out) {
+  function leapTo(board, from, vec, owner, wood, out, w) {
     var target = B.at(board, H.add(from, vec));
-    var c = stepCost(from, target, wood);
+    var c = stepCost(from, target, wood, w);
     if (c < 0) return;
     var extra = c ? { cost: c } : null;
     if (!target.piece) out.push(act('move', target, extra));
     else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, extra));
+  }
+
+  /* Wie weit eine Schrittfigur in eine Richtung kommt: sonst genau ein Feld.
+     Der Marschbefehl macht zwei daraus – geradeaus weiter, wenn das Feld
+     dazwischen frei und trocken ist. Marschiert wird, nicht gesprungen: Ein
+     Baum, eine Figur oder offenes Wasser auf halbem Weg beenden den Marsch. */
+  function schritte(board, cell, d, w) {
+    var erst = B.at(board, H.add(cell, H.DIRS[d]));
+    if (!w.extraFeld || !erst || erst.tree || erst.piece || erst.terrain === 'water') return [erst];
+    return [erst, B.at(board, H.add(cell, H.scale(H.DIRS[d], 2)))];
   }
 
   /* Alle legalen Aktionen der Figur auf `cell`. `wood` = Holzvorrat des Besitzers. */
@@ -1444,38 +2105,47 @@ var Moves = (function () {
     var out = [];
     if (!piece) return out;
     var owner = piece.owner;
-    var d, target, n;
+    var w = wetter(board);
+    var d, target, n, i2, liste;
 
     switch (piece.type) {
       case 'worker':
         for (d = 0; d < 6; d++) {
-          target = B.at(board, H.add(cell, H.DIRS[d]));
-          if (!target) continue;
-          if (target.tree) { out.push(act('harvest', target)); continue; }
-          var wc = stepCost(cell, target, wood);
-          if (wc < 0) continue;
-          var wx = wc ? { cost: wc } : null;
-          if (!target.piece) out.push(act('move', target, wx));
-          else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, wx));
+          liste = schritte(board, cell, d, w);
+          for (i2 = 0; i2 < liste.length; i2++) {
+            target = liste[i2];
+            if (!target) continue;
+            // Gefällt wird nur vom Nachbarfeld aus – marschieren heißt nicht ernten
+            if (target.tree) { if (i2 === 0) out.push(act('harvest', target)); continue; }
+            var wc = stepCost(cell, target, wood, w);
+            if (wc < 0) continue;
+            var wx = wc ? { cost: wc } : null;
+            if (!target.piece) out.push(act('move', target, wx));
+            else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, wx));
+          }
         }
         break;
 
       case 'samurai':
         // Die 6 Hex-Diagonalen: dadurch bleibt er auf einem Drittel des Bretts
-        H.DIAGS.forEach(function (v) { leapTo(board, cell, v, owner, wood, out); });
+        H.DIAGS.forEach(function (v) { leapTo(board, cell, v, owner, wood, out, w); });
         break;
 
       case 'springer':
-        // Zwei benachbarte Richtungen, jeweils genau 2 oder 3 Felder weit
-        H.wedgeDirs(piece.facing).forEach(function (dd) {
-          [2, 3].forEach(function (n) {
-            leapTo(board, cell, H.scale(H.DIRS[dd], n), owner, wood, out);
+        /* Zwei benachbarte Richtungen, jeweils genau 2 oder 3 Felder weit.
+           Windstille löst ihn von seiner Blickrichtung, Schlamm nimmt ihm die
+           weite Weite, der Marschbefehl legt eine dazu. */
+        (w.freieRichtung ? [0, 1, 2, 3, 4, 5] : H.wedgeDirs(piece.facing)).forEach(function (dd) {
+          (w.maxWeite === 2 ? [2] : (w.extraFeld ? [2, 3, 4] : [2, 3])).forEach(function (n) {
+            leapTo(board, cell, H.scale(H.DIRS[dd], n), owner, wood, out, w);
           });
         });
         break;
 
       case 'legionaer':
-        slide(board, cell, [piece.facing, (piece.facing + 3) % 6], owner, wood, out);
+        slide(board, cell, w.freieRichtung ? [0, 1, 2, 3, 4, 5]
+                                           : [piece.facing, (piece.facing + 3) % 6],
+              owner, wood, out);
         break;
 
       case 'zenturio':
@@ -1483,16 +2153,19 @@ var Moves = (function () {
         break;
 
       case 'archer':
-        // Laufen: 1 Feld, ohne zu schlagen
+        // Laufen: 1 Feld, ohne zu schlagen (mit Marschbefehl zwei)
         for (d = 0; d < 6; d++) {
-          target = B.at(board, H.add(cell, H.DIRS[d]));
-          var ac = stepCost(cell, target, wood);
-          if (ac < 0 || target.piece) continue;
-          out.push(act('move', target, ac ? { cost: ac } : null));
+          liste = schritte(board, cell, d, w);
+          for (i2 = 0; i2 < liste.length; i2++) {
+            target = liste[i2];
+            var ac = stepCost(cell, target, wood, w);
+            if (ac < 0 || target.piece) continue;
+            out.push(act('move', target, ac ? { cost: ac } : null));
+          }
         }
-        // Schießen: Distanz 2 auf einer der 6 Geraden, über Bäume und Wasser hinweg
+        // Schießen: über Bäume und Wasser hinweg, so weit die Sicht reicht
         for (d = 0; d < 6; d++) {
-          target = B.at(board, H.add(cell, H.scale(H.DIRS[d], 2)));
+          target = B.at(board, H.add(cell, H.scale(H.DIRS[d], w.schuss)));
           if (target && target.piece && !allied(board, target.piece.owner, owner)) {
             out.push(act('shoot', target));
           }
@@ -1501,12 +2174,15 @@ var Moves = (function () {
 
       case 'tangolin':
         for (d = 0; d < 6; d++) {
-          target = B.at(board, H.add(cell, H.DIRS[d]));
-          var tc = stepCost(cell, target, wood);
-          if (tc < 0) continue;
-          var tx = tc ? { cost: tc } : null;
-          if (!target.piece) out.push(act('move', target, tx));
-          else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, tx));
+          liste = schritte(board, cell, d, w);
+          for (i2 = 0; i2 < liste.length; i2++) {
+            target = liste[i2];
+            var tc = stepCost(cell, target, wood, w);
+            if (tc < 0) continue;
+            var tx = tc ? { cost: tc } : null;
+            if (!target.piece) out.push(act('move', target, tx));
+            else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, tx));
+          }
         }
         chainJumps(board, cell, owner, wood, out);
         break;
@@ -1514,13 +2190,16 @@ var Moves = (function () {
       case 'king':
         if (wood >= 1) {
           for (d = 0; d < 6; d++) {
-            target = B.at(board, H.add(cell, H.DIRS[d]));
-            var kc = stepCost(cell, target, wood - 1);
-            if (kc < 0) continue;
-            var total = kc + 1;                 // 1 Holz für den Sprung, dazu das Boot
-            if (total > wood) continue;
-            if (!target.piece) out.push(act('move', target, { cost: total }));
-            else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, { cost: total }));
+            liste = schritte(board, cell, d, w);
+            for (i2 = 0; i2 < liste.length; i2++) {
+              target = liste[i2];
+              var kc = stepCost(cell, target, wood - 1, w);
+              if (kc < 0) continue;
+              var total = kc + 1;                 // 1 Holz für den Sprung, dazu das Boot
+              if (total > wood) continue;
+              if (!target.piece) out.push(act('move', target, { cost: total }));
+              else if (!allied(board, target.piece.owner, owner)) out.push(act('capture', target, { cost: total }));
+            }
           }
         }
         break;
@@ -1557,6 +2236,7 @@ var Moves = (function () {
     }
     if (!kingKey) return { cells: [], links: [], king: null, zenturio: null };
 
+    var w = wetter(board);
     var cluster = {}, queue = [], cells = [], links = [];
     [kingKey, zentKey].forEach(function (k) {
       if (!k || cluster[k]) return;
@@ -1564,17 +2244,28 @@ var Moves = (function () {
       cells.push(board.cells[k]);
       queue.push(board.cells[k]);
     });
+
+    function verbinde(cur, cell) {
+      var curKey = H.key(cur.q, cur.r), k = H.key(cell.q, cell.r);
+      if (!cluster[k]) { cluster[k] = true; cells.push(cell); queue.push(cell); }
+      // Verbindung nur einmal aufnehmen
+      if (curKey < k) links.push([cur, cell]);
+    }
+
     while (queue.length) {
       var cur = queue.shift();
-      var curKey = H.key(cur.q, cur.r);
-      H.neighbors(cur).forEach(function (nb) {
-        var cell = B.at(board, nb);
-        if (!cell || !cell.piece || cell.piece.owner !== owner) return;
-        var k = H.key(cell.q, cell.r);
-        if (!cluster[k]) { cluster[k] = true; cells.push(cell); queue.push(cell); }
-        // Verbindung nur einmal aufnehmen
-        if (curKey < k) links.push([cur, cell]);
-      });
+      for (var d = 0; d < 6; d++) {
+        var mid = B.at(board, H.add(cur, H.DIRS[d]));
+        if (mid && mid.piece) {
+          if (mid.piece.owner === owner) verbinde(cur, mid);
+          continue;                         // eine fremde Figur reißt die Kette
+        }
+        /* Feldlager: Läufer tragen den Nachschub über genau ein Feld ohne
+           Figur hinweg – was dahinter steht, hängt wieder mit dran. */
+        if (!w.luecke || !mid) continue;
+        var weit = B.at(board, H.add(cur, H.scale(H.DIRS[d], 2)));
+        if (weit && weit.piece && weit.piece.owner === owner) verbinde(cur, weit);
+      }
     }
     return {
       cells: cells, links: links,
@@ -1586,10 +2277,19 @@ var Moves = (function () {
   /* Felder, auf denen ein Spieler ausbilden darf:
      freie Felder neben dem König oder neben jeder mit ihm verbundenen eigenen Einheit. */
   function trainingSpots(board, owner) {
+    var w = wetter(board);
     var chain = supplyChain(board, owner);
     if (!chain.king) return [];
+    var anker = [chain.king];
+    if (chain.zenturio) anker.push(chain.zenturio);
     var cluster = {};
-    chain.cells.forEach(function (c) { cluster[H.key(c.q, c.r)] = true; });
+    chain.cells.forEach(function (c) {
+      /* Belagerung: Die Wege sind abgeschnitten. Versorgt ist nur, was nah
+         genug an einem eigenen Turm oder Feldzeichen steht – wie lang die
+         Kette dahinter auch sein mag. */
+      if (w.radius && !anker.some(function (a) { return H.distance(a, c) <= w.radius; })) return;
+      cluster[H.key(c.q, c.r)] = true;
+    });
 
     var spots = {}, list = [];
     Object.keys(cluster).forEach(function (k) {
@@ -1636,10 +2336,19 @@ var Moves = (function () {
     var def = Units.DEFS[id];
     var player = state.players[owner];
     if (!def || !def.trainable) return 'nicht ausbildbar';
+    // Hungerwinter: diese Runde entsteht bei niemandem eine neue Einheit
+    if (wetter(state.board).keineAusbildung) return 'Hungerwinter';
     if (def.unique && player.trained[id]) return 'schon ausgebildet';
     if (typesOnBoard(state.board, owner)[id]) return 'steht im Spiel';
-    if (def.cost > player.wood) return 'zu wenig Holz';
+    if (preis(state.board, id) > player.wood) return 'zu wenig Holz';
     return null;
+  }
+
+  /* Was eine Einheit gerade kostet – der fahrende Markt macht sie billiger.
+     Regelwerk, Oberfläche und Computergegner rechnen mit derselben Zahl. */
+  function preis(board, id) {
+    var def = Units.DEFS[id];
+    return W.kosten(def && def.cost, wetter(board));
   }
 
   /* Einheiten, die der Spieler gerade ausbilden darf. */
@@ -1653,7 +2362,8 @@ var Moves = (function () {
     forPiece: forPiece, trainingSpots: trainingSpots, supplyChain: supplyChain,
     waterPlan: waterPlan, jumpPlan: jumpPlan, stepCost: stepCost, isWater: isWater, pathCells: pathCells,
     hasAnyAction: hasAnyAction, affordableUnits: affordableUnits,
-    trainBlocker: trainBlocker, typesOnBoard: typesOnBoard, enterable: enterable
+    trainBlocker: trainBlocker, typesOnBoard: typesOnBoard, enterable: enterable,
+    preis: preis, wetter: wetter
   };
 })();
 
@@ -1670,6 +2380,7 @@ var Game = (function () {
   var B = (typeof Board !== 'undefined') ? Board : require('./board.js');
   var M = (typeof Moves !== 'undefined') ? Moves : require('./moves.js');
   var U = (typeof Units !== 'undefined') ? Units : require('./units.js');
+  var W = (typeof Wetter !== 'undefined') ? Wetter : require('./wetter.js');
 
   // Spielmaterial nach Spielerzahl (siehe Spielaufbau)
   var SETUP = {
@@ -1763,9 +2474,10 @@ var Game = (function () {
     return 'Team ' + (TEAM_COLORS[team % TEAM_COLORS.length].name);
   }
 
-  function create(playerNames, kinds, teams) {
+  function create(playerNames, kinds, teams, optionen) {
     var count = playerNames.length;
     kinds = kinds || [];
+    optionen = optionen || {};
     teams = normalizeTeams(teams, count);
     var cfg = SETUP[count];
     var board = B.generate(cfg.tiles);
@@ -1773,6 +2485,9 @@ var Game = (function () {
        bekommt beim Zugerzeugen nur das Brett zu sehen und muss trotzdem
        wissen, wer mit wem spielt. */
     board.teams = teams.slice();
+    /* Dasselbe gilt fürs Wetter: Was gerade gilt, hängt am Brett. Im
+       Standardspiel ist das die neutrale Wirkung – dann ändert sich nichts. */
+    board.wetter = W.NEUTRAL;
 
     // Bäume gleichmäßig verteilen; pro Spieler bleiben mindestens 6 Felder frei,
     // damit Türme und Arbeiter noch Platz finden.
@@ -1802,6 +2517,17 @@ var Game = (function () {
       board: board,
       players: players,
       teams: teams,            // teams[i] = Mannschaft von Spieler i
+      /* Wetterkarten: eigene Spielweise. Zu Beginn jeder Runde wird eine Karte
+         aufgedeckt; sie liegt offen, bis die Runde herum ist. */
+      wetterAn: !!optionen.wetter,
+      stapel: [],              // verdeckter Rest des Kartenstapels
+      ablage: [],              // schon gespielte Karten
+      karte: null,             // was gerade offen liegt (Karten-Kennung)
+      karteNr: 0,              // zählt Karten – die Anzeige erkennt daran neue
+      karteText: null,         // was die Karte beim Aufdecken bewirkt hat
+      karteFelder: null,       // Felder, die sie verändert hat (für die Anzeige)
+      extra: 0,                // offene Extra-Züge des Spielers am Zug (Aufbruch)
+      nochmal: false,          // bleibt derselbe Spieler am Zug?
       phase: 'trees',          // trees → kings → play → over
       history: {},             // wie oft trat jede Stellung auf?
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
@@ -1823,6 +2549,76 @@ var Game = (function () {
       winnerTeam: null,        // gewonnen hat immer eine Mannschaft
       log: []
     };
+  }
+
+  /* ---------------- Wetterkarten ----------------
+
+     Gespielt wird, wie man es auf dem Tisch täte: Zu Beginn jeder Runde deckt
+     der Spieler, der die Runde eröffnet, die oberste Karte auf. Sie liegt
+     offen in der Mitte und gilt für alle, bis die Runde herum ist – danach
+     kommt sie auf den Ablagestapel. Dadurch braucht keine Karte ein Gedächtnis
+     und keinen Zähler: „diese Runde“ ist sichtbar, solange die Karte liegt.
+
+     Ist der Stapel leer, wird die Ablage gemischt und neu aufgelegt. */
+
+  function hatTyp(state, owner, type) {
+    return !!M.typesOnBoard(state.board, owner)[type];
+  }
+
+  /* Ein freies Feld an Turm oder Feldzeichen – dort rückt die Musterung ein.
+     Genommen wird das Feld, das dem eigenen Turm am nächsten liegt. */
+  function nachschubFeld(state, owner) {
+    var spots = M.trainingSpots(state.board, owner);
+    if (!spots.length) return null;
+    var chain = M.supplyChain(state.board, owner);
+    var anker = chain.king || spots[0];
+    var best = spots[0], bd = H.distance(anker, spots[0]);
+    spots.forEach(function (c) {
+      var d = H.distance(anker, c);
+      if (d < bd) { bd = d; best = c; }
+    });
+    return best;
+  }
+
+  var WETTER_HILFE = { hatTyp: hatTyp, nachschubFeld: nachschubFeld };
+
+  function ziehe(state) {
+    if (!state.wetterAn || state.phase !== 'play') return null;
+    if (!state.stapel.length) {
+      state.stapel = W.mischen(state.ablage.length ? state.ablage : W.stapel());
+      state.ablage = [];
+    }
+    if (state.karte) state.ablage.push(state.karte);
+
+    var id = state.stapel.pop();
+    var k = W.karte(id);
+    state.karte = id;
+    state.karteNr++;
+    state.board.wetter = W.wirkungVon(id);
+    state.karteFelder = null;
+    state.karteText = k.kurz;
+    state.extra = 0;
+
+    // Was die Karte einmalig am Brett verändert, geschieht jetzt – und bleibt
+    if (k.sofort) {
+      var folge = k.sofort(state, WETTER_HILFE);
+      state.karteText = folge.text;
+      state.karteFelder = folge.felder && folge.felder.length ? folge.felder : null;
+    }
+    // Aufbruch: Wer aufdeckt, zieht zweimal
+    if (k.extraZug) state.extra = k.extraZug;
+
+    log(state, 'Wetter: ' + k.name + ' – ' + state.karteText);
+    return k;
+  }
+
+  /* Bleibt derselbe Spieler am Zug? Zwei Karten sagen ja: Die Trockenheit
+     macht das Fällen umsonst, der Aufbruch schenkt dem Eröffner einen zweiten
+     Zug. Sonst wird weitergegeben wie immer. */
+  function behaeltZug(state, kind) {
+    if (kind === 'harvest' && W.wirkung(state.board).faellenFrei) return true;
+    if (state.extra > 0) { state.extra--; return true; }
+    return false;
   }
 
   var STALL_LIMIT = 50;      // Züge ohne Fortschritt, dann wird gewertet
@@ -1848,6 +2644,9 @@ var Game = (function () {
     }
     parts.push('h' + state.players.map(function (p) { return p.wood; }).join('.'));
     parts.push('z' + state.current);
+    // Unter Wetter gehört die offene Karte dazu: Dieselbe Stellung spielt sich
+    // im Nebel anders als im Frost, also ist sie nicht dieselbe Lage.
+    if (state.wetterAn && state.karte) parts.push('w' + state.karte);
     return parts.join('|');
   }
 
@@ -2033,6 +2832,7 @@ var Game = (function () {
       state.current = state.players.length - 1;
       state.turn = 1;
       log(state, 'Das Spiel beginnt – ' + state.players[state.current].name + ' ist am Zug.', state.current);
+      ziehe(state);          // die erste Wetterkarte der Partie
     } else {
       state.current++;
     }
@@ -2211,7 +3011,7 @@ var Game = (function () {
       capture(state, target, state.current);
       noteProgress(state);
       state.passes = 0;
-      finishTurn(state, null);
+      finishTurn(state, 'shoot');
       return true;
     }
 
@@ -2291,7 +3091,7 @@ var Game = (function () {
       state.selected = H.key(target.q, target.r);
       return true;
     }
-    finishTurn(state, null);
+    finishTurn(state, action.kind);
     return true;
   }
 
@@ -2326,13 +3126,14 @@ var Game = (function () {
     });
     if (!ok) return false;
 
-    player.wood -= def.cost;
+    var preis = M.preis(state.board, type);
+    player.wood -= preis;
     player.trained[type] = (player.trained[type] || 0) + 1;
     cell.piece = { type: type, owner: state.current, facing: 0 };
     clearEvents(state);
     noteEvent(state, 'lastTrain', { key: H.key(q, r), type: type, owner: state.current });
     noteProgress(state);
-    log(state, player.name + ' bildet einen ' + def.name + ' aus (-' + def.cost + ' Holz).', state.current);
+    log(state, player.name + ' bildet einen ' + def.name + ' aus (-' + preis + ' Holz).', state.current);
     state.passes = 0;
 
     if (def.directional) {
@@ -2347,6 +3148,7 @@ var Game = (function () {
   function pass(state) {
     if (state.phase !== 'play') return false;
     log(state, state.players[state.current].name + ' setzt aus.', state.current);
+    state.extra = 0;            // wer aussetzt, verschenkt auch seinen Extra-Zug
     state.passes++;
     if (state.passes >= alivePlayers(state).length) {
       return adjudicate(state, 'Niemand kann mehr ziehen');
@@ -2355,15 +3157,24 @@ var Game = (function () {
     return true;
   }
 
-  /* Zug beenden: offene Drehung verwerfen und weitergeben. */
-  function finishTurn(state) {
+  /* Zug beenden: offene Drehung verwerfen und weitergeben. `kind` ist die
+     Aktion, die gerade gespielt wurde – die Trockenheit fragt danach. */
+  function finishTurn(state, kind) {
     state.pending = null;
     state.selected = null;
+    state.nochmal = false;
     if (state.phase !== 'play') return;
     if (checkVictory(state)) return;
+    if (behaeltZug(state, kind)) {
+      // Derselbe Spieler noch einmal – die Runde läuft weiter, nichts wird gewertet
+      state.nochmal = true;
+      return;
+    }
     var next = nextPlayer(state);
-    if (next <= state.current) state.turn++;
+    var neueRunde = next <= state.current;
+    if (neueRunde) state.turn++;
     state.current = next;
+    if (neueRunde) ziehe(state);        // neue Runde, neue Wetterkarte
     checkStalemate(state);
   }
 
@@ -2393,6 +3204,7 @@ var Game = (function () {
     KING_GAP: KING_GAP, kingGap: kingGap,
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
+    ziehe: ziehe, behaeltZug: behaeltZug,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
     checkVictory: checkVictory, adjudicate: adjudicate,
     plunder: plunder,
@@ -2421,6 +3233,7 @@ var AI = (function () {
 
   var H = (typeof Hex !== 'undefined') ? Hex : require('./hex.js');
   var U = (typeof Units !== 'undefined') ? Units : require('./units.js');
+  var W = (typeof Wetter !== 'undefined') ? Wetter : require('./wetter.js');
 
   var TYPES = ['king', 'worker', 'samurai', 'springer', 'legionaer', 'archer', 'tangolin', 'zenturio'];
   var T = {}; TYPES.forEach(function (t, i) { T[t] = i; });
@@ -2481,6 +3294,7 @@ var AI = (function () {
 
     var nb = new Int16Array(n * 6), diag = new Int16Array(n * 6),
         far2 = new Int16Array(n * 6), far3 = new Int16Array(n * 6),
+        far4 = new Int16Array(n * 6),
         qs = new Int16Array(n), rs = new Int16Array(n);
 
     for (i = 0; i < n; i++) {
@@ -2491,6 +3305,7 @@ var AI = (function () {
         nb[i * 6 + d] = at(c.q + v[0], c.r + v[1]);
         far2[i * 6 + d] = at(c.q + 2 * v[0], c.r + 2 * v[1]);
         far3[i * 6 + d] = at(c.q + 3 * v[0], c.r + 3 * v[1]);
+        far4[i * 6 + d] = at(c.q + 4 * v[0], c.r + 4 * v[1]);   // Marschbefehl
         diag[i * 6 + d] = at(c.q + g[0], c.r + g[1]);
       }
     }
@@ -2511,7 +3326,7 @@ var AI = (function () {
     var land = new Int32Array(landList);
 
     board.__geo = { n: n, keys: keys, idx: idx, nb: nb, diag: diag, land: land,
-                    far2: far2, far3: far3, dist: dist, qs: qs, rs: rs };
+                    far2: far2, far3: far3, far4: far4, dist: dist, qs: qs, rs: rs };
     return board.__geo;
   }
 
@@ -2524,7 +3339,13 @@ var AI = (function () {
       terrain: new Uint8Array(n), tree: new Uint8Array(n), boat: new Uint8Array(n),
       pt: new Int8Array(n), po: new Int8Array(n), pf: new Int8Array(n),
       wood: new Int32Array(np), alive: new Uint8Array(np), zent: new Uint8Array(np),
-      kingAt: new Int16Array(np), team: new Int16Array(np)
+      kingAt: new Int16Array(np), team: new Int16Array(np),
+      /* Das Wetter hängt am Brett wie die Mannschaften. Die Suche rechnet es
+         für den ganzen Baum durch – welche Karte in zwei Runden liegt, weiß
+         niemand, und an der Wurzel gilt genau diese hier. */
+      w: W.wirkung(state.board),
+      extra: state.extra | 0,     // offene Extra-Züge (Aufbruch)
+      nochmal: 0                  // bleibt derselbe Spieler am Zug?
     };
     s.pt.fill(-1); s.po.fill(-1); s.kingAt.fill(-1);
     for (var i = 0; i < n; i++) {
@@ -2586,8 +3407,38 @@ var AI = (function () {
     if (s.terrain[to] === 0) return 0;
     if (from >= 0 && s.terrain[from] === 1) return 0;   // Boot fährt mit
     if (s.boat[to]) return 0;
-    return wood >= 1 ? 1 : -1;
+    var preis = s.w.bootPreis;                          // Frost: das Wasser trägt umsonst
+    return wood >= preis ? preis : -1;
   }
+
+  /* Wer als Nächster zieht. Zwei Wetterkarten lassen denselben Spieler noch
+     einmal ran: die Trockenheit nach dem Fällen, der Aufbruch für den, der
+     die Runde eröffnet. `make` hat das schon entschieden. */
+  function nachZug(s, p) { return s.nochmal ? p : nextAlive(s, p); }
+
+  /* Wie weit eine Schrittfigur geradeaus kommt: -1, wenn der Marschbefehl
+     nicht gilt oder das Feld dazwischen nicht frei und trocken ist. Genau die
+     Bedingung aus moves.js – marschiert wird, nicht gesprungen. */
+  function schritt2(s, i, d) {
+    if (!s.w.extraFeld) return -1;
+    var mid = s.geo.nb[i * 6 + d];
+    if (mid < 0 || s.tree[mid] || s.pt[mid] >= 0 || s.terrain[mid] === 1) return -1;
+    return s.geo.far2[i * 6 + d];
+  }
+
+  /* Die Sprungweiten des Springers unter dem aktuellen Wetter. */
+  function sprungZiel(s, i, d, weite) {
+    var geo = s.geo, b = i * 6 + d;
+    return weite === 2 ? geo.far2[b] : (weite === 3 ? geo.far3[b] : geo.far4[b]);
+  }
+
+  function weiten(s) {
+    if (s.w.maxWeite === 2) return [2];
+    return s.w.extraFeld ? [2, 3, 4] : [2, 3];
+  }
+
+  /* Was eine Einheit gerade kostet (fahrender Markt). */
+  function kostenVon(s, t) { return W.kosten(COST[t], s.w); }
 
   function nextAlive(s, p) {
     for (var k = 1; k <= s.np; k++) {
@@ -2664,7 +3515,7 @@ var AI = (function () {
         if (allied(s, s.po[land], p)) continue;
         opfer = land;
       }
-      var preis = (s.terrain[land] === 1 && !s.boat[land]) ? 1 : 0;
+      var preis = (s.terrain[land] === 1 && !s.boat[land]) ? s.w.bootPreis : 0;
       if (kosten + preis > s.wood[p]) continue;
 
       var neuBeute = (opfer >= 0) ? beute.concat([opfer]) : beute;
@@ -2679,7 +3530,10 @@ var AI = (function () {
       }
 
       chainPath[land] = chainMark;
-      chainStep(s, land, p, neuWeg, neuBeute, kosten + preis);
+      // Schlamm: über einen einzigen Sprung kommt er nicht hinaus
+      if (!s.w.maxWeite || neuWeg.length * 2 < s.w.maxWeite) {
+        chainStep(s, land, p, neuWeg, neuBeute, kosten + preis);
+      }
       chainPath[land] = 0;
     }
   }
@@ -2763,9 +3617,15 @@ var AI = (function () {
           j = nb[i * 6 + d];
           if (j < 0) continue;
           if (s.tree[j]) { if (!capturesOnly) out.push(mk(KIND_HARVEST, i, j, KEEP)); continue; }
-          if (stepCost(s, i, j, s.wood[p]) < 0) continue;
-          if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-          else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          if (stepCost(s, i, j, s.wood[p]) >= 0) {
+            if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
+            else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          }
+          // Marschbefehl: ein Feld weiter geradeaus, gefällt wird nur nebenan
+          var j2 = schritt2(s, i, d);
+          if (j2 < 0 || s.tree[j2] || stepCost(s, i, j2, s.wood[p]) < 0) continue;
+          if (s.pt[j2] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j2, KEEP)); }
+          else if (!allied(s, s.po[j2], p)) out.push(mk(KIND_CAPTURE, i, j2, KEEP));
         }
 
       } else if (type === T.samurai) {
@@ -2778,11 +3638,14 @@ var AI = (function () {
 
       } else if (type === T.springer) {
         var fac = capturesOnly ? null : facingOptions(s, i, ctx);
-        var w = s.pf[i] % 6;
-        for (var a = 0; a < 2; a++) {
-          var dd2 = (w + a) % 6;
-          for (var b = 0; b < 2; b++) {
-            j = (b === 0) ? geo.far2[i * 6 + dd2] : geo.far3[i * 6 + dd2];
+        // Windstille löst ihn von seiner Blickrichtung, Schlamm und Marschbefehl
+        // ändern die Weite – sonst sind es seine zwei Richtungen, 2 oder 3 Felder
+        var wf = s.pf[i] % 6, wt = weiten(s);
+        var rd = s.w.freieRichtung ? 6 : 2;
+        for (var a = 0; a < rd; a++) {
+          var dd2 = s.w.freieRichtung ? a : (wf + a) % 6;
+          for (var b = 0; b < wt.length; b++) {
+            j = sprungZiel(s, i, dd2, wt[b]);
             if (stepCost(s, i, j, s.wood[p]) < 0) continue;
             if (s.pt[j] < 0) {
               if (!capturesOnly) pushFacings(out, KIND_MOVE, i, j, fac);
@@ -2795,17 +3658,22 @@ var AI = (function () {
 
       } else if (type === T.legionaer || type === T.zenturio) {
         var fac2 = (capturesOnly || type === T.zenturio) ? null : facingOptions(s, i, ctx);
-        var dirs = (type === T.zenturio) ? [0, 1, 2, 3, 4, 5]
+        var dirs = (type === T.zenturio || s.w.freieRichtung) ? [0, 1, 2, 3, 4, 5]
                                          : [s.pf[i] % 6, (s.pf[i] + 3) % 6];
         for (var q = 0; q < dirs.length; q++) {
-          var dir = dirs[q], cur = i;
+          var dir = dirs[q], cur = i, schritte = 0;
           var carrying = s.terrain[i] === 1, cost = 0;
           for (;;) {
+            if (s.w.maxWeite && schritte >= s.w.maxWeite) break;   // Schlamm
+            schritte++;
             cur = nb[cur * 6 + dir];
             if (cur < 0 || s.tree[cur]) break;
             if (s.terrain[cur] === 1) {
               if (!carrying) {
-                if (!s.boat[cur]) { if (cost + 1 > s.wood[p]) break; cost++; }
+                if (!s.boat[cur]) {
+                  if (cost + s.w.bootPreis > s.wood[p]) break;
+                  cost += s.w.bootPreis;
+                }
                 carrying = true;
               }
             } else {
@@ -2826,21 +3694,30 @@ var AI = (function () {
         }
 
       } else if (type === T.archer) {
-        for (d = 0; d < 6; d++) {                       // Schuss auf Distanz 2
-          j = geo.far2[i * 6 + d];
+        for (d = 0; d < 6; d++) {                       // Schuss, so weit die Sicht reicht
+          j = (s.w.schuss === 1) ? nb[i * 6 + d] : sprungZiel(s, i, d, s.w.schuss);
           if (j >= 0 && feindAuf(s, j, p)) out.push(mk(KIND_SHOOT, i, j, KEEP));
         }
         if (!capturesOnly) for (d = 0; d < 6; d++) {    // Laufen ohne zu schlagen
           j = nb[i * 6 + d];
           if (stepCost(s, i, j, s.wood[p]) >= 0 && s.pt[j] < 0) out.push(mk(KIND_MOVE, i, j, KEEP));
+          var a2 = schritt2(s, i, d);
+          if (a2 >= 0 && stepCost(s, i, a2, s.wood[p]) >= 0 && s.pt[a2] < 0) {
+            out.push(mk(KIND_MOVE, i, a2, KEEP));
+          }
         }
 
       } else if (type === T.tangolin) {
         for (d = 0; d < 6; d++) {
           j = nb[i * 6 + d];
-          if (stepCost(s, i, j, s.wood[p]) < 0) continue;
-          if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-          else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          if (stepCost(s, i, j, s.wood[p]) >= 0) {
+            if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
+            else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          }
+          var t2 = schritt2(s, i, d);                   // Marschbefehl
+          if (t2 < 0 || stepCost(s, i, t2, s.wood[p]) < 0) continue;
+          if (s.pt[t2] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, t2, KEEP)); }
+          else if (!allied(s, s.po[t2], p)) out.push(mk(KIND_CAPTURE, i, t2, KEEP));
         }
         // Kettensprünge: in der Ruhesuche zählen nur die, die etwas schlagen
         var ziele = chainSearch(s, i, p);
@@ -2853,11 +3730,15 @@ var AI = (function () {
       } else if (type === T.king) {
         if (s.wood[p] >= 1) {
           for (d = 0; d < 6; d++) {
-            j = nb[i * 6 + d];
-            var kc = stepCost(s, i, j, s.wood[p] - 1);
-            if (kc < 0 || kc + 1 > s.wood[p]) continue;
-            if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-            else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+            var ziele = [nb[i * 6 + d], schritt2(s, i, d)];   // Marschbefehl: zwei Felder
+            for (var zi = 0; zi < 2; zi++) {
+              j = ziele[zi];
+              if (j < 0) continue;
+              var kc = stepCost(s, i, j, s.wood[p] - 1);
+              if (kc < 0 || kc + 1 > s.wood[p]) continue;
+              if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
+              else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+            }
           }
         }
       }
@@ -2871,10 +3752,11 @@ var AI = (function () {
     if (capturesOnly || myKing < 0) return out;
 
     // Ausbilden: freie Felder an der mit dem Turm verbundenen Kette
+    if (s.w.keineAusbildung) return out;           // Hungerwinter
     var spots = clusterSpots(s, p, genSpots, myZent);
     if (!spots.length) return out;
     for (var t = 1; t < 8; t++) {
-      if (COST[t] > s.wood[p]) continue;
+      if (kostenVon(s, t) > s.wood[p]) continue;
       if (have & (1 << t)) continue;                 // nur eine Figur je Typ
       if (t === T.zenturio && s.zent[p]) continue;   // Zenturio nur einmal pro Partie
       for (var sp = 0; sp < spots.length; sp++) {
@@ -2901,18 +3783,38 @@ var AI = (function () {
     spots.length = 0;
     var king = s.kingAt[p];
     if (king < 0) return spots;
-    var nb = s.geo.nb, seen = {}, stack = [king], seenSpot = {};
+    var geo = s.geo, nb = geo.nb, n = s.n, w = s.w;
+    var seen = {}, stack = [king], seenSpot = {}, anker = [king];
     seen[king] = 1;
-    if (zent >= 0 && zent !== king && s.po[zent] === p) { seen[zent] = 1; stack.push(zent); }
+    if (zent >= 0 && zent !== king && s.po[zent] === p) {
+      seen[zent] = 1; stack.push(zent); anker.push(zent);
+    }
+    /* Belagerung: Versorgt ist nur, was nah genug an Turm oder Feldzeichen
+       steht – wie lang die Kette dahinter auch sein mag. Gelaufen wird sie
+       trotzdem ganz, denn hinter einem fernen Glied kann wieder ein nahes
+       liegen. Dieselbe Regel wie in moves.js. */
+    function versorgt(i) {
+      if (!w.radius) return true;
+      for (var a = 0; a < anker.length; a++) {
+        if (geo.dist[anker[a] * n + i] <= w.radius) return true;
+      }
+      return false;
+    }
     while (stack.length) {
       var cur = stack.pop();
+      var nah = versorgt(cur);
       for (var d = 0; d < 6; d++) {
         var j = nb[cur * 6 + d];
         if (j < 0) continue;
-        if (s.po[j] === p) { if (!seen[j]) { seen[j] = 1; stack.push(j); } continue; }
-        if (s.pt[j] < 0 && dryLand(s, j) && !seenSpot[j]) {
-          seenSpot[j] = 1; spots.push(j);
+        if (s.pt[j] >= 0) {
+          if (s.po[j] === p && !seen[j]) { seen[j] = 1; stack.push(j); }
+          continue;                                  // eine Figur reißt die Kette
         }
+        if (nah && dryLand(s, j) && !seenSpot[j]) { seenSpot[j] = 1; spots.push(j); }
+        // Feldlager: die Kette überspringt genau ein Feld ohne Figur
+        if (!w.luecke) continue;
+        var weit = geo.far2[cur * 6 + d];
+        if (weit >= 0 && s.po[weit] === p && !seen[weit]) { seen[weit] = 1; stack.push(weit); }
       }
     }
     return spots;
@@ -2944,7 +3846,7 @@ var AI = (function () {
     for (var i = 0; i < path.length; i++) {
       var c = path[i];
       if (s.terrain[c] === 1) {
-        if (!carrying) { if (s.boat[c]) takes.push(c); else cost++; carrying = true; }
+        if (!carrying) { if (s.boat[c]) takes.push(c); else cost += s.w.bootPreis; carrying = true; }
       } else if (carrying) { drops.push(prev); carrying = false; }
       prev = c;
     }
@@ -3002,13 +3904,21 @@ var AI = (function () {
     var kind = mvKind(mv), from = mvFrom(mv), to = mvTo(mv), extra = mvExtra(mv);
     var u = { mv: mv, p: p, taken: null, elims: null, hadTree: 0,
               spend: 0, oldF: -1, zentBefore: 0,
-              boatCost: 0, boatWas: null, loot: 0 };
+              boatCost: 0, boatWas: null, loot: 0,
+              extraWar: s.extra, nochWar: s.nochmal };
+
+    /* Wer zieht danach? Die Trockenheit macht das Fällen umsonst, der Aufbruch
+       schenkt einen zweiten Zug – in beiden Fällen bleibt derselbe Spieler am
+       Zug. Genau wie in game.js. */
+    if (kind === KIND_HARVEST && s.w.faellenFrei) s.nochmal = 1;
+    else if (s.extra > 0) { s.extra--; s.nochmal = 1; }
+    else s.nochmal = 0;
 
     if (kind === KIND_ROTATE) { u.oldF = s.pf[from]; s.pf[from] = extra; return u; }
 
     if (kind === KIND_TRAIN) {
       var type = from & 15, facing = (from >> 4) & 15;
-      u.spend = COST[type];
+      u.spend = kostenVon(s, type);       // fahrender Markt
       s.wood[p] -= u.spend;
       s.pt[to] = type; s.po[to] = p; s.pf[to] = facing;
       if (type === T.zenturio) { u.zentBefore = s.zent[p]; s.zent[p] = 1; }
@@ -3063,6 +3973,8 @@ var AI = (function () {
 
   function unmake(s, u) {
     var mv = u.mv, kind = mvKind(mv), from = mvFrom(mv), to = mvTo(mv), p = u.p;
+    s.extra = u.extraWar;
+    s.nochmal = u.nochWar;
 
     if (kind === KIND_ROTATE) { s.pf[from] = u.oldF; return; }
 
@@ -3499,7 +4411,7 @@ var AI = (function () {
     var best = stand;
     for (var i = 0; i < moves.length; i++) {
       var u = make(s, moves[i], player);
-      var val = quiesce(s, nextAlive(s, player), alpha, beta, ctx, qd + 1);
+      var val = quiesce(s, nachZug(s, player), alpha, beta, ctx, qd + 1);
       unmake(s, u);
       if (ctx.stop) return best;
       if (isMe) {
@@ -3528,7 +4440,12 @@ var AI = (function () {
     if (!moves.length) {                                  // aussetzen
       var nx = nextAlive(s, player);
       if (nx === player) return evaluate(s, me, ctx);
-      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1);
+      // Wer aussetzt, verschenkt auch seinen Extra-Zug (wie in game.js)
+      var extraWar = s.extra;
+      s.extra = 0;
+      var weiter = alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1);
+      s.extra = extraWar;
+      return weiter;
     }
     orderMoves(s, moves, ctx, 0);
 
@@ -3537,7 +4454,7 @@ var AI = (function () {
     for (var i = 0; i < moves.length; i++) {
       var mv = moves[i];
       var u = make(s, mv, player);
-      var val = alphabeta(s, nextAlive(s, player), depth - 1, alpha, beta, ctx, ply + 1,
+      var val = alphabeta(s, nachZug(s, player), depth - 1, alpha, beta, ctx, ply + 1,
                           isProgress(mv) ? 0 : stall + 1);
       unmake(s, u);
       if (ctx.stop) return (best === INF || best === -INF) ? val : best;
@@ -4919,7 +5836,7 @@ var Render = (function () {
 (function () {
   'use strict';
 
-  var H = Hex, B = Board, U = Units, M = Moves, G = Game;
+  var H = Hex, B = Board, U = Units, M = Moves, G = Game, Wet = Wetter;
   function dirArrow(angle) {
     return '<svg class="dir-arrow" viewBox="-11 -11 22 22" aria-hidden="true">' +
       '<path d="M-7,-5 L7,0 L-7,5 L-4,0 Z" transform="rotate(' + angle.toFixed(1) + ')"/></svg>';
@@ -4929,7 +5846,8 @@ var Render = (function () {
   var view = null;
   var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null, lift: null,
              thinking: false, shownEvent: 0, woodShown: null,
-             sheetOpen: false, sheetAuto: false, sheetMove: null };
+             sheetOpen: false, sheetAuto: false, sheetMove: null,
+             karteGezeigt: 0, karteOffen: false, fxKarte: null };
 
   function $(sel) { return document.querySelector(sel); }
   function esc(s) {
@@ -5093,6 +6011,11 @@ var Render = (function () {
         }
       }
 
+      $('#mode-info').textContent = ($('#play-mode').value === 'wetter')
+        ? 'Zu Beginn jeder Runde wird eine von ' + Wet.KARTEN.length +
+          ' Wetterkarten aufgedeckt. Sie gilt eine Runde lang für alle.'
+        : 'Die Grundregeln, ohne Zusätze.';
+
       var info = cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' +
                  cfg.trees + ' Bäume gesamt';
       if (mitTeams) info = aufstellungText(teams) + ' · ' + info;
@@ -5106,6 +6029,7 @@ var Render = (function () {
 
     $('#player-count').addEventListener('change', function () { render(); });
     $('#game-mode').addEventListener('change', function () { render(); });
+    $('#play-mode').addEventListener('change', function () { render(); });
     render();
 
     $('#start-game').addEventListener('click', function () {
@@ -5116,16 +6040,19 @@ var Render = (function () {
         var kind = $('#pkind' + i).value;
         kinds.push(kind === 'mensch' ? null : kind);
       }
-      startGame(names, kinds, teamsAusMenue(count));
+      startGame(names, kinds, teamsAusMenue(count),
+                { wetter: $('#play-mode').value === 'wetter' });
     });
   }
 
-  function startGame(names, kinds, teams) {
+  function startGame(names, kinds, teams, optionen) {
     beendeDenker();
-    state = G.create(names, kinds, teams);
+    state = G.create(names, kinds, teams, optionen);
     ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null, lift: null,
            thinking: false, shownEvent: 0, woodShown: null,
-           sheetOpen: false, sheetAuto: false, sheetMove: null };
+           sheetOpen: false, sheetAuto: false, sheetMove: null,
+           karteGezeigt: 0, karteOffen: false, fxKarte: null };
+    document.body.classList.toggle('mit-wetter', !!(optionen && optionen.wetter));
     $('#screen-menu').classList.add('hidden');
     $('#screen-game').classList.remove('hidden');
     // am Handy blendet das die Kopfzeile aus – der Bildschirm gehört dem Brett
@@ -5695,6 +6622,156 @@ var Render = (function () {
     }
   }
 
+
+  /* ---------------- Wetterkarten ----------------
+
+     Am Tisch liegt die Karte offen in der Brettmitte, und man sieht dem Wetter
+     an, was es ist. Hier auch: Die Karte liegt in der Ecke des Bretts, und das
+     Brett selbst bekommt die Stimmung dazu – Nebel zieht auf, Schnee fällt,
+     der Boden trocknet aus. Das ist keine Zierde: Wer aufs Brett schaut, soll
+     ohne Lesen wissen, dass diese Runde anders läuft.
+
+     Die Stimmung steckt in einer Klasse am Brettrahmen (`w-<Karte>`), damit
+     das Stylesheet die Farben übernimmt, plus ein paar Teilchen in einer
+     eigenen Ebene darüber, die keine Berührungen annimmt. */
+
+  /* Was über dem Brett liegt: Art und Anzahl der Teilchen je Karte. Mehr als
+     ein paar Dutzend werden es nie – das muss auch auf einem Handy flüssig
+     bleiben. */
+  var WETTER_FX = {
+    frost:       { art: 'funke',    n: 16 },
+    windbruch:   { art: 'boe',      n: 10 },
+    wuchs:       { art: 'funke',    n: 14 },
+    nebel:       { art: 'schwade',  n: 5 },
+    klar:        { art: 'glanz',    n: 1 },
+    windstille:  { art: 'glanz',    n: 1 },
+    trockenheit: { art: 'flimmer',  n: 1 },
+    markt:       { art: 'muenze',   n: 9 },
+    hunger:      { art: 'flocke',   n: 24 },
+    feldlager:   { art: 'glut',     n: 1 },
+    belagerung:  { art: 'vignette', n: 1 },
+    musterung:   { art: 'funke',    n: 12 },
+    schlamm:     { art: 'tropfen',  n: 26 },
+    marsch:      { art: 'boe',      n: 14 },
+    aufbruch:    { art: 'glanz',    n: 1 },
+    ruhe:        { art: null,       n: 0 }
+  };
+
+  function karteJetzt() {
+    if (!state || !state.wetterAn || !state.karte) return null;
+    return Wet.karte(state.karte);
+  }
+
+  /* Teilchen über dem Brett. Sie werden nur beim Kartenwechsel neu gebaut –
+     jedes Neuzeichnen des Bretts würde sonst den Schneefall zurücksetzen. */
+  function bauStimmung(k) {
+    var fx = $('#wetter-fx');
+    var kennung = k ? k.id : '';
+    if (ui.fxKarte === kennung) return;
+    ui.fxKarte = kennung;
+    fx.innerHTML = '';
+    fx.className = 'wetter-fx' + (k ? ' fx-' + k.id : '');
+    if (!k || reducedMotion()) return;
+    var art = WETTER_FX[k.id] || { art: null, n: 0 };
+    for (var i = 0; i < art.n; i++) {
+      var t = document.createElement('i');
+      t.className = 'fx fx-' + art.art;
+      if (art.art === 'muenze') t.textContent = '\u{1F332}';
+      var dauer = 3 + Math.random() * 6;
+      t.style.left = (Math.random() * 104 - 2).toFixed(1) + '%';
+      t.style.top = (Math.random() * 100).toFixed(1) + '%';
+      t.style.animationDuration = dauer.toFixed(2) + 's';
+      t.style.animationDelay = (-Math.random() * dauer).toFixed(2) + 's';
+      t.style.setProperty('--gr', (0.6 + Math.random() * 0.9).toFixed(2));
+      fx.appendChild(t);
+    }
+  }
+
+  function karteHtml(k) {
+    var folge = (state.karteText && state.karteText !== k.kurz)
+      ? '<p class="karte-folge">' + esc(state.karteText) + '</p>' : '';
+    return '<button type="button" class="karte-flaeche" id="karte-auf" ' +
+        'aria-expanded="' + (ui.karteOffen ? 'true' : 'false') + '">' +
+        '<span class="karte-icon">' + k.icon + '</span>' +
+        '<span class="karte-wort">' +
+          '<span class="karte-gruppe">' + esc(k.gruppe) +
+            '<span class="karte-runde"> · Runde ' + state.turn + '</span></span>' +
+          '<strong class="karte-name">' + esc(k.name) + '</strong>' +
+          '<span class="karte-kurz">' + esc(k.kurz) + '</span>' +
+        '</span>' +
+      '</button>' +
+      '<div class="karte-lang"><p>' + esc(k.text) + '</p>' + folge + '</div>';
+  }
+
+  function zeigeWetter() {
+    var el = $('#wetter-karte'), wrap = $('#board-wrap');
+    var k = karteJetzt();
+    wrap.className = 'board-wrap' + (k ? ' w-' + k.id : '');
+    bauStimmung(k);
+    if (!k) {
+      el.className = 'wetter-karte hidden';
+      el.innerHTML = '';
+      return;
+    }
+    var neu = state.karteNr !== ui.karteGezeigt;
+    if (neu || el.dataset.karte !== k.id || el.dataset.offen !== String(ui.karteOffen)) {
+      el.innerHTML = karteHtml(k);
+      el.dataset.karte = k.id;
+      el.dataset.offen = String(ui.karteOffen);
+    }
+    el.className = 'wetter-karte' + (ui.karteOffen ? ' is-offen' : '');
+    el.style.setProperty('--kf', k.farbe);
+    wrap.style.setProperty('--kf', k.farbe);
+    if (neu) {
+      ui.karteGezeigt = state.karteNr;
+      zeigeKarteAn(el);
+      zeigeKartenFelder();
+    }
+  }
+
+  /* Windbruch, neuer Wuchs und Musterung verändern das Brett selbst. Damit
+     niemand rätselt, wo plötzlich ein Baum steht oder fehlt, blinkt jedes
+     veränderte Feld einmal auf – nacheinander, damit man sie zählen kann. */
+  function zeigeKartenFelder() {
+    if (!state.karteFelder || !view || reducedMotion()) return;
+    state.karteFelder.slice(0, 12).forEach(function (key, i) {
+      setTimeout(function () {
+        if (!view || !state.board.cells[key]) return;
+        fade(Render.pulse(view, state.board, key, 'pulse-wetter'),
+             [{ opacity: .9, transform: 'scale(.4)' },
+              { opacity: 0, transform: 'scale(1.7)' }], 620);
+      }, 620 + i * 110);
+    });
+  }
+
+  /* Aufgedeckt wird sichtbar: Die Karte kommt groß aus der Brettmitte und legt
+     sich dann in ihre Ecke. Einmal je Runde – lang genug, um sie zu lesen,
+     kurz genug, um nicht im Weg zu sein. */
+  function zeigeKarteAn(el) {
+    if (reducedMotion() || !el.animate) return;
+    var wrap = $('#board-wrap').getBoundingClientRect();
+    var k = el.getBoundingClientRect();
+    if (!k.width || !wrap.width) return;
+    var dx = (wrap.left + wrap.width / 2) - (k.left + k.width / 2);
+    var dy = (wrap.top + wrap.height / 2) - (k.top + k.height / 2);
+    var gross = Math.min(2.6, Math.max(1.4, wrap.width * 0.5 / k.width));
+    var mitte = 'translate(' + dx.toFixed(0) + 'px,' + dy.toFixed(0) + 'px) scale(' + gross.toFixed(2) + ')';
+    run(el, [
+      { transform: mitte + ' rotateY(88deg)', opacity: 0, offset: 0 },
+      { transform: mitte + ' rotateY(0deg)', opacity: 1, offset: 0.22 },
+      { transform: mitte, opacity: 1, offset: 0.66 },
+      { transform: 'none', opacity: 1, offset: 1 }
+    ], { duration: 1500, easing: 'cubic-bezier(.3,.9,.3,1)' });
+  }
+
+  function bindWetter() {
+    $('#wetter-karte').addEventListener('click', function (e) {
+      if (!e.target.closest('.karte-flaeche')) return;
+      ui.karteOffen = !ui.karteOffen;
+      zeigeWetter();
+    });
+  }
+
   /* ---------------- Seitenleiste ---------------- */
 
   function renderPlayers() {
@@ -5743,6 +6820,7 @@ var Render = (function () {
   var BLOCK_TEXT = {
     'steht im Spiel': 'steht schon im Spiel',
     'schon ausgebildet': 'nur einmal pro Spiel',
+    'Hungerwinter': 'Hungerwinter',
     'zu wenig Holz': null   // Kosten bleiben sichtbar
   };
 
@@ -5751,7 +6829,10 @@ var Render = (function () {
     var rows = U.TRAIN_ORDER.map(function (id) {
       var def = U.DEFS[id];
       var blocker = M.trainBlocker(state, state.current, id);
-      var label = (blocker && BLOCK_TEXT[blocker]) || (def.cost + '× \u{1F332}');
+      // Der fahrende Markt macht die Ausbildung billiger – dann steht das auch dran
+      var preis = M.preis(state.board, id);
+      var label = (blocker && BLOCK_TEXT[blocker]) ||
+        (preis + '× \u{1F332}' + (preis !== def.cost ? ' statt ' + def.cost : ''));
       var disabled = blocker !== null || !spots;
       return '<button class="train-btn' + (ui.trainType === id ? ' is-active' : '') +
         (blocker === 'steht im Spiel' ? ' is-fielded' : '') + '"' +
@@ -5760,7 +6841,12 @@ var Render = (function () {
         '<span class="tc">' + label + '</span>' +
         '</button>';
     }).join('');
-    var note = !spots ? '<p class="hint warn">Kein freies Feld an deiner Einheiten-Kette.</p>' : '';
+    var w = state.board.wetter || {};
+    var note = '';
+    if (w.keineAusbildung) note = '<p class="hint warn">Hungerwinter: Diese Runde bildet niemand aus.</p>';
+    else if (!spots) note = '<p class="hint warn">Kein freies Feld an deiner Einheiten-Kette.' +
+      (w.radius ? ' Unter Belagerung zählt nur, was höchstens ' + w.radius +
+                  ' Felder von Turm oder Feldzeichen entfernt liegt.' : '') + '</p>';
     return '<h3>Ausbilden</h3>' + note + '<div class="train-grid">' + rows + '</div>' +
       '<p class="hint small">Von jeder Figur darf nur eine im Spiel sein. Wird sie geschlagen, ' +
       'kannst du sie neu ausbilden – den Zenturio jedoch nur einmal pro Partie.</p>';
@@ -5871,6 +6957,17 @@ var Render = (function () {
     }
 
     var html = '';
+    /* Am Handy verdeckt die Schublade das Brett – die Karte gehört deshalb
+       auch hierher, kurz und in ihrer Farbe. */
+    var wk = karteJetzt();
+    if (wk) {
+      html += '<div class="panel-wetter" style="--kf:' + wk.farbe + '">' +
+        '<span class="karte-icon">' + wk.icon + '</span>' +
+        '<span><strong>' + esc(wk.name) + '</strong><br>' + esc(wk.kurz) + '</span></div>';
+    }
+    if (state.nochmal) {
+      html += '<p class="hint accent">Du bist noch einmal am Zug.</p>';
+    }
     var stuck = !state.pending && !M.hasAnyAction(state, state.current);
     if (stuck) {
       html += '<p class="hint warn">Keine Aktion möglich.</p>' +
@@ -5934,6 +7031,7 @@ var Render = (function () {
     renderPlayers();
     renderPanel();
     renderLog();
+    zeigeWetter();
     updateSchublade();
     playEffects();
     scheduleAI();
@@ -6028,9 +7126,20 @@ var Render = (function () {
     return bilder;
   }
 
+  /* Schlamm und Marschbefehl sieht man der Bewegung an: Im Schlamm zieht jede
+     Figur zäh, unter dem Marschbefehl zackig. */
+  function wetterTempo() {
+    var w = state && state.board && state.board.wetter;
+    if (!w) return 1;
+    if (w.maxWeite) return 1.45;
+    if (w.extraFeld) return 0.7;
+    return 1;
+  }
+
   function zugDauer(felder) {
-    if (!(felder > 1)) return ZUG_GRUND;
-    return Math.min(ZUG_MAX, ZUG_GRUND + (felder - 1) * ZUG_JE_FELD);
+    var t = wetterTempo();
+    if (!(felder > 1)) return ZUG_GRUND * t;
+    return Math.min(ZUG_MAX * t, (ZUG_GRUND + (felder - 1) * ZUG_JE_FELD) * t);
   }
 
   var HUEPF_MS = 240;        // ein Sprung
@@ -6229,7 +7338,9 @@ var Render = (function () {
     for (var k in state) if (k !== 'board') rein[k] = state[k];
     // teams gehört mit: ohne sie hielte der Faden Verbündete für Gegner
     rein.board = { cells: state.board.cells, keys: state.board.keys,
-                   tiles: state.board.tiles, teams: state.board.teams };
+                   tiles: state.board.tiles, teams: state.board.teams,
+                   // ohne das Wetter spielte der Faden nach anderen Regeln
+                   wetter: state.board.wetter };
     return rein;
   }
 
@@ -6319,7 +7430,7 @@ var Render = (function () {
 
   /* Zug tatsächlich ausführen – getrennt vom Denken, damit die Pause davor passt. */
   function finishAiTurn(level, desc, err) {
-    var before = state.current, phase = state.phase;
+    var before = state.current, phase = state.phase, vorher = state.moveNo;
     try {
       if (err) throw err;
       if (phase !== 'play') AI.step(state, level);
@@ -6329,9 +7440,12 @@ var Render = (function () {
       if (state.phase === 'play') G.pass(state);
       if (window.console) console.error(e);
     }
-    if (state.phase === phase && state.current === before &&
+    /* Notbremse gegen Endlosschleifen. Gemessen wird an der Zugnummer, nicht
+       am Spieler: Trockenheit und Aufbruch lassen denselben Spieler noch
+       einmal ran – das ist ein Zug und keine Schleife. */
+    if (state.phase === phase && state.moveNo === vorher &&
         state.phase === 'play' && !state.pending) {
-      G.pass(state);            // Notbremse gegen Endlosschleifen
+      G.pass(state);
     }
     ui.thinking = false;
     refresh();
@@ -6368,6 +7482,26 @@ var Render = (function () {
     }
     $('#rule-cards').innerHTML = cards;
 
+    /* Alle Wetterkarten zum Nachlesen – dieselbe Gestaltung wie am Brett,
+       damit man die Karte im Spiel wiedererkennt. */
+    var galerie = document.getElementById('wetter-karten');
+    if (galerie) {
+      galerie.innerHTML = Wet.KARTEN.map(function (k) {
+        return '<article class="wetter-karte ist-galerie" style="--kf:' + k.farbe + '">' +
+          '<div class="karte-flaeche">' +
+            '<span class="karte-icon">' + k.icon + '</span>' +
+            '<span class="karte-wort">' +
+              '<span class="karte-gruppe">' + esc(k.gruppe) +
+                (k.menge > 1 ? ' · ' + k.menge + '× im Stapel' : '') + '</span>' +
+              '<strong class="karte-name">' + esc(k.name) + '</strong>' +
+              '<span class="karte-kurz">' + esc(k.kurz) + '</span>' +
+            '</span>' +
+          '</div>' +
+          '<div class="karte-lang"><p>' + esc(k.text) + '</p></div>' +
+          '</article>';
+      }).join('');
+    }
+
     $('#open-rules').addEventListener('click', function () { $('#rules').classList.remove('hidden'); });
     $('#close-rules').addEventListener('click', function () { $('#rules').classList.add('hidden'); });
     $('#rules').addEventListener('click', function (e) {
@@ -6392,6 +7526,7 @@ var Render = (function () {
     buildMenu();
     buildRules();
     bindPanel();
+    bindWetter();
     bindMobileBar();
     $('#new-game').addEventListener('click', backToMenu);
     /* Beim Drehen des Geräts wechselt die freie Fläche völlig – dann wird das

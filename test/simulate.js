@@ -3,6 +3,7 @@
 global.Hex = require('../js/hex.js');
 global.Units = require('../js/units.js');
 global.Board = require('../js/board.js');
+global.Wetter = require('../js/wetter.js');
 global.Moves = require('../js/moves.js');
 global.Game = require('../js/game.js');
 var H = Hex, B = Board, M = Moves, G = Game, U = Units;
@@ -41,6 +42,19 @@ function invariants(state, where) {
       throw new Error(where + ': Boot auf Land (' + k + ')');
     }
   });
+  /* Wetter: Was offen liegt, muss auch am Brett hängen – die Zuggeneratoren
+     lesen nur das Brett. Und der Stapel darf nichts verlieren. */
+  if (state.wetterAn && state.phase === 'play') {
+    if (!state.karte) throw new Error(where + ': keine Wetterkarte aufgedeckt');
+    if (state.board.wetter.id !== state.karte) {
+      throw new Error(where + ': am Brett hängt ' + state.board.wetter.id +
+        ', offen liegt ' + state.karte);
+    }
+    if (state.stapel.length + state.ablage.length + 1 < Wetter.stapel().length &&
+        !state.stapel.length) {
+      throw new Error(where + ': der Kartenstapel ist verschwunden');
+    }
+  }
   state.players.forEach(function (p) {
     if (p.wood < 0) throw new Error(where + ': negatives Holz bei ' + p.name);
     if (!p.eliminated && state.phase === 'play' && kings[p.index] !== 1) {
@@ -49,10 +63,10 @@ function invariants(state, where) {
   });
 }
 
-function setup(playerCount, teams) {
+function setup(playerCount, teams, wetter) {
   var names = [];
   for (var i = 0; i < playerCount; i++) names.push('P' + (i + 1));
-  var state = G.create(names, [], teams);
+  var state = G.create(names, [], teams, { wetter: !!wetter });
   G.autoPlaceTrees(state);
   if (state.phase !== 'kings') throw new Error('Baumphase nicht beendet');
 
@@ -143,24 +157,27 @@ function randomTurn(state) {
   return choice.type;
 }
 
-function playGame(playerCount, maxTurns, teams) {
-  var state = setup(playerCount, teams);
+function playGame(playerCount, maxTurns, teams, wetter) {
+  var state = setup(playerCount, teams, wetter);
   if (!state) return null;
-  var steps = 0;
+  var steps = 0, karten = {};
   while (state.phase === 'play' && steps++ < maxTurns) {
     var before = state.current;
     randomTurn(state);
     invariants(state, 'Zug ' + steps);
-    if (state.phase === 'play' && !state.pending && state.current === before &&
-        !G.alivePlayers(state).length === 1) {
+    if (state.karte) karten[state.karte] = true;
+    /* Derselbe Spieler bleibt nur dran, wenn eine Karte das sagt (Trockenheit,
+       Aufbruch) – sonst steckt das Spiel fest. */
+    if (state.phase === 'play' && !state.pending && !state.nochmal &&
+        state.current === before && !G.alivePlayers(state).length === 1) {
       throw new Error('Spieler wechselt nicht');
     }
   }
-  return { state: state, steps: steps };
+  return { state: state, steps: steps, karten: Object.keys(karten).length };
 }
 
 var games = +(process.argv[2] || 60);
-var stats = { finished: 0, timeout: 0, skipped: 0, steps: 0, elim: 0 };
+var stats = { finished: 0, timeout: 0, skipped: 0, steps: 0, elim: 0, wetter: 0, karten: 0 };
 /* Gespielt wird abwechselnd "jeder für sich" und in Mannschaften, und die
    Spielerzahl läuft bis acht durch – beides muss dieselben Invarianten halten. */
 function teamsFuer(i, count) {
@@ -178,8 +195,11 @@ function teamsFuer(i, count) {
 for (var i = 0; i < games; i++) {
   var count = 2 + (i % 7);
   var teams = teamsFuer(i, count);
-  var res = playGame(count, 1200, teams);
+  // Jede zweite Partie mit Wetterkarten – dieselben Invarianten müssen halten
+  var mitWetter = (i % 2) === 1;
+  var res = playGame(count, 1200, teams, mitWetter);
   if (!res) { stats.skipped++; continue; }
+  if (mitWetter) { stats.wetter++; stats.karten += res.karten; }
   stats.steps += res.steps;
   if (res.state.phase === 'over') stats.finished++; else stats.timeout++;
   stats.elim += res.state.players.filter(function (p) { return p.eliminated; }).length;
@@ -189,5 +209,7 @@ console.log('Partien:', games,
   '| offen nach 1200 Zügen:', stats.timeout,
   '| verworfen:', stats.skipped,
   '| Ø Züge:', Math.round(stats.steps / Math.max(1, games - stats.skipped)),
-  '| Ausscheidungen:', stats.elim);
+  '| Ausscheidungen:', stats.elim,
+  '| mit Wetter:', stats.wetter,
+  '| Ø Karten/Partie:', Math.round(stats.karten / Math.max(1, stats.wetter)));
 console.log('Alle Invarianten eingehalten.');

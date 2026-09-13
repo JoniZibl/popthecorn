@@ -9,7 +9,7 @@
    Geantwortet wird mit der Kennung der Frage. Wer eine neue Partie beginnt,
    während hier noch gerechnet wird, bekommt die alte Antwort nicht mehr
    untergeschoben – die Oberfläche wirft sie anhand der Kennung weg. */
-importScripts('hex.js', 'units.js', 'board.js', 'moves.js', 'game.js', 'ai.js');
+importScripts('hex.js', 'units.js', 'board.js', 'wetter.js', 'moves.js', 'game.js', 'ai.js');
 
 self.onmessage = function (e) {
   var d = e.data;

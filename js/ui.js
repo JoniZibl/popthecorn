@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var H = Hex, B = Board, U = Units, M = Moves, G = Game;
+  var H = Hex, B = Board, U = Units, M = Moves, G = Game, Wet = Wetter;
   function dirArrow(angle) {
     return '<svg class="dir-arrow" viewBox="-11 -11 22 22" aria-hidden="true">' +
       '<path d="M-7,-5 L7,0 L-7,5 L-4,0 Z" transform="rotate(' + angle.toFixed(1) + ')"/></svg>';
@@ -12,7 +12,8 @@
   var view = null;
   var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null, lift: null,
              thinking: false, shownEvent: 0, woodShown: null,
-             sheetOpen: false, sheetAuto: false, sheetMove: null };
+             sheetOpen: false, sheetAuto: false, sheetMove: null,
+             karteGezeigt: 0, karteOffen: false, fxKarte: null };
 
   function $(sel) { return document.querySelector(sel); }
   function esc(s) {
@@ -176,6 +177,11 @@
         }
       }
 
+      $('#mode-info').textContent = ($('#play-mode').value === 'wetter')
+        ? 'Zu Beginn jeder Runde wird eine von ' + Wet.KARTEN.length +
+          ' Wetterkarten aufgedeckt. Sie gilt eine Runde lang für alle.'
+        : 'Die Grundregeln, ohne Zusätze.';
+
       var info = cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' +
                  cfg.trees + ' Bäume gesamt';
       if (mitTeams) info = aufstellungText(teams) + ' · ' + info;
@@ -189,6 +195,7 @@
 
     $('#player-count').addEventListener('change', function () { render(); });
     $('#game-mode').addEventListener('change', function () { render(); });
+    $('#play-mode').addEventListener('change', function () { render(); });
     render();
 
     $('#start-game').addEventListener('click', function () {
@@ -199,16 +206,19 @@
         var kind = $('#pkind' + i).value;
         kinds.push(kind === 'mensch' ? null : kind);
       }
-      startGame(names, kinds, teamsAusMenue(count));
+      startGame(names, kinds, teamsAusMenue(count),
+                { wetter: $('#play-mode').value === 'wetter' });
     });
   }
 
-  function startGame(names, kinds, teams) {
+  function startGame(names, kinds, teams, optionen) {
     beendeDenker();
-    state = G.create(names, kinds, teams);
+    state = G.create(names, kinds, teams, optionen);
     ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null, lift: null,
            thinking: false, shownEvent: 0, woodShown: null,
-           sheetOpen: false, sheetAuto: false, sheetMove: null };
+           sheetOpen: false, sheetAuto: false, sheetMove: null,
+           karteGezeigt: 0, karteOffen: false, fxKarte: null };
+    document.body.classList.toggle('mit-wetter', !!(optionen && optionen.wetter));
     $('#screen-menu').classList.add('hidden');
     $('#screen-game').classList.remove('hidden');
     // am Handy blendet das die Kopfzeile aus – der Bildschirm gehört dem Brett
@@ -778,6 +788,156 @@
     }
   }
 
+
+  /* ---------------- Wetterkarten ----------------
+
+     Am Tisch liegt die Karte offen in der Brettmitte, und man sieht dem Wetter
+     an, was es ist. Hier auch: Die Karte liegt in der Ecke des Bretts, und das
+     Brett selbst bekommt die Stimmung dazu – Nebel zieht auf, Schnee fällt,
+     der Boden trocknet aus. Das ist keine Zierde: Wer aufs Brett schaut, soll
+     ohne Lesen wissen, dass diese Runde anders läuft.
+
+     Die Stimmung steckt in einer Klasse am Brettrahmen (`w-<Karte>`), damit
+     das Stylesheet die Farben übernimmt, plus ein paar Teilchen in einer
+     eigenen Ebene darüber, die keine Berührungen annimmt. */
+
+  /* Was über dem Brett liegt: Art und Anzahl der Teilchen je Karte. Mehr als
+     ein paar Dutzend werden es nie – das muss auch auf einem Handy flüssig
+     bleiben. */
+  var WETTER_FX = {
+    frost:       { art: 'funke',    n: 16 },
+    windbruch:   { art: 'boe',      n: 10 },
+    wuchs:       { art: 'funke',    n: 14 },
+    nebel:       { art: 'schwade',  n: 5 },
+    klar:        { art: 'glanz',    n: 1 },
+    windstille:  { art: 'glanz',    n: 1 },
+    trockenheit: { art: 'flimmer',  n: 1 },
+    markt:       { art: 'muenze',   n: 9 },
+    hunger:      { art: 'flocke',   n: 24 },
+    feldlager:   { art: 'glut',     n: 1 },
+    belagerung:  { art: 'vignette', n: 1 },
+    musterung:   { art: 'funke',    n: 12 },
+    schlamm:     { art: 'tropfen',  n: 26 },
+    marsch:      { art: 'boe',      n: 14 },
+    aufbruch:    { art: 'glanz',    n: 1 },
+    ruhe:        { art: null,       n: 0 }
+  };
+
+  function karteJetzt() {
+    if (!state || !state.wetterAn || !state.karte) return null;
+    return Wet.karte(state.karte);
+  }
+
+  /* Teilchen über dem Brett. Sie werden nur beim Kartenwechsel neu gebaut –
+     jedes Neuzeichnen des Bretts würde sonst den Schneefall zurücksetzen. */
+  function bauStimmung(k) {
+    var fx = $('#wetter-fx');
+    var kennung = k ? k.id : '';
+    if (ui.fxKarte === kennung) return;
+    ui.fxKarte = kennung;
+    fx.innerHTML = '';
+    fx.className = 'wetter-fx' + (k ? ' fx-' + k.id : '');
+    if (!k || reducedMotion()) return;
+    var art = WETTER_FX[k.id] || { art: null, n: 0 };
+    for (var i = 0; i < art.n; i++) {
+      var t = document.createElement('i');
+      t.className = 'fx fx-' + art.art;
+      if (art.art === 'muenze') t.textContent = '\u{1F332}';
+      var dauer = 3 + Math.random() * 6;
+      t.style.left = (Math.random() * 104 - 2).toFixed(1) + '%';
+      t.style.top = (Math.random() * 100).toFixed(1) + '%';
+      t.style.animationDuration = dauer.toFixed(2) + 's';
+      t.style.animationDelay = (-Math.random() * dauer).toFixed(2) + 's';
+      t.style.setProperty('--gr', (0.6 + Math.random() * 0.9).toFixed(2));
+      fx.appendChild(t);
+    }
+  }
+
+  function karteHtml(k) {
+    var folge = (state.karteText && state.karteText !== k.kurz)
+      ? '<p class="karte-folge">' + esc(state.karteText) + '</p>' : '';
+    return '<button type="button" class="karte-flaeche" id="karte-auf" ' +
+        'aria-expanded="' + (ui.karteOffen ? 'true' : 'false') + '">' +
+        '<span class="karte-icon">' + k.icon + '</span>' +
+        '<span class="karte-wort">' +
+          '<span class="karte-gruppe">' + esc(k.gruppe) +
+            '<span class="karte-runde"> · Runde ' + state.turn + '</span></span>' +
+          '<strong class="karte-name">' + esc(k.name) + '</strong>' +
+          '<span class="karte-kurz">' + esc(k.kurz) + '</span>' +
+        '</span>' +
+      '</button>' +
+      '<div class="karte-lang"><p>' + esc(k.text) + '</p>' + folge + '</div>';
+  }
+
+  function zeigeWetter() {
+    var el = $('#wetter-karte'), wrap = $('#board-wrap');
+    var k = karteJetzt();
+    wrap.className = 'board-wrap' + (k ? ' w-' + k.id : '');
+    bauStimmung(k);
+    if (!k) {
+      el.className = 'wetter-karte hidden';
+      el.innerHTML = '';
+      return;
+    }
+    var neu = state.karteNr !== ui.karteGezeigt;
+    if (neu || el.dataset.karte !== k.id || el.dataset.offen !== String(ui.karteOffen)) {
+      el.innerHTML = karteHtml(k);
+      el.dataset.karte = k.id;
+      el.dataset.offen = String(ui.karteOffen);
+    }
+    el.className = 'wetter-karte' + (ui.karteOffen ? ' is-offen' : '');
+    el.style.setProperty('--kf', k.farbe);
+    wrap.style.setProperty('--kf', k.farbe);
+    if (neu) {
+      ui.karteGezeigt = state.karteNr;
+      zeigeKarteAn(el);
+      zeigeKartenFelder();
+    }
+  }
+
+  /* Windbruch, neuer Wuchs und Musterung verändern das Brett selbst. Damit
+     niemand rätselt, wo plötzlich ein Baum steht oder fehlt, blinkt jedes
+     veränderte Feld einmal auf – nacheinander, damit man sie zählen kann. */
+  function zeigeKartenFelder() {
+    if (!state.karteFelder || !view || reducedMotion()) return;
+    state.karteFelder.slice(0, 12).forEach(function (key, i) {
+      setTimeout(function () {
+        if (!view || !state.board.cells[key]) return;
+        fade(Render.pulse(view, state.board, key, 'pulse-wetter'),
+             [{ opacity: .9, transform: 'scale(.4)' },
+              { opacity: 0, transform: 'scale(1.7)' }], 620);
+      }, 620 + i * 110);
+    });
+  }
+
+  /* Aufgedeckt wird sichtbar: Die Karte kommt groß aus der Brettmitte und legt
+     sich dann in ihre Ecke. Einmal je Runde – lang genug, um sie zu lesen,
+     kurz genug, um nicht im Weg zu sein. */
+  function zeigeKarteAn(el) {
+    if (reducedMotion() || !el.animate) return;
+    var wrap = $('#board-wrap').getBoundingClientRect();
+    var k = el.getBoundingClientRect();
+    if (!k.width || !wrap.width) return;
+    var dx = (wrap.left + wrap.width / 2) - (k.left + k.width / 2);
+    var dy = (wrap.top + wrap.height / 2) - (k.top + k.height / 2);
+    var gross = Math.min(2.6, Math.max(1.4, wrap.width * 0.5 / k.width));
+    var mitte = 'translate(' + dx.toFixed(0) + 'px,' + dy.toFixed(0) + 'px) scale(' + gross.toFixed(2) + ')';
+    run(el, [
+      { transform: mitte + ' rotateY(88deg)', opacity: 0, offset: 0 },
+      { transform: mitte + ' rotateY(0deg)', opacity: 1, offset: 0.22 },
+      { transform: mitte, opacity: 1, offset: 0.66 },
+      { transform: 'none', opacity: 1, offset: 1 }
+    ], { duration: 1500, easing: 'cubic-bezier(.3,.9,.3,1)' });
+  }
+
+  function bindWetter() {
+    $('#wetter-karte').addEventListener('click', function (e) {
+      if (!e.target.closest('.karte-flaeche')) return;
+      ui.karteOffen = !ui.karteOffen;
+      zeigeWetter();
+    });
+  }
+
   /* ---------------- Seitenleiste ---------------- */
 
   function renderPlayers() {
@@ -826,6 +986,7 @@
   var BLOCK_TEXT = {
     'steht im Spiel': 'steht schon im Spiel',
     'schon ausgebildet': 'nur einmal pro Spiel',
+    'Hungerwinter': 'Hungerwinter',
     'zu wenig Holz': null   // Kosten bleiben sichtbar
   };
 
@@ -834,7 +995,10 @@
     var rows = U.TRAIN_ORDER.map(function (id) {
       var def = U.DEFS[id];
       var blocker = M.trainBlocker(state, state.current, id);
-      var label = (blocker && BLOCK_TEXT[blocker]) || (def.cost + '× \u{1F332}');
+      // Der fahrende Markt macht die Ausbildung billiger – dann steht das auch dran
+      var preis = M.preis(state.board, id);
+      var label = (blocker && BLOCK_TEXT[blocker]) ||
+        (preis + '× \u{1F332}' + (preis !== def.cost ? ' statt ' + def.cost : ''));
       var disabled = blocker !== null || !spots;
       return '<button class="train-btn' + (ui.trainType === id ? ' is-active' : '') +
         (blocker === 'steht im Spiel' ? ' is-fielded' : '') + '"' +
@@ -843,7 +1007,12 @@
         '<span class="tc">' + label + '</span>' +
         '</button>';
     }).join('');
-    var note = !spots ? '<p class="hint warn">Kein freies Feld an deiner Einheiten-Kette.</p>' : '';
+    var w = state.board.wetter || {};
+    var note = '';
+    if (w.keineAusbildung) note = '<p class="hint warn">Hungerwinter: Diese Runde bildet niemand aus.</p>';
+    else if (!spots) note = '<p class="hint warn">Kein freies Feld an deiner Einheiten-Kette.' +
+      (w.radius ? ' Unter Belagerung zählt nur, was höchstens ' + w.radius +
+                  ' Felder von Turm oder Feldzeichen entfernt liegt.' : '') + '</p>';
     return '<h3>Ausbilden</h3>' + note + '<div class="train-grid">' + rows + '</div>' +
       '<p class="hint small">Von jeder Figur darf nur eine im Spiel sein. Wird sie geschlagen, ' +
       'kannst du sie neu ausbilden – den Zenturio jedoch nur einmal pro Partie.</p>';
@@ -954,6 +1123,17 @@
     }
 
     var html = '';
+    /* Am Handy verdeckt die Schublade das Brett – die Karte gehört deshalb
+       auch hierher, kurz und in ihrer Farbe. */
+    var wk = karteJetzt();
+    if (wk) {
+      html += '<div class="panel-wetter" style="--kf:' + wk.farbe + '">' +
+        '<span class="karte-icon">' + wk.icon + '</span>' +
+        '<span><strong>' + esc(wk.name) + '</strong><br>' + esc(wk.kurz) + '</span></div>';
+    }
+    if (state.nochmal) {
+      html += '<p class="hint accent">Du bist noch einmal am Zug.</p>';
+    }
     var stuck = !state.pending && !M.hasAnyAction(state, state.current);
     if (stuck) {
       html += '<p class="hint warn">Keine Aktion möglich.</p>' +
@@ -1017,6 +1197,7 @@
     renderPlayers();
     renderPanel();
     renderLog();
+    zeigeWetter();
     updateSchublade();
     playEffects();
     scheduleAI();
@@ -1111,9 +1292,20 @@
     return bilder;
   }
 
+  /* Schlamm und Marschbefehl sieht man der Bewegung an: Im Schlamm zieht jede
+     Figur zäh, unter dem Marschbefehl zackig. */
+  function wetterTempo() {
+    var w = state && state.board && state.board.wetter;
+    if (!w) return 1;
+    if (w.maxWeite) return 1.45;
+    if (w.extraFeld) return 0.7;
+    return 1;
+  }
+
   function zugDauer(felder) {
-    if (!(felder > 1)) return ZUG_GRUND;
-    return Math.min(ZUG_MAX, ZUG_GRUND + (felder - 1) * ZUG_JE_FELD);
+    var t = wetterTempo();
+    if (!(felder > 1)) return ZUG_GRUND * t;
+    return Math.min(ZUG_MAX * t, (ZUG_GRUND + (felder - 1) * ZUG_JE_FELD) * t);
   }
 
   var HUEPF_MS = 240;        // ein Sprung
@@ -1312,7 +1504,9 @@
     for (var k in state) if (k !== 'board') rein[k] = state[k];
     // teams gehört mit: ohne sie hielte der Faden Verbündete für Gegner
     rein.board = { cells: state.board.cells, keys: state.board.keys,
-                   tiles: state.board.tiles, teams: state.board.teams };
+                   tiles: state.board.tiles, teams: state.board.teams,
+                   // ohne das Wetter spielte der Faden nach anderen Regeln
+                   wetter: state.board.wetter };
     return rein;
   }
 
@@ -1402,7 +1596,7 @@
 
   /* Zug tatsächlich ausführen – getrennt vom Denken, damit die Pause davor passt. */
   function finishAiTurn(level, desc, err) {
-    var before = state.current, phase = state.phase;
+    var before = state.current, phase = state.phase, vorher = state.moveNo;
     try {
       if (err) throw err;
       if (phase !== 'play') AI.step(state, level);
@@ -1412,9 +1606,12 @@
       if (state.phase === 'play') G.pass(state);
       if (window.console) console.error(e);
     }
-    if (state.phase === phase && state.current === before &&
+    /* Notbremse gegen Endlosschleifen. Gemessen wird an der Zugnummer, nicht
+       am Spieler: Trockenheit und Aufbruch lassen denselben Spieler noch
+       einmal ran – das ist ein Zug und keine Schleife. */
+    if (state.phase === phase && state.moveNo === vorher &&
         state.phase === 'play' && !state.pending) {
-      G.pass(state);            // Notbremse gegen Endlosschleifen
+      G.pass(state);
     }
     ui.thinking = false;
     refresh();
@@ -1451,6 +1648,26 @@
     }
     $('#rule-cards').innerHTML = cards;
 
+    /* Alle Wetterkarten zum Nachlesen – dieselbe Gestaltung wie am Brett,
+       damit man die Karte im Spiel wiedererkennt. */
+    var galerie = document.getElementById('wetter-karten');
+    if (galerie) {
+      galerie.innerHTML = Wet.KARTEN.map(function (k) {
+        return '<article class="wetter-karte ist-galerie" style="--kf:' + k.farbe + '">' +
+          '<div class="karte-flaeche">' +
+            '<span class="karte-icon">' + k.icon + '</span>' +
+            '<span class="karte-wort">' +
+              '<span class="karte-gruppe">' + esc(k.gruppe) +
+                (k.menge > 1 ? ' · ' + k.menge + '× im Stapel' : '') + '</span>' +
+              '<strong class="karte-name">' + esc(k.name) + '</strong>' +
+              '<span class="karte-kurz">' + esc(k.kurz) + '</span>' +
+            '</span>' +
+          '</div>' +
+          '<div class="karte-lang"><p>' + esc(k.text) + '</p></div>' +
+          '</article>';
+      }).join('');
+    }
+
     $('#open-rules').addEventListener('click', function () { $('#rules').classList.remove('hidden'); });
     $('#close-rules').addEventListener('click', function () { $('#rules').classList.add('hidden'); });
     $('#rules').addEventListener('click', function (e) {
@@ -1475,6 +1692,7 @@
     buildMenu();
     buildRules();
     bindPanel();
+    bindWetter();
     bindMobileBar();
     $('#new-game').addEventListener('click', backToMenu);
     /* Beim Drehen des Geräts wechselt die freie Fläche völlig – dann wird das

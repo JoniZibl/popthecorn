@@ -10,11 +10,11 @@
    netzunabhängig; eine neue Fassung ist beim übernächsten Start da. Umgekehrt
    – erst das Netz fragen, dann den Vorrat – hinge jeder Start an der
    Antwortzeit des Servers, und genau das soll hier nicht sein. */
-var CACHE = 'hexodus-v1';
+var CACHE = 'hexodus-v2';
 
 var SHELL = [
   './', './index.html', './css/style.css',
-  './js/hex.js', './js/units.js', './js/board.js', './js/moves.js',
+  './js/hex.js', './js/units.js', './js/board.js', './js/wetter.js', './js/moves.js',
   './js/game.js', './js/ai.js', './js/scene.js', './js/render.js', './js/ui.js',
   './js/aiworker.js',
   './manifest.webmanifest', './icon-192.png', './icon-512.png'

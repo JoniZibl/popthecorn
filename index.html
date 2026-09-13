@@ -59,6 +59,14 @@
         <option value="teams">Mannschaften</option>
       </select>
     </label>
+    <label class="field">
+      <span>Spielweise</span>
+      <select id="play-mode">
+        <option value="standard">Standard</option>
+        <option value="wetter">Mit Wetterkarten</option>
+      </select>
+    </label>
+    <p id="mode-info" class="hint small"></p>
     <div id="player-fields"></div>
     <p id="setup-info" class="hint"></p>
     <button id="start-game" class="primary-btn">Spiel starten</button>
@@ -83,9 +91,14 @@
 
 <!-- ---------- Spielbildschirm ---------- -->
 <main id="screen-game" class="screen game hidden">
-  <div class="board-wrap">
+  <div id="board-wrap" class="board-wrap">
     <div id="board" class="board"></div>
+    <!-- Stimmung zum Wetter: Nebel, Schnee, Regen, Funken. Reine Anzeige,
+         nimmt keine Berührungen an. -->
+    <div id="wetter-fx" class="wetter-fx" aria-hidden="true"></div>
     <div id="phase-banner" class="phase-banner"></div>
+    <!-- Die offene Wetterkarte. Antippen klappt den Regeltext auf. -->
+    <div id="wetter-karte" class="wetter-karte hidden"></div>
     <div class="board-hud">
       <button id="zoom-in" class="hud-btn" title="Vergrößern">+</button>
       <button id="zoom-out" class="hud-btn" title="Verkleinern">−</button>
@@ -234,6 +247,27 @@
         der Figuren, der Holzvorrat und wer zuletzt etwas bewegt hat.</p>
     </section>
 
+    <section class="rule-block" id="wetter-regeln">
+      <h3>Spielweise „Mit Wetterkarten“</h3>
+      <p>Eine eigene Spielweise – das <strong>Standardspiel bleibt unverändert</strong>. Wer sie
+        im Startmenü wählt, deckt zu Beginn jeder Runde die oberste Karte des Wetterstapels auf.
+        Sie liegt offen am Brett, bis die Runde herum ist, und gilt für <strong>alle Spieler
+        gleichermaßen</strong>. Danach kommt sie auf den Ablagestapel; ist der Stapel leer, wird
+        die Ablage gemischt und neu aufgelegt.</p>
+      <ul>
+        <li>Die Karte gilt für <strong>alle</strong> – nur der Aufbruch gilt für den,
+          der ihn aufdeckt.</li>
+        <li>Jede Karte verändert eine <strong>ganze Regel-Schicht</strong> – Gelände, Sicht,
+          Wirtschaft, Nachschub oder Bewegung –, nie nur eine einzelne Figur.</li>
+        <li>Keine Karte erfindet Holz: Der Vorrat an Bäumen, Holz und Figuren bleibt endlich.</li>
+        <li>Was eine Karte am Brett verändert – gefallene und nachgewachsene Bäume, eingerückte
+          Arbeiter –, bleibt <strong>dauerhaft</strong> stehen.</li>
+        <li>Dreimal <strong>Ruhe vor dem Sturm</strong> liegt im Stapel – ohne sie kippte jede
+          Runde das Brett.</li>
+      </ul>
+      <div id="wetter-karten" class="wetter-galerie"></div>
+    </section>
+
     <div id="rule-cards" class="rule-cards"></div>
   </div>
 </div>
@@ -241,6 +275,7 @@
 <script src="js/hex.js"></script>
 <script src="js/units.js"></script>
 <script src="js/board.js"></script>
+<script src="js/wetter.js"></script>
 <script src="js/moves.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ai.js"></script>

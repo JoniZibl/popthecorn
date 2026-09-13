@@ -3,6 +3,7 @@
 global.Hex = require('../js/hex.js');
 global.Units = require('../js/units.js');
 global.Board = require('../js/board.js');
+global.Wetter = require('../js/wetter.js');
 global.Moves = require('../js/moves.js');
 global.Game = require('../js/game.js');
 var AI = require('../js/ai.js');
@@ -52,9 +53,9 @@ function randomStep(state) {
   return true;
 }
 
-function play(kinds, maxSteps) {
+function play(kinds, maxSteps, wetter) {
   var names = kinds.map(function (k, i) { return (k.ai ? 'KI-' + k.ai : 'Zufall') + (i + 1); });
-  var state = G.create(names);
+  var state = G.create(names, null, null, { wetter: !!wetter });
   var steps = 0, thinkMs = 0, thinkCount = 0, depthSum = 0;
   while (state.phase !== 'over' && steps++ < maxSteps) {
     var k = kinds[state.current];
@@ -68,7 +69,9 @@ function play(kinds, maxSteps) {
         else G.pass(state);
       } else if (!AI.step(state, k.ai)) { randomStep(state); }
     } else if (!randomStep(state)) break;
-    if (state.current === before && state.phase === phase && state.phase === 'play' && !state.pending) {
+    // Zwei Wetterkarten lassen denselben Spieler noch einmal ran – das ist Fortschritt
+    if (state.current === before && state.phase === phase && state.phase === 'play' &&
+        !state.pending && !state.nochmal) {
       // kein Fortschritt -> Partie abbrechen
       break;
     }
@@ -82,13 +85,13 @@ function play(kinds, maxSteps) {
   };
 }
 
-function series(label, kinds, games, maxSteps) {
+function series(label, kinds, games, maxSteps, wetter) {
   var wins = kinds.map(function () { return 0; }), draws = 0, think = 0, depth = 0, steps = 0;
   for (var g = 0; g < games; g++) {
     // Startspieler wechseln: Reihenfolge der Rollen tauschen
     var order = kinds.slice();
     if (g % 2) order.reverse();
-    var r = play(order, maxSteps);
+    var r = play(order, maxSteps, wetter);
     think += r.avgThink; depth += parseFloat(r.avgDepth); steps += r.steps;
     if (r.winner === null) draws++;
     else {
@@ -123,4 +126,9 @@ if (A && Bx) {
   console.log();
   series('KI (stark) gegen KI (leicht)', [{ ai: 'stark' }, { ai: 'leicht' }],
          Math.max(4, games / 2 | 0), 1500);
+  console.log();
+  /* Mit Wetterkarten: Die KI liest dieselben Karten wie das Regelwerk. Sie
+     muss auch dann gewinnen – und vor allem darf sie nicht straucheln. */
+  series('Mit Wetterkarten: KI (normal) gegen Zufallsspieler', [{ ai: 'normal' }, {}],
+         Math.max(4, games / 2 | 0), 1500, true);
 }

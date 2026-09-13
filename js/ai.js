@@ -14,6 +14,7 @@ var AI = (function () {
 
   var H = (typeof Hex !== 'undefined') ? Hex : require('./hex.js');
   var U = (typeof Units !== 'undefined') ? Units : require('./units.js');
+  var W = (typeof Wetter !== 'undefined') ? Wetter : require('./wetter.js');
 
   var TYPES = ['king', 'worker', 'samurai', 'springer', 'legionaer', 'archer', 'tangolin', 'zenturio'];
   var T = {}; TYPES.forEach(function (t, i) { T[t] = i; });
@@ -74,6 +75,7 @@ var AI = (function () {
 
     var nb = new Int16Array(n * 6), diag = new Int16Array(n * 6),
         far2 = new Int16Array(n * 6), far3 = new Int16Array(n * 6),
+        far4 = new Int16Array(n * 6),
         qs = new Int16Array(n), rs = new Int16Array(n);
 
     for (i = 0; i < n; i++) {
@@ -84,6 +86,7 @@ var AI = (function () {
         nb[i * 6 + d] = at(c.q + v[0], c.r + v[1]);
         far2[i * 6 + d] = at(c.q + 2 * v[0], c.r + 2 * v[1]);
         far3[i * 6 + d] = at(c.q + 3 * v[0], c.r + 3 * v[1]);
+        far4[i * 6 + d] = at(c.q + 4 * v[0], c.r + 4 * v[1]);   // Marschbefehl
         diag[i * 6 + d] = at(c.q + g[0], c.r + g[1]);
       }
     }
@@ -104,7 +107,7 @@ var AI = (function () {
     var land = new Int32Array(landList);
 
     board.__geo = { n: n, keys: keys, idx: idx, nb: nb, diag: diag, land: land,
-                    far2: far2, far3: far3, dist: dist, qs: qs, rs: rs };
+                    far2: far2, far3: far3, far4: far4, dist: dist, qs: qs, rs: rs };
     return board.__geo;
   }
 
@@ -117,7 +120,13 @@ var AI = (function () {
       terrain: new Uint8Array(n), tree: new Uint8Array(n), boat: new Uint8Array(n),
       pt: new Int8Array(n), po: new Int8Array(n), pf: new Int8Array(n),
       wood: new Int32Array(np), alive: new Uint8Array(np), zent: new Uint8Array(np),
-      kingAt: new Int16Array(np), team: new Int16Array(np)
+      kingAt: new Int16Array(np), team: new Int16Array(np),
+      /* Das Wetter hängt am Brett wie die Mannschaften. Die Suche rechnet es
+         für den ganzen Baum durch – welche Karte in zwei Runden liegt, weiß
+         niemand, und an der Wurzel gilt genau diese hier. */
+      w: W.wirkung(state.board),
+      extra: state.extra | 0,     // offene Extra-Züge (Aufbruch)
+      nochmal: 0                  // bleibt derselbe Spieler am Zug?
     };
     s.pt.fill(-1); s.po.fill(-1); s.kingAt.fill(-1);
     for (var i = 0; i < n; i++) {
@@ -179,8 +188,38 @@ var AI = (function () {
     if (s.terrain[to] === 0) return 0;
     if (from >= 0 && s.terrain[from] === 1) return 0;   // Boot fährt mit
     if (s.boat[to]) return 0;
-    return wood >= 1 ? 1 : -1;
+    var preis = s.w.bootPreis;                          // Frost: das Wasser trägt umsonst
+    return wood >= preis ? preis : -1;
   }
+
+  /* Wer als Nächster zieht. Zwei Wetterkarten lassen denselben Spieler noch
+     einmal ran: die Trockenheit nach dem Fällen, der Aufbruch für den, der
+     die Runde eröffnet. `make` hat das schon entschieden. */
+  function nachZug(s, p) { return s.nochmal ? p : nextAlive(s, p); }
+
+  /* Wie weit eine Schrittfigur geradeaus kommt: -1, wenn der Marschbefehl
+     nicht gilt oder das Feld dazwischen nicht frei und trocken ist. Genau die
+     Bedingung aus moves.js – marschiert wird, nicht gesprungen. */
+  function schritt2(s, i, d) {
+    if (!s.w.extraFeld) return -1;
+    var mid = s.geo.nb[i * 6 + d];
+    if (mid < 0 || s.tree[mid] || s.pt[mid] >= 0 || s.terrain[mid] === 1) return -1;
+    return s.geo.far2[i * 6 + d];
+  }
+
+  /* Die Sprungweiten des Springers unter dem aktuellen Wetter. */
+  function sprungZiel(s, i, d, weite) {
+    var geo = s.geo, b = i * 6 + d;
+    return weite === 2 ? geo.far2[b] : (weite === 3 ? geo.far3[b] : geo.far4[b]);
+  }
+
+  function weiten(s) {
+    if (s.w.maxWeite === 2) return [2];
+    return s.w.extraFeld ? [2, 3, 4] : [2, 3];
+  }
+
+  /* Was eine Einheit gerade kostet (fahrender Markt). */
+  function kostenVon(s, t) { return W.kosten(COST[t], s.w); }
 
   function nextAlive(s, p) {
     for (var k = 1; k <= s.np; k++) {
@@ -257,7 +296,7 @@ var AI = (function () {
         if (allied(s, s.po[land], p)) continue;
         opfer = land;
       }
-      var preis = (s.terrain[land] === 1 && !s.boat[land]) ? 1 : 0;
+      var preis = (s.terrain[land] === 1 && !s.boat[land]) ? s.w.bootPreis : 0;
       if (kosten + preis > s.wood[p]) continue;
 
       var neuBeute = (opfer >= 0) ? beute.concat([opfer]) : beute;
@@ -272,7 +311,10 @@ var AI = (function () {
       }
 
       chainPath[land] = chainMark;
-      chainStep(s, land, p, neuWeg, neuBeute, kosten + preis);
+      // Schlamm: über einen einzigen Sprung kommt er nicht hinaus
+      if (!s.w.maxWeite || neuWeg.length * 2 < s.w.maxWeite) {
+        chainStep(s, land, p, neuWeg, neuBeute, kosten + preis);
+      }
       chainPath[land] = 0;
     }
   }
@@ -356,9 +398,15 @@ var AI = (function () {
           j = nb[i * 6 + d];
           if (j < 0) continue;
           if (s.tree[j]) { if (!capturesOnly) out.push(mk(KIND_HARVEST, i, j, KEEP)); continue; }
-          if (stepCost(s, i, j, s.wood[p]) < 0) continue;
-          if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-          else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          if (stepCost(s, i, j, s.wood[p]) >= 0) {
+            if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
+            else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          }
+          // Marschbefehl: ein Feld weiter geradeaus, gefällt wird nur nebenan
+          var j2 = schritt2(s, i, d);
+          if (j2 < 0 || s.tree[j2] || stepCost(s, i, j2, s.wood[p]) < 0) continue;
+          if (s.pt[j2] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j2, KEEP)); }
+          else if (!allied(s, s.po[j2], p)) out.push(mk(KIND_CAPTURE, i, j2, KEEP));
         }
 
       } else if (type === T.samurai) {
@@ -371,11 +419,14 @@ var AI = (function () {
 
       } else if (type === T.springer) {
         var fac = capturesOnly ? null : facingOptions(s, i, ctx);
-        var w = s.pf[i] % 6;
-        for (var a = 0; a < 2; a++) {
-          var dd2 = (w + a) % 6;
-          for (var b = 0; b < 2; b++) {
-            j = (b === 0) ? geo.far2[i * 6 + dd2] : geo.far3[i * 6 + dd2];
+        // Windstille löst ihn von seiner Blickrichtung, Schlamm und Marschbefehl
+        // ändern die Weite – sonst sind es seine zwei Richtungen, 2 oder 3 Felder
+        var wf = s.pf[i] % 6, wt = weiten(s);
+        var rd = s.w.freieRichtung ? 6 : 2;
+        for (var a = 0; a < rd; a++) {
+          var dd2 = s.w.freieRichtung ? a : (wf + a) % 6;
+          for (var b = 0; b < wt.length; b++) {
+            j = sprungZiel(s, i, dd2, wt[b]);
             if (stepCost(s, i, j, s.wood[p]) < 0) continue;
             if (s.pt[j] < 0) {
               if (!capturesOnly) pushFacings(out, KIND_MOVE, i, j, fac);
@@ -388,17 +439,22 @@ var AI = (function () {
 
       } else if (type === T.legionaer || type === T.zenturio) {
         var fac2 = (capturesOnly || type === T.zenturio) ? null : facingOptions(s, i, ctx);
-        var dirs = (type === T.zenturio) ? [0, 1, 2, 3, 4, 5]
+        var dirs = (type === T.zenturio || s.w.freieRichtung) ? [0, 1, 2, 3, 4, 5]
                                          : [s.pf[i] % 6, (s.pf[i] + 3) % 6];
         for (var q = 0; q < dirs.length; q++) {
-          var dir = dirs[q], cur = i;
+          var dir = dirs[q], cur = i, schritte = 0;
           var carrying = s.terrain[i] === 1, cost = 0;
           for (;;) {
+            if (s.w.maxWeite && schritte >= s.w.maxWeite) break;   // Schlamm
+            schritte++;
             cur = nb[cur * 6 + dir];
             if (cur < 0 || s.tree[cur]) break;
             if (s.terrain[cur] === 1) {
               if (!carrying) {
-                if (!s.boat[cur]) { if (cost + 1 > s.wood[p]) break; cost++; }
+                if (!s.boat[cur]) {
+                  if (cost + s.w.bootPreis > s.wood[p]) break;
+                  cost += s.w.bootPreis;
+                }
                 carrying = true;
               }
             } else {
@@ -419,21 +475,30 @@ var AI = (function () {
         }
 
       } else if (type === T.archer) {
-        for (d = 0; d < 6; d++) {                       // Schuss auf Distanz 2
-          j = geo.far2[i * 6 + d];
+        for (d = 0; d < 6; d++) {                       // Schuss, so weit die Sicht reicht
+          j = (s.w.schuss === 1) ? nb[i * 6 + d] : sprungZiel(s, i, d, s.w.schuss);
           if (j >= 0 && feindAuf(s, j, p)) out.push(mk(KIND_SHOOT, i, j, KEEP));
         }
         if (!capturesOnly) for (d = 0; d < 6; d++) {    // Laufen ohne zu schlagen
           j = nb[i * 6 + d];
           if (stepCost(s, i, j, s.wood[p]) >= 0 && s.pt[j] < 0) out.push(mk(KIND_MOVE, i, j, KEEP));
+          var a2 = schritt2(s, i, d);
+          if (a2 >= 0 && stepCost(s, i, a2, s.wood[p]) >= 0 && s.pt[a2] < 0) {
+            out.push(mk(KIND_MOVE, i, a2, KEEP));
+          }
         }
 
       } else if (type === T.tangolin) {
         for (d = 0; d < 6; d++) {
           j = nb[i * 6 + d];
-          if (stepCost(s, i, j, s.wood[p]) < 0) continue;
-          if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-          else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          if (stepCost(s, i, j, s.wood[p]) >= 0) {
+            if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
+            else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+          }
+          var t2 = schritt2(s, i, d);                   // Marschbefehl
+          if (t2 < 0 || stepCost(s, i, t2, s.wood[p]) < 0) continue;
+          if (s.pt[t2] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, t2, KEEP)); }
+          else if (!allied(s, s.po[t2], p)) out.push(mk(KIND_CAPTURE, i, t2, KEEP));
         }
         // Kettensprünge: in der Ruhesuche zählen nur die, die etwas schlagen
         var ziele = chainSearch(s, i, p);
@@ -446,11 +511,15 @@ var AI = (function () {
       } else if (type === T.king) {
         if (s.wood[p] >= 1) {
           for (d = 0; d < 6; d++) {
-            j = nb[i * 6 + d];
-            var kc = stepCost(s, i, j, s.wood[p] - 1);
-            if (kc < 0 || kc + 1 > s.wood[p]) continue;
-            if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
-            else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+            var ziele = [nb[i * 6 + d], schritt2(s, i, d)];   // Marschbefehl: zwei Felder
+            for (var zi = 0; zi < 2; zi++) {
+              j = ziele[zi];
+              if (j < 0) continue;
+              var kc = stepCost(s, i, j, s.wood[p] - 1);
+              if (kc < 0 || kc + 1 > s.wood[p]) continue;
+              if (s.pt[j] < 0) { if (!capturesOnly) out.push(mk(KIND_MOVE, i, j, KEEP)); }
+              else if (!allied(s, s.po[j], p)) out.push(mk(KIND_CAPTURE, i, j, KEEP));
+            }
           }
         }
       }
@@ -464,10 +533,11 @@ var AI = (function () {
     if (capturesOnly || myKing < 0) return out;
 
     // Ausbilden: freie Felder an der mit dem Turm verbundenen Kette
+    if (s.w.keineAusbildung) return out;           // Hungerwinter
     var spots = clusterSpots(s, p, genSpots, myZent);
     if (!spots.length) return out;
     for (var t = 1; t < 8; t++) {
-      if (COST[t] > s.wood[p]) continue;
+      if (kostenVon(s, t) > s.wood[p]) continue;
       if (have & (1 << t)) continue;                 // nur eine Figur je Typ
       if (t === T.zenturio && s.zent[p]) continue;   // Zenturio nur einmal pro Partie
       for (var sp = 0; sp < spots.length; sp++) {
@@ -494,18 +564,38 @@ var AI = (function () {
     spots.length = 0;
     var king = s.kingAt[p];
     if (king < 0) return spots;
-    var nb = s.geo.nb, seen = {}, stack = [king], seenSpot = {};
+    var geo = s.geo, nb = geo.nb, n = s.n, w = s.w;
+    var seen = {}, stack = [king], seenSpot = {}, anker = [king];
     seen[king] = 1;
-    if (zent >= 0 && zent !== king && s.po[zent] === p) { seen[zent] = 1; stack.push(zent); }
+    if (zent >= 0 && zent !== king && s.po[zent] === p) {
+      seen[zent] = 1; stack.push(zent); anker.push(zent);
+    }
+    /* Belagerung: Versorgt ist nur, was nah genug an Turm oder Feldzeichen
+       steht – wie lang die Kette dahinter auch sein mag. Gelaufen wird sie
+       trotzdem ganz, denn hinter einem fernen Glied kann wieder ein nahes
+       liegen. Dieselbe Regel wie in moves.js. */
+    function versorgt(i) {
+      if (!w.radius) return true;
+      for (var a = 0; a < anker.length; a++) {
+        if (geo.dist[anker[a] * n + i] <= w.radius) return true;
+      }
+      return false;
+    }
     while (stack.length) {
       var cur = stack.pop();
+      var nah = versorgt(cur);
       for (var d = 0; d < 6; d++) {
         var j = nb[cur * 6 + d];
         if (j < 0) continue;
-        if (s.po[j] === p) { if (!seen[j]) { seen[j] = 1; stack.push(j); } continue; }
-        if (s.pt[j] < 0 && dryLand(s, j) && !seenSpot[j]) {
-          seenSpot[j] = 1; spots.push(j);
+        if (s.pt[j] >= 0) {
+          if (s.po[j] === p && !seen[j]) { seen[j] = 1; stack.push(j); }
+          continue;                                  // eine Figur reißt die Kette
         }
+        if (nah && dryLand(s, j) && !seenSpot[j]) { seenSpot[j] = 1; spots.push(j); }
+        // Feldlager: die Kette überspringt genau ein Feld ohne Figur
+        if (!w.luecke) continue;
+        var weit = geo.far2[cur * 6 + d];
+        if (weit >= 0 && s.po[weit] === p && !seen[weit]) { seen[weit] = 1; stack.push(weit); }
       }
     }
     return spots;
@@ -537,7 +627,7 @@ var AI = (function () {
     for (var i = 0; i < path.length; i++) {
       var c = path[i];
       if (s.terrain[c] === 1) {
-        if (!carrying) { if (s.boat[c]) takes.push(c); else cost++; carrying = true; }
+        if (!carrying) { if (s.boat[c]) takes.push(c); else cost += s.w.bootPreis; carrying = true; }
       } else if (carrying) { drops.push(prev); carrying = false; }
       prev = c;
     }
@@ -595,13 +685,21 @@ var AI = (function () {
     var kind = mvKind(mv), from = mvFrom(mv), to = mvTo(mv), extra = mvExtra(mv);
     var u = { mv: mv, p: p, taken: null, elims: null, hadTree: 0,
               spend: 0, oldF: -1, zentBefore: 0,
-              boatCost: 0, boatWas: null, loot: 0 };
+              boatCost: 0, boatWas: null, loot: 0,
+              extraWar: s.extra, nochWar: s.nochmal };
+
+    /* Wer zieht danach? Die Trockenheit macht das Fällen umsonst, der Aufbruch
+       schenkt einen zweiten Zug – in beiden Fällen bleibt derselbe Spieler am
+       Zug. Genau wie in game.js. */
+    if (kind === KIND_HARVEST && s.w.faellenFrei) s.nochmal = 1;
+    else if (s.extra > 0) { s.extra--; s.nochmal = 1; }
+    else s.nochmal = 0;
 
     if (kind === KIND_ROTATE) { u.oldF = s.pf[from]; s.pf[from] = extra; return u; }
 
     if (kind === KIND_TRAIN) {
       var type = from & 15, facing = (from >> 4) & 15;
-      u.spend = COST[type];
+      u.spend = kostenVon(s, type);       // fahrender Markt
       s.wood[p] -= u.spend;
       s.pt[to] = type; s.po[to] = p; s.pf[to] = facing;
       if (type === T.zenturio) { u.zentBefore = s.zent[p]; s.zent[p] = 1; }
@@ -656,6 +754,8 @@ var AI = (function () {
 
   function unmake(s, u) {
     var mv = u.mv, kind = mvKind(mv), from = mvFrom(mv), to = mvTo(mv), p = u.p;
+    s.extra = u.extraWar;
+    s.nochmal = u.nochWar;
 
     if (kind === KIND_ROTATE) { s.pf[from] = u.oldF; return; }
 
@@ -1092,7 +1192,7 @@ var AI = (function () {
     var best = stand;
     for (var i = 0; i < moves.length; i++) {
       var u = make(s, moves[i], player);
-      var val = quiesce(s, nextAlive(s, player), alpha, beta, ctx, qd + 1);
+      var val = quiesce(s, nachZug(s, player), alpha, beta, ctx, qd + 1);
       unmake(s, u);
       if (ctx.stop) return best;
       if (isMe) {
@@ -1121,7 +1221,12 @@ var AI = (function () {
     if (!moves.length) {                                  // aussetzen
       var nx = nextAlive(s, player);
       if (nx === player) return evaluate(s, me, ctx);
-      return alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1);
+      // Wer aussetzt, verschenkt auch seinen Extra-Zug (wie in game.js)
+      var extraWar = s.extra;
+      s.extra = 0;
+      var weiter = alphabeta(s, nx, depth - 1, alpha, beta, ctx, ply + 1, stall + 1);
+      s.extra = extraWar;
+      return weiter;
     }
     orderMoves(s, moves, ctx, 0);
 
@@ -1130,7 +1235,7 @@ var AI = (function () {
     for (var i = 0; i < moves.length; i++) {
       var mv = moves[i];
       var u = make(s, mv, player);
-      var val = alphabeta(s, nextAlive(s, player), depth - 1, alpha, beta, ctx, ply + 1,
+      var val = alphabeta(s, nachZug(s, player), depth - 1, alpha, beta, ctx, ply + 1,
                           isProgress(mv) ? 0 : stall + 1);
       unmake(s, u);
       if (ctx.stop) return (best === INF || best === -INF) ? val : best;

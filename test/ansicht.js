@@ -42,7 +42,7 @@ var umgebung = {
   document: { createElementNS: function (ns, name) { return knoten(name); } }
 };
 vm.createContext(umgebung);
-['hex', 'units', 'board', 'moves', 'game', 'scene', 'render'].forEach(function (f) {
+['hex', 'units', 'board', 'wetter', 'moves', 'game', 'scene', 'render'].forEach(function (f) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f + '.js'), 'utf8'),
                   umgebung, { filename: f + '.js' });
 });

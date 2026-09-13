@@ -6,6 +6,7 @@ var Game = (function () {
   var B = (typeof Board !== 'undefined') ? Board : require('./board.js');
   var M = (typeof Moves !== 'undefined') ? Moves : require('./moves.js');
   var U = (typeof Units !== 'undefined') ? Units : require('./units.js');
+  var W = (typeof Wetter !== 'undefined') ? Wetter : require('./wetter.js');
 
   // Spielmaterial nach Spielerzahl (siehe Spielaufbau)
   var SETUP = {
@@ -99,9 +100,10 @@ var Game = (function () {
     return 'Team ' + (TEAM_COLORS[team % TEAM_COLORS.length].name);
   }
 
-  function create(playerNames, kinds, teams) {
+  function create(playerNames, kinds, teams, optionen) {
     var count = playerNames.length;
     kinds = kinds || [];
+    optionen = optionen || {};
     teams = normalizeTeams(teams, count);
     var cfg = SETUP[count];
     var board = B.generate(cfg.tiles);
@@ -109,6 +111,9 @@ var Game = (function () {
        bekommt beim Zugerzeugen nur das Brett zu sehen und muss trotzdem
        wissen, wer mit wem spielt. */
     board.teams = teams.slice();
+    /* Dasselbe gilt fürs Wetter: Was gerade gilt, hängt am Brett. Im
+       Standardspiel ist das die neutrale Wirkung – dann ändert sich nichts. */
+    board.wetter = W.NEUTRAL;
 
     // Bäume gleichmäßig verteilen; pro Spieler bleiben mindestens 6 Felder frei,
     // damit Türme und Arbeiter noch Platz finden.
@@ -138,6 +143,17 @@ var Game = (function () {
       board: board,
       players: players,
       teams: teams,            // teams[i] = Mannschaft von Spieler i
+      /* Wetterkarten: eigene Spielweise. Zu Beginn jeder Runde wird eine Karte
+         aufgedeckt; sie liegt offen, bis die Runde herum ist. */
+      wetterAn: !!optionen.wetter,
+      stapel: [],              // verdeckter Rest des Kartenstapels
+      ablage: [],              // schon gespielte Karten
+      karte: null,             // was gerade offen liegt (Karten-Kennung)
+      karteNr: 0,              // zählt Karten – die Anzeige erkennt daran neue
+      karteText: null,         // was die Karte beim Aufdecken bewirkt hat
+      karteFelder: null,       // Felder, die sie verändert hat (für die Anzeige)
+      extra: 0,                // offene Extra-Züge des Spielers am Zug (Aufbruch)
+      nochmal: false,          // bleibt derselbe Spieler am Zug?
       phase: 'trees',          // trees → kings → play → over
       history: {},             // wie oft trat jede Stellung auf?
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
@@ -159,6 +175,76 @@ var Game = (function () {
       winnerTeam: null,        // gewonnen hat immer eine Mannschaft
       log: []
     };
+  }
+
+  /* ---------------- Wetterkarten ----------------
+
+     Gespielt wird, wie man es auf dem Tisch täte: Zu Beginn jeder Runde deckt
+     der Spieler, der die Runde eröffnet, die oberste Karte auf. Sie liegt
+     offen in der Mitte und gilt für alle, bis die Runde herum ist – danach
+     kommt sie auf den Ablagestapel. Dadurch braucht keine Karte ein Gedächtnis
+     und keinen Zähler: „diese Runde“ ist sichtbar, solange die Karte liegt.
+
+     Ist der Stapel leer, wird die Ablage gemischt und neu aufgelegt. */
+
+  function hatTyp(state, owner, type) {
+    return !!M.typesOnBoard(state.board, owner)[type];
+  }
+
+  /* Ein freies Feld an Turm oder Feldzeichen – dort rückt die Musterung ein.
+     Genommen wird das Feld, das dem eigenen Turm am nächsten liegt. */
+  function nachschubFeld(state, owner) {
+    var spots = M.trainingSpots(state.board, owner);
+    if (!spots.length) return null;
+    var chain = M.supplyChain(state.board, owner);
+    var anker = chain.king || spots[0];
+    var best = spots[0], bd = H.distance(anker, spots[0]);
+    spots.forEach(function (c) {
+      var d = H.distance(anker, c);
+      if (d < bd) { bd = d; best = c; }
+    });
+    return best;
+  }
+
+  var WETTER_HILFE = { hatTyp: hatTyp, nachschubFeld: nachschubFeld };
+
+  function ziehe(state) {
+    if (!state.wetterAn || state.phase !== 'play') return null;
+    if (!state.stapel.length) {
+      state.stapel = W.mischen(state.ablage.length ? state.ablage : W.stapel());
+      state.ablage = [];
+    }
+    if (state.karte) state.ablage.push(state.karte);
+
+    var id = state.stapel.pop();
+    var k = W.karte(id);
+    state.karte = id;
+    state.karteNr++;
+    state.board.wetter = W.wirkungVon(id);
+    state.karteFelder = null;
+    state.karteText = k.kurz;
+    state.extra = 0;
+
+    // Was die Karte einmalig am Brett verändert, geschieht jetzt – und bleibt
+    if (k.sofort) {
+      var folge = k.sofort(state, WETTER_HILFE);
+      state.karteText = folge.text;
+      state.karteFelder = folge.felder && folge.felder.length ? folge.felder : null;
+    }
+    // Aufbruch: Wer aufdeckt, zieht zweimal
+    if (k.extraZug) state.extra = k.extraZug;
+
+    log(state, 'Wetter: ' + k.name + ' – ' + state.karteText);
+    return k;
+  }
+
+  /* Bleibt derselbe Spieler am Zug? Zwei Karten sagen ja: Die Trockenheit
+     macht das Fällen umsonst, der Aufbruch schenkt dem Eröffner einen zweiten
+     Zug. Sonst wird weitergegeben wie immer. */
+  function behaeltZug(state, kind) {
+    if (kind === 'harvest' && W.wirkung(state.board).faellenFrei) return true;
+    if (state.extra > 0) { state.extra--; return true; }
+    return false;
   }
 
   var STALL_LIMIT = 50;      // Züge ohne Fortschritt, dann wird gewertet
@@ -184,6 +270,9 @@ var Game = (function () {
     }
     parts.push('h' + state.players.map(function (p) { return p.wood; }).join('.'));
     parts.push('z' + state.current);
+    // Unter Wetter gehört die offene Karte dazu: Dieselbe Stellung spielt sich
+    // im Nebel anders als im Frost, also ist sie nicht dieselbe Lage.
+    if (state.wetterAn && state.karte) parts.push('w' + state.karte);
     return parts.join('|');
   }
 
@@ -369,6 +458,7 @@ var Game = (function () {
       state.current = state.players.length - 1;
       state.turn = 1;
       log(state, 'Das Spiel beginnt – ' + state.players[state.current].name + ' ist am Zug.', state.current);
+      ziehe(state);          // die erste Wetterkarte der Partie
     } else {
       state.current++;
     }
@@ -547,7 +637,7 @@ var Game = (function () {
       capture(state, target, state.current);
       noteProgress(state);
       state.passes = 0;
-      finishTurn(state, null);
+      finishTurn(state, 'shoot');
       return true;
     }
 
@@ -627,7 +717,7 @@ var Game = (function () {
       state.selected = H.key(target.q, target.r);
       return true;
     }
-    finishTurn(state, null);
+    finishTurn(state, action.kind);
     return true;
   }
 
@@ -662,13 +752,14 @@ var Game = (function () {
     });
     if (!ok) return false;
 
-    player.wood -= def.cost;
+    var preis = M.preis(state.board, type);
+    player.wood -= preis;
     player.trained[type] = (player.trained[type] || 0) + 1;
     cell.piece = { type: type, owner: state.current, facing: 0 };
     clearEvents(state);
     noteEvent(state, 'lastTrain', { key: H.key(q, r), type: type, owner: state.current });
     noteProgress(state);
-    log(state, player.name + ' bildet einen ' + def.name + ' aus (-' + def.cost + ' Holz).', state.current);
+    log(state, player.name + ' bildet einen ' + def.name + ' aus (-' + preis + ' Holz).', state.current);
     state.passes = 0;
 
     if (def.directional) {
@@ -683,6 +774,7 @@ var Game = (function () {
   function pass(state) {
     if (state.phase !== 'play') return false;
     log(state, state.players[state.current].name + ' setzt aus.', state.current);
+    state.extra = 0;            // wer aussetzt, verschenkt auch seinen Extra-Zug
     state.passes++;
     if (state.passes >= alivePlayers(state).length) {
       return adjudicate(state, 'Niemand kann mehr ziehen');
@@ -691,15 +783,24 @@ var Game = (function () {
     return true;
   }
 
-  /* Zug beenden: offene Drehung verwerfen und weitergeben. */
-  function finishTurn(state) {
+  /* Zug beenden: offene Drehung verwerfen und weitergeben. `kind` ist die
+     Aktion, die gerade gespielt wurde – die Trockenheit fragt danach. */
+  function finishTurn(state, kind) {
     state.pending = null;
     state.selected = null;
+    state.nochmal = false;
     if (state.phase !== 'play') return;
     if (checkVictory(state)) return;
+    if (behaeltZug(state, kind)) {
+      // Derselbe Spieler noch einmal – die Runde läuft weiter, nichts wird gewertet
+      state.nochmal = true;
+      return;
+    }
     var next = nextPlayer(state);
-    if (next <= state.current) state.turn++;
+    var neueRunde = next <= state.current;
+    if (neueRunde) state.turn++;
     state.current = next;
+    if (neueRunde) ziehe(state);        // neue Runde, neue Wetterkarte
     checkStalemate(state);
   }
 
@@ -729,6 +830,7 @@ var Game = (function () {
     KING_GAP: KING_GAP, kingGap: kingGap,
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
+    ziehe: ziehe, behaeltZug: behaeltZug,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
     checkVictory: checkVictory, adjudicate: adjudicate,
     plunder: plunder,

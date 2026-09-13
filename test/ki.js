@@ -4,6 +4,7 @@
 global.Hex = require('../js/hex.js');
 global.Units = require('../js/units.js');
 global.Board = require('../js/board.js');
+global.Wetter = require('../js/wetter.js');
 global.Moves = require('../js/moves.js');
 global.Game = require('../js/game.js');
 var AI = require('../js/ai.js');
@@ -136,6 +137,39 @@ for (var round = 0; round < 60; round++) {
 console.log('Zuggenerierung: ' + checked + ' Stellungen/Spieler aus ' + positions +
             ' Partien geprüft, ' + fails + ' Abweichungen');
 
+/* --- Dasselbe noch einmal unter jeder Wetterkarte ---
+   Die Karten greifen in beide Zuggeneratoren ein: Bootspreise, Schussweiten,
+   Sprungweiten, Blickrichtungen, die Versorgungskette, die Ausbildung. Weicht
+   dabei eine Stelle ab, spielt die KI Züge, die es gar nicht gibt – oder sie
+   findet die guten nicht. Geprüft wird deshalb jede Karte einzeln. */
+var wetterFails = 0, wetterChecked = 0;
+Wetter.KARTEN.forEach(function (karte) {
+  var abw = 0;
+  for (var wr = 0; wr < 6; wr++) {
+    var wst = randomPosition(2 + (wr % 3), 5 + wr * 3);
+    if (!wst) continue;
+    wst.board.wetter = Wetter.wirkungVon(karte.id);
+    for (var wp = 0; wp < wst.players.length; wp++) {
+      if (wst.players[wp].eliminated) continue;
+      var soll = rulesMoves(wst, wp), ist = aiMoves(wst, wp);
+      var fehlt = diff(soll, ist), zuviel = diff(ist, soll);
+      wetterChecked++;
+      if (fehlt.length || zuviel.length) {
+        abw++;
+        if (abw <= 1) {
+          console.log('  ' + karte.name + ': Abweichung');
+          if (fehlt.length) console.log('    KI fehlt:  ' + fehlt.slice(0, 5).join('  '));
+          if (zuviel.length) console.log('    KI zuviel: ' + zuviel.slice(0, 5).join('  '));
+        }
+      }
+    }
+  }
+  if (!abw) console.log('  ok   ' + karte.name);
+  wetterFails += abw;
+});
+console.log('Wetterkarten: ' + wetterChecked + ' Stellungen/Spieler geprüft, ' +
+            wetterFails + ' Abweichungen');
+
 /* --- make/unmake muss die Stellung exakt wiederherstellen --- */
 function fingerprint(s) {
   return [s.pt.join(','), s.po.join(','), s.pf.join(','), s.tree.join(','),
@@ -167,6 +201,6 @@ for (var r2 = 0; r2 < 40; r2++) {
 }
 console.log('make/unmake: ' + undoChecked + ' Züge geprüft, ' + undoFails + ' Fehler');
 
-var bad = fails + undoFails;
+var bad = fails + undoFails + wetterFails;
 console.log(bad ? '\n' + bad + ' Problem(e)' : '\nKI-Zuggenerierung deckt sich mit dem Regelwerk.');
 process.exit(bad ? 1 : 0);

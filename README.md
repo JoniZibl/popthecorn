@@ -1,7 +1,7 @@
 # Hexodus
 
 Das Hexagon-Strategiespiel als Website – für 2 bis 8 Spieler im Hotseat-Modus an einem
-Gerät, einzeln oder in Mannschaften.
+Gerät, einzeln oder in Mannschaften, wahlweise mit Wetterkarten.
 Reine HTML/CSS/JavaScript-Umsetzung ohne Build-Schritt und ohne Abhängigkeiten:
 `index.html` im Browser öffnen und loslegen.
 
@@ -111,6 +111,61 @@ Von **jeder Figur darf höchstens eine** je Spieler auf dem Feld stehen. Erst we
 geschlagen wird, darf sie neu ausgebildet werden – der Zenturio bleibt davon ausgenommen
 und ist auf eine Ausbildung pro Partie beschränkt. Eine Armee umfasst damit höchstens
 Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
+
+## Spielweise „Mit Wetterkarten“
+
+Eine **eigene Spielweise**, im Startmenü wählbar. Das Standardspiel bleibt unverändert;
+wer Wetter wählt, deckt zu Beginn jeder Runde die oberste Karte eines Stapels auf. Sie
+liegt offen am Brett, gilt **eine Runde lang für alle Spieler** und kommt danach auf den
+Ablagestapel. Ist der Stapel leer, wird die Ablage gemischt und neu aufgelegt.
+
+Die Spielweise ist so gebaut, dass sie auch auf einem Tisch aus Pappe funktioniert:
+
+* **Eine Regel je Karte**, kein Nachrechnen pro Figur – die Karte liegt offen, man liest ab.
+* **Keine Marker**, die man am Rundenende wieder einsammeln müsste.
+* **Kein Vorrat, den es nicht gibt:** Holz, Bäume und Figuren sind endlich. Keine Karte
+  verdoppelt Einkommen – das ginge am Tisch nicht auf.
+* Was eine Karte am Brett verändert – gefallene und nachgewachsene Bäume, eingerückte
+  Arbeiter –, bleibt **dauerhaft** stehen.
+* Jede Karte verändert eine **ganze Regel-Schicht**, nie nur eine einzelne Figur.
+
+| Karte | Gruppe | Wirkung für eine Runde |
+| --- | --- | --- |
+| **Frost** | Gelände | Das Wasser trägt: Boote kosten nichts |
+| **Windbruch** | Gelände | Jeder Baum ohne Nachbarbaum fällt – ohne Holz für irgendwen |
+| **Neuer Wuchs** | Gelände | Zwischen zwei Bäumen wächst ein neuer (höchstens acht) |
+| **Nebel** | Sicht | Bogenschützen treffen nur ein Feld weit |
+| **Klare Sicht** | Sicht | Bogenschützen treffen drei Felder weit |
+| **Windstille** | Sicht | Springer und Legionär ziehen in jede Richtung |
+| **Trockenheit** | Wirtschaft | Bäume fällen kostet keinen Zug |
+| **Fahrender Markt** | Wirtschaft | Jede Ausbildung kostet 1 Holz weniger (mindestens 1) |
+| **Hungerwinter** | Wirtschaft | Diese Runde bildet niemand aus |
+| **Feldlager** | Nachschub | Die Versorgungskette überspringt ein Feld ohne Figur |
+| **Belagerung** | Nachschub | Nachschub nur im Umkreis von 3 um Turm und Feldzeichen |
+| **Musterung** | Nachschub | Wer keinen Arbeiter mehr hat, bekommt einen gestellt |
+| **Schlamm** | Bewegung | Kein Zug führt weiter als 2 Felder |
+| **Marschbefehl** | Bewegung | Schrittfiguren ziehen 2 Felder, der Springer bis zu 4 |
+| **Aufbruch** | Tempo | Wer die Karte aufdeckt, hat zwei Züge |
+| **Ruhe vor dem Sturm** | – | Nichts passiert (dreimal im Stapel) |
+
+Nur der **Aufbruch** gilt für einen Einzelnen – für den, der ihn aufdeckt; dafür liegt er
+nur einmal im Stapel. Alles andere gilt für alle gleichermaßen.
+
+### Wie das Wetter ins Spiel kommt
+
+Die Wirkung einer Karte hängt am **Brett** (`board.wetter`), genauso wie die Mannschaften:
+Beim Zugerzeugen ist nur das Brett zu sehen. `js/wetter.js` beschreibt jede Karte als eine
+Handvoll Zahlen und Schalter – Bootspreis, Schussweite, Zugweite, Ausbildungskosten,
+Versorgungsradius –, und **beide Zuggeneratoren** lesen dieselben Werte: das Regelwerk in
+`js/moves.js` und die kompakte Suche des Computergegners in `js/ai.js`. Weicht dabei eine
+Stelle ab, spielt die KI Züge, die es gar nicht gibt; `test/ki.js` vergleicht deshalb beide
+Generatoren **unter jeder einzelnen Karte** Zug für Zug.
+
+Am Brett sieht man das Wetter, ohne zu lesen: Unter Frost wird das Wasser zur Eisfläche,
+im Hungerwinter liegt Schnee auf der Wiese, im Schlamm wird der Boden braun und es regnet,
+unter Belagerung legt sich ein dunkler Rand ums Brett. Die aufgedeckte Karte kommt einmal
+je Runde groß aus der Brettmitte und legt sich dann in die Ecke; ein Antippen klappt ihren
+Regeltext auf.
 
 ## Einheiten
 
@@ -524,6 +579,7 @@ css/style.css       gesamtes Layout und die Optik des Bretts
 js/hex.js           Hex-Geometrie (axiale Koordinaten, flat-top Layout)
 js/units.js         Einheiten-Definitionen samt Regeltexten
 js/board.js         Spielfeld-Erzeugung aus 7er-Plättchen samt Wasserrand
+js/wetter.js        Wetterkarten: Stapel, Wirkungen, einmalige Brettänderungen
 js/moves.js         Regelwerk: legale Züge, Schüsse, Ausbildungsfelder
 js/game.js          Spielzustand, Aufbauphasen, Zugabwicklung, Ausscheiden
 js/ai.js            Computergegner: Suche, Bewertung, Aufbaustrategie
@@ -542,6 +598,7 @@ test/beute.js       Beute beim Schlagen
 test/tangolin.js    Kettensprung: Sprungbretter, Schlagen beim Landen, Boote
 test/versorgung.js  Feldzeichen: der Zenturio als zweiter Anker der Kette
 test/team.js        Mannschaften: Verbündete, Farbfamilien, gemeinsamer Sieg
+test/wetter.js      Wetterkarten: jede Karte einzeln gegen das Regelwerk
 test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
 test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
 test/jagd.js        KI gegen einen Gegner, der gezielt den Turm jagt
@@ -610,6 +667,7 @@ node test/beute.js              # Beute beim Schlagen
 node test/tangolin.js           # Sprungregeln des Tangolins
 node test/versorgung.js         # Feldzeichen des Zenturios als zweiter Anker
 node test/team.js               # Mannschaften: Regeln, Farben, Sieg
+node test/wetter.js             # Wetterkarten: jede Karte einzeln
 node test/ki.js                 # KI-Zuggenerierung gegen das Regelwerk
 node test/simulate.js 100       # komplette Zufallspartien
 node test/kispiel.js 10         # Spielstärke der KI
