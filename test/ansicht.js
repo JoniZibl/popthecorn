@@ -42,7 +42,7 @@ var umgebung = {
   document: { createElementNS: function (ns, name) { return knoten(name); } }
 };
 vm.createContext(umgebung);
-['hex', 'units', 'board', 'moves', 'game', 'scene', 'render'].forEach(function (f) {
+['hex', 'units', 'board', 'arena', 'moves', 'game', 'scene', 'render'].forEach(function (f) {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f + '.js'), 'utf8'),
                   umgebung, { filename: f + '.js' });
 });
@@ -308,6 +308,28 @@ ok(!!Render.ghost(view, state.board, ziel, 'worker', '#fff'), 'geschlagene Figur
 zahlenPruefen(view, 'Effekte');
 var wieder = Render.cellPixel(view, state.board, ziel);
 ok(wieder && isFinite(wieder.x) && isFinite(wieder.y), 'cellPixel liefert den Standpunkt');
+
+console.log('\nDie Arena des Sofort-Gefechts lässt sich zeichnen');
+/* Ein rundes Brett ist kein Plättchenbrett: Es kommt aus einer anderen Quelle,
+   trägt von Anfang an acht Figuren je Spieler und muss trotzdem Feld für Feld
+   anklickbar bleiben. */
+var arena = Game.create(['Eins', 'Zwei', 'Drei'], [null, null, null],
+                        null, { mode: 'sofort', starter: 0 });
+var arenaSicht = Render.create(behaelter);
+Render.fit(arenaSicht, arena.board);
+Render.draw(arenaSicht, arena, { markers: [], placeable: null });
+var arenaFelder = arenaSicht.layers.scene.children;
+ok(arenaFelder.length === arena.board.keys.length,
+   'jedes Arena-Feld ist gezeichnet (' + arenaFelder.length + ')');
+ok(arenaFelder.every(function (g) { return g.getAttribute('data-key'); }),
+   'und bleibt anklickbar');
+var arenaFiguren = 0;
+alleKnoten(arenaSicht.layers.scene).forEach(function (n) {
+  if ((n.attrs['class'] || '').indexOf('piece ') === 0) arenaFiguren++;
+});
+ok(arenaFiguren === 3 * umgebung.Arena.LAGER.length,
+   'alle drei Armeen stehen vollzählig im Bild (' + arenaFiguren + ')');
+zahlenPruefen(arenaSicht, 'Arena');
 
 console.log('\nSymbole für Seitenleiste und Regelwerk');
 var symbol = Render.pieceIcon('king', '#3b82f6');

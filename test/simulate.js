@@ -3,6 +3,7 @@
 global.Hex = require('../js/hex.js');
 global.Units = require('../js/units.js');
 global.Board = require('../js/board.js');
+global.Arena = require('../js/arena.js');
 global.Moves = require('../js/moves.js');
 global.Game = require('../js/game.js');
 var H = Hex, B = Board, M = Moves, G = Game, U = Units;
@@ -49,9 +50,17 @@ function invariants(state, where) {
   });
 }
 
-function setup(playerCount, teams) {
+function setup(playerCount, teams, sofort) {
   var names = [];
   for (var i = 0; i < playerCount; i++) names.push('P' + (i + 1));
+  /* Das Sofort-Gefecht braucht keinen Aufbau: Die Arena stellt alles hin und
+     die Partie beginnt sofort. Geprüft werden danach dieselben Invarianten –
+     ein anderer Aufbau darf am Regelwerk nichts ändern. */
+  if (sofort) {
+    var arena = G.create(names, [], teams, { mode: 'sofort' });
+    invariants(arena, 'Arena');
+    return arena;
+  }
   var state = G.create(names, [], teams);
   G.autoPlaceTrees(state);
   if (state.phase !== 'kings') throw new Error('Baumphase nicht beendet');
@@ -143,8 +152,8 @@ function randomTurn(state) {
   return choice.type;
 }
 
-function playGame(playerCount, maxTurns, teams) {
-  var state = setup(playerCount, teams);
+function playGame(playerCount, maxTurns, teams, sofort) {
+  var state = setup(playerCount, teams, sofort);
   if (!state) return null;
   var steps = 0;
   while (state.phase === 'play' && steps++ < maxTurns) {
@@ -160,7 +169,7 @@ function playGame(playerCount, maxTurns, teams) {
 }
 
 var games = +(process.argv[2] || 60);
-var stats = { finished: 0, timeout: 0, skipped: 0, steps: 0, elim: 0 };
+var stats = { finished: 0, timeout: 0, skipped: 0, steps: 0, elim: 0, arena: 0 };
 /* Gespielt wird abwechselnd "jeder für sich" und in Mannschaften, und die
    Spielerzahl läuft bis acht durch – beides muss dieselben Invarianten halten. */
 function teamsFuer(i, count) {
@@ -178,13 +187,17 @@ function teamsFuer(i, count) {
 for (var i = 0; i < games; i++) {
   var count = 2 + (i % 7);
   var teams = teamsFuer(i, count);
-  var res = playGame(count, 1200, teams);
+  // Jede zweite Partie wird in der Arena ausgetragen
+  var sofort = (i % 2 === 1);
+  var res = playGame(count, 1200, teams, sofort);
   if (!res) { stats.skipped++; continue; }
+  if (sofort) stats.arena++;
   stats.steps += res.steps;
   if (res.state.phase === 'over') stats.finished++; else stats.timeout++;
   stats.elim += res.state.players.filter(function (p) { return p.eliminated; }).length;
 }
 console.log('Partien:', games,
+  '| davon Sofort-Gefecht:', stats.arena,
   '| beendet:', stats.finished,
   '| offen nach 1200 Zügen:', stats.timeout,
   '| verworfen:', stats.skipped,

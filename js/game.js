@@ -6,6 +6,13 @@ var Game = (function () {
   var B = (typeof Board !== 'undefined') ? Board : require('./board.js');
   var M = (typeof Moves !== 'undefined') ? Moves : require('./moves.js');
   var U = (typeof Units !== 'undefined') ? Units : require('./units.js');
+  /* Die Arena wird nur beim Aufbau einer Sofort-Partie gebraucht. Deshalb wird
+     sie erst dann gesucht: Der Rechenfaden der KI lädt game.js ohne arena.js –
+     dort gibt es keine Partie aufzubauen, nur eine zu Ende zu rechnen. */
+  function arena() {
+    if (typeof Arena !== 'undefined') return Arena;
+    return require('./arena.js');
+  }
 
   // Spielmaterial nach Spielerzahl (siehe Spielaufbau)
   var SETUP = {
@@ -99,12 +106,18 @@ var Game = (function () {
     return 'Team ' + (TEAM_COLORS[team % TEAM_COLORS.length].name);
   }
 
-  function create(playerNames, kinds, teams) {
+  /* Zwei Spielarten: die gewohnte Aufbau-Partie und das Sofort-Gefecht, bei dem
+     jeder seine komplette Armee von Anfang an auf dem Brett hat. Alles, was den
+     Unterschied ausmacht, steckt in js/arena.js – hier wird nur entschieden,
+     welches Brett gebaut und welche Phase begonnen wird. */
+  function create(playerNames, kinds, teams, options) {
+    options = options || {};
+    var sofort = options.mode === 'sofort';
     var count = playerNames.length;
     kinds = kinds || [];
     teams = normalizeTeams(teams, count);
     var cfg = SETUP[count];
-    var board = B.generate(cfg.tiles);
+    var board = sofort ? arena().brett(count) : B.generate(cfg.tiles);
     /* Die Mannschaften hängen am Brett, nicht nur am Spielzustand: moves.js
        bekommt beim Zugerzeugen nur das Brett zu sehen und muss trotzdem
        wissen, wer mit wem spielt. */
@@ -115,7 +128,7 @@ var Game = (function () {
     var land = B.landCells(board).length;
     var maxTrees = land - count * 6;
     var total = Math.min(cfg.trees, Math.max(count * 4, maxTrees));
-    var perPlayer = Math.floor(total / count);
+    var perPlayer = sofort ? 0 : Math.floor(total / count);
 
     var farben = colorsFor(teams);
 
@@ -134,10 +147,12 @@ var Game = (function () {
       };
     });
 
-    return {
+    var state = {
       board: board,
       players: players,
       teams: teams,            // teams[i] = Mannschaft von Spieler i
+      mode: sofort ? 'sofort' : 'aufbau',
+      arena: null,             // im Sofort-Gefecht: Maße und Güte der Arena
       phase: 'trees',          // trees → kings → play → over
       history: {},             // wie oft trat jede Stellung auf?
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
@@ -159,6 +174,18 @@ var Game = (function () {
       winnerTeam: null,        // gewonnen hat immer eine Mannschaft
       log: []
     };
+
+    /* Sofort-Gefecht: Es gibt nichts aufzubauen. Die Arena stellt beide Phasen
+       fertig hin – Lager, Armeen, Haine – und das Spiel beginnt mit dem ersten
+       Zug. Wer anfängt, entscheidet das Los: Ohne Aufbau gibt es keinen letzten
+       Turm, der den Anfang verdient hätte, und der erste Zug ist bei sonst
+       gleicher Stellung der einzige Vorteil, den es noch zu verteilen gibt. */
+    if (sofort) {
+      arena().aufbau(state, options);
+      log(state, 'Sofort-Gefecht: Alle Lager stehen, alle Armeen sind vollzählig.');
+      log(state, 'Das Los beginnt bei ' + state.players[state.current].name + '.', state.current);
+    }
+    return state;
   }
 
   var STALL_LIMIT = 50;      // Züge ohne Fortschritt, dann wird gewertet

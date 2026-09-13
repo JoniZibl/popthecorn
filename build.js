@@ -7,7 +7,7 @@ var path = require('path');
 var root = __dirname;
 
 // Reihenfolge wie in index.html – der Rechenfaden braucht sie genauso
-var WORKER_MODULE = ['js/hex.js', 'js/units.js', 'js/board.js',
+var WORKER_MODULE = ['js/hex.js', 'js/units.js', 'js/board.js', 'js/arena.js',
                      'js/moves.js', 'js/game.js', 'js/ai.js'];
 var html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 

@@ -53,6 +53,13 @@
       </select>
     </label>
     <label class="field">
+      <span>Spielart</span>
+      <select id="game-kind">
+        <option value="aufbau">Aufbau-Partie</option>
+        <option value="sofort">Sofort-Gefecht</option>
+      </select>
+    </label>
+    <label class="field">
       <span>Modus</span>
       <select id="game-mode">
         <option value="frei">Jeder für sich</option>
@@ -78,6 +85,10 @@
       <li><strong>Turm &amp; Arbeiter:</strong> Danach setzen alle ihren Königs-Turm samt Arbeiter daneben. Im Umkreis von drei Feldern um einen Turm darf kein zweiter stehen. Der letzte Spieler, der seinen Turm setzt, beginnt.</li>
       <li><strong>Ziel:</strong> Schlage die Königs-Türme der Gegner. Wer als Letzter steht, gewinnt – und erbeutet unterwegs das Holz der Besiegten.</li>
     </ol>
+    <p class="hint">Wer lieber sofort kämpft, wählt oben die Spielart
+      <strong>Sofort-Gefecht</strong>: Dann fallen die Schritte 1 bis 3 weg. Jeder
+      steht mit seiner kompletten Armee in einer ausgerechneten, für alle gleichen
+      Arena – ein paar Bäume gibt es trotzdem zu holen, die meisten in der Mitte.</p>
   </section>
 </main>
 
@@ -202,6 +213,32 @@
     </section>
 
     <section class="rule-block">
+      <h3>Sofort-Gefecht</h3>
+      <p>Die zweite Spielart kennt keinen Aufbau: Jeder steht mit seiner
+        <strong>kompletten Armee</strong> auf dem Brett – Königs-Turm, Arbeiter,
+        Samurai, Springer, Legionär, Bogenschütze, Tangolin und Zenturio –, hat
+        <strong>2 Holz</strong> in der Kasse und kämpft ab dem ersten Zug.
+        Gesammelt wird trotzdem: drei Bäume stehen am eigenen Lager, der große
+        Wald steht in der Mitte, und dorthin ist es für alle gleich weit.</p>
+      <ul>
+        <li>Das Brett ist eine <strong>runde Insel</strong> aus lauter Gras mit dem
+          gewohnten Wasserrand – kein Feld liegt günstiger als ein anderes.</li>
+        <li>Alle Lager sind <strong>dieselbe Aufstellung</strong>, nur gedreht und
+          wo nötig gespiegelt, und stehen gleich weit von der Mitte entfernt.</li>
+        <li>Bei 2, 3, 4 und 6 Spielern ist die Stellung <strong>spiegelgleich</strong>:
+          Zu je zwei Spielern gibt es eine Drehung oder Spiegelung des ganzen Bretts,
+          die den einen in den anderen überführt. Bei 5, 7 und 8 gibt es die auf dem
+          Sechseckgitter nicht – dort stehen wenigstens die nächsten Gegner bei allen
+          gleich weit weg.</li>
+        <li>Wer <strong>anfängt</strong>, entscheidet das Los: Bei sonst gleicher
+          Stellung ist der erste Zug der einzige Vorteil, der noch zu verteilen ist.</li>
+        <li>Ausgebildet wird erst, wenn eine Figur <strong>gefallen</strong> ist –
+          vorher steht von jeder schon eine im Feld. Der Zenturio bleibt wie immer
+          auf eine Ausbildung je Partie beschränkt, und die ist verbraucht.</li>
+      </ul>
+    </section>
+
+    <section class="rule-block">
       <h3>Beute</h3>
       <p>Wer eine Figur schlägt, erhält die <strong>Hälfte ihrer Ausbildungskosten</strong> als
         Holz zurück (aufgerundet: 1 für die meisten Figuren, 2 für den Zenturio). Kämpfen ist
@@ -241,6 +278,7 @@
 <script src="js/hex.js"></script>
 <script src="js/units.js"></script>
 <script src="js/board.js"></script>
+<script src="js/arena.js"></script>
 <script src="js/moves.js"></script>
 <script src="js/game.js"></script>
 <script src="js/ai.js"></script>

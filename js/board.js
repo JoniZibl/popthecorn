@@ -108,6 +108,24 @@ var Board = (function () {
     };
   }
 
+  /* Runde Insel: alle Felder bis zum Abstand `radius` vom Mittelpunkt, lauter
+     Gras, ringsum derselbe Wasserrand. Sie wird für das Sofort-Gefecht
+     gebraucht: Ein Brett aus zufällig gelegten Plättchen hat zufällige
+     Buchten und Seen, und auf einem solchen Brett ließe sich nicht behaupten,
+     dass alle Lager gleich stehen. Das Rund dagegen geht bei jeder Drehung
+     und jeder Spiegelung um seinen Mittelpunkt in sich selbst über. */
+  function generateDisc(radius) {
+    var cells = {};
+    for (var q = -radius; q <= radius; q++) {
+      var von = Math.max(-radius, -q - radius), bis = Math.min(radius, -q + radius);
+      for (var r = von; r <= bis; r++) {
+        cells[H.key(q, r)] = createCell(q, r, 'grass');
+      }
+    }
+    addWaterRim(cells, RAND_RINGE);
+    return { cells: cells, tiles: [], keys: Object.keys(cells) };
+  }
+
   function get(board, q, r) { return board.cells[H.key(q, r)] || null; }
   function at(board, c) { return c ? (board.cells[H.key(c.q, c.r)] || null) : null; }
 
@@ -139,7 +157,7 @@ var Board = (function () {
   }
 
   return {
-    generate: generate, get: get, at: at, forEach: forEach,
+    generate: generate, generateDisc: generateDisc, get: get, at: at, forEach: forEach,
     landCells: landCells, isFree: isFree, bounds: bounds
   };
 })();

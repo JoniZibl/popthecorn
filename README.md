@@ -112,6 +112,116 @@ geschlagen wird, darf sie neu ausgebildet werden – der Zenturio bleibt davon a
 und ist auf eine Ausbildung pro Partie beschränkt. Eine Armee umfasst damit höchstens
 Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
 
+## Sofort-Gefecht
+
+In der Aufbau-Partie vergeht eine halbe Stunde, bis die erste Klinge fällt: dreißig
+Bäume setzen, Türme stellen, Holz sammeln, Figur für Figur ausbilden. Wer das nicht
+will, wählt im Startmenü die zweite **Spielart**.
+
+Im Sofort-Gefecht steht jeder Spieler vom ersten Zug an mit seiner **kompletten Armee**
+auf dem Brett – wie im Schach: Königs-Turm, Arbeiter, Samurai, Springer, Legionär,
+Bogenschütze, Tangolin und der Zenturio. Dazu **2 Holz** in der Kasse. Gesammelt wird
+trotzdem: Drei Bäume stehen am eigenen Lager, der große Wald steht in der Mitte – und
+dorthin ist es für alle gleich weit. Aufgebaut wird nichts mehr, gekämpft sofort.
+
+Ausgebildet wird erst, wenn etwas **gefallen** ist: Von jeder Figur darf nur eine je
+Spieler im Feld stehen, und es steht schon von jeder eine. Der Zenturio bleibt auf eine
+Ausbildung je Partie beschränkt, und diese eine ist mit dem Aufbau verbraucht – fällt
+er, ist er weg. Alles andere – Beute, Versorgungskette, Boote, Wertung, Mannschaften –
+gilt unverändert.
+
+### Warum das gerecht ist
+
+Eine Startstellung, die alle Figuren verschenkt, muss für jeden dieselbe sein. Ein
+zufällig gelegtes Brett kann das nicht leisten: Wer die größere Lichtung erwischt, hat
+gewonnen, bevor es losgeht. Die Arena wird deshalb nicht gewürfelt, sondern
+**ausgerechnet**.
+
+* Das Brett ist eine **runde Insel** aus lauter Gras mit dem gewohnten zwei Felder
+  dicken Wasserrand. Ein Rund geht bei jeder Drehung und jeder Spiegelung um seinen
+  Mittelpunkt in sich selbst über – anders ließe sich Gleichheit gar nicht behaupten.
+  Wasser gibt es nur ringsum: Wer ein Boot kauft, flankiert außen herum, und dieser Weg
+  ist für alle gleich lang.
+* Alle Lager sind **dieselbe Aufstellung**, nur gedreht und wo nötig gespiegelt, und
+  stehen auf einem gemeinsamen Ring – jedes gleich weit von der Mitte.
+* Der **Wald in der Mitte** ist ein Kreis um den Mittelpunkt. Er bleibt unter jeder
+  Drehung und Spiegelung derselbe und liegt damit für jeden gleich weit entfernt.
+
+Damit lässt sich der Anspruch scharf formulieren: Zu je zwei Spielern soll es eine
+**Deckabbildung** geben – eine Drehung oder Spiegelung des ganzen Bretts, die Gelände,
+Bäume und jede einzelne Figur samt Blickrichtung auf sich selbst abbildet und dabei den
+einen Spieler in den anderen überführt. Wo es die gibt, kann kein Platz besser sein als
+ein anderer; das ist kein Augenmaß, sondern nachprüfbar.
+
+Gefunden werden die Lagerplätze als **Bahn einer Untergruppe** der Symmetriegruppe des
+Hexgitters: Man nimmt einen Platz und bildet ihn mit allen Elementen der Gruppe ab. Weil
+die Gruppe auf ihrer eigenen Bahn jeden Punkt auf jeden anderen schiebt, sind alle Plätze
+gleichwertig – per Konstruktion.
+
+| Spieler | Gruppe | Lager |
+|---|---|---|
+| 2 | Drehung um 180° | gegenüber |
+| 3 | Drehungen um 120° | Dreieck |
+| 4 | 180°-Drehung und Spiegelung (Kleinsche Vierergruppe) | Raute |
+| 6 | alle Drehungen um 60° | Sechseck |
+
+### Fünf, sieben und acht: was nicht geht
+
+Bei 5, 7 und 8 Spielern gibt es eine solche Gruppe nicht, und das ist keine Nachlässigkeit,
+sondern Arithmetik: Die Symmetriegruppe des Hexgitters um einen Punkt hat zwölf Elemente,
+und jede Bahn hat eine Länge, die zwölf teilt – 1, 2, 3, 4, 6 oder 12. Fünf, sieben oder
+acht gleichwertige Plätze liegen auf diesem Gitter schlicht nicht.
+
+Dort wird deshalb gesucht statt konstruiert: Alle Lager stehen auf demselben Ring, also
+gleich weit von der Mitte, und ihre Plätze werden so lange einzeln verschoben, bis die
+**Abstandsprofile** der Spieler – die sortierten Abstände zu allen Gegnern – so wenig wie
+möglich auseinanderliegen. Übrig bleibt eine kleine Unwucht, und die trifft nur die
+Ferne: Die **nächsten Gegner stehen bei allen gleich weit weg**, unterschiedlich sind nur
+Abstände zu Spielern am anderen Ende der Arena – dorthin reicht in den ersten Zügen ohnehin
+niemand.
+
+| Spieler | Brettradius | Landfelder | Lagerring | Abstand zum nächsten Gegner | Bäume | Aufbau |
+|---|---|---|---|---|---|---|
+| 2 | 8 | 217 | 5 | 10 | 25 | spiegelgleich |
+| 3 | 8 | 217 | 5 | 10 | 28 | spiegelgleich |
+| 4 | 8 | 217 | 5 | 6 | 31 | spiegelgleich |
+| 5 | 8 | 217 | 5 | 6 | 34 | Abweichung 1 |
+| 6 | 9 | 271 | 6 | 6 | 55 | spiegelgleich |
+| 7 | 10 | 331 | 7 | 6 | 58 | Abweichung 4 |
+| 8 | 11 | 397 | 8 | 6 | 61 | Abweichung 3 |
+
+Die *Abweichung* ist die Summe der Unterschiede über alle Stellen des Abstandsprofils:
+0 heißt, dass jeder Spieler exakt dieselben Abstände zu seinen Gegnern hat.
+
+### Der erste Zug
+
+Bleibt ein Vorteil, den keine Symmetrie wegrechnet: der erste Zug. In der Aufbau-Partie
+beginnt, wer seinen Turm zuletzt gesetzt hat – ein Ausgleich dafür, dass alle anderen
+sahen, wohin er stellt. Im Sofort-Gefecht gibt es dieses Pfand nicht, denn es wird nichts
+gestellt. Also **entscheidet das Los**: Bei sonst gleicher Stellung ist der erste Zug das
+Einzige, was noch zu verteilen ist, und er wird verteilt, wie man so etwas verteilt.
+
+### Die Aufstellung eines Lagers
+
+Der Königs-Turm steht in der Mitte, seine sechs Nachbarfelder sind belegt: vorn – zur
+Brettmitte hin – der **Legionär** auf seiner Achse, flankiert von **Samurai** und
+**Springer**, beide nach innen gerichtet. Hinten der **Bogenschütze**, der über die eigene
+Reihe hinwegschießt, daneben der **Arbeiter** in seinem Hain aus drei Bäumen, und ein Feld
+dahinter der **Zenturio** mit dem Feldzeichen: der zweite Anker der Versorgung, im Rücken
+der eigenen Leute. Kein Lager reicht weiter als zwei Felder – daran hängt, wie dicht die
+Lager im Rund stehen dürfen, ohne sich ins Gehege zu kommen.
+
+Ein Lager ist damit nicht nur schnell aufgebaut, sondern auch eine Aussage darüber, wie
+diese Armee gedacht ist: Die weit springenden Figuren stehen vorn, die Wirtschaft und der
+Nachschub hinten, und der Turm mittendrin – und weil jedes Lager dieselbe Aufstellung ist,
+kann sich niemand über den Nachbarn beschweren.
+
+`test/arena.js` prüft genau das nach: dass jeder dieselben acht Figuren, dasselbe Holz und
+denselben Hain hat; dass es bei 2, 3, 4 und 6 Spielern zu jedem Spielerpaar tatsächlich
+eine Deckabbildung des ganzen Bretts gibt; dass in diesen Aufbauten sogar die **Zahl der
+möglichen ersten Züge** bei allen dieselbe ist; und dass bei 5, 7 und 8 Spielern die
+nächsten Gegner bei allen gleich weit weg stehen.
+
 ## Einheiten
 
 | Einheit | Kosten | Bewegung |
@@ -524,6 +634,7 @@ css/style.css       gesamtes Layout und die Optik des Bretts
 js/hex.js           Hex-Geometrie (axiale Koordinaten, flat-top Layout)
 js/units.js         Einheiten-Definitionen samt Regeltexten
 js/board.js         Spielfeld-Erzeugung aus 7er-Plättchen samt Wasserrand
+js/arena.js         Sofort-Gefecht: die ausgerechnete, für alle gleiche Arena
 js/moves.js         Regelwerk: legale Züge, Schüsse, Ausbildungsfelder
 js/game.js          Spielzustand, Aufbauphasen, Zugabwicklung, Ausscheiden
 js/ai.js            Computergegner: Suche, Bewertung, Aufbaustrategie
@@ -542,6 +653,7 @@ test/beute.js       Beute beim Schlagen
 test/tangolin.js    Kettensprung: Sprungbretter, Schlagen beim Landen, Boote
 test/versorgung.js  Feldzeichen: der Zenturio als zweiter Anker der Kette
 test/team.js        Mannschaften: Verbündete, Farbfamilien, gemeinsamer Sieg
+test/arena.js       Sofort-Gefecht: Deckabbildungen, gleiche Lager, gleiche Züge
 test/ki.js          KI-Zuggenerierung gegen das Regelwerk, make/unmake
 test/kispiel.js     Spielstärke: komplette Partien KI gegen KI/Zufall
 test/jagd.js        KI gegen einen Gegner, der gezielt den Turm jagt
@@ -610,6 +722,7 @@ node test/beute.js              # Beute beim Schlagen
 node test/tangolin.js           # Sprungregeln des Tangolins
 node test/versorgung.js         # Feldzeichen des Zenturios als zweiter Anker
 node test/team.js               # Mannschaften: Regeln, Farben, Sieg
+node test/arena.js              # Sofort-Gefecht: ist die Arena für jeden gleich?
 node test/ki.js                 # KI-Zuggenerierung gegen das Regelwerk
 node test/simulate.js 100       # komplette Zufallspartien
 node test/kispiel.js 10         # Spielstärke der KI
@@ -617,7 +730,15 @@ node test/kispiel.js 8 stark normal   # eigene Paarung
 node test/jagd.js 10 normal     # hält der Turm einem gezielten Angriff stand?
 node test/blunder.js 6 normal   # stellt die KI ihren Turm ins Schlagfeld?
 node test/entscheidung.js 10 normal normal   # endet jede Partie mit einem Sieger?
+node test/entscheidung.js 6 normal normal sofort   # dasselbe in der Arena
 ```
+
+`test/arena.js` prüft das Sofort-Gefecht: Für 2, 3, 4 und 6 Spieler sucht es zu jedem
+Spielerpaar eine Drehung oder Spiegelung des ganzen Bretts, die Gelände, Bäume und jede
+Figur samt Blickrichtung auf sich selbst abbildet und dabei den einen Spieler in den
+anderen überführt – findet es für ein Paar keine, schlägt der Test fehl. Nebenbei fällt
+dabei auf, was man sonst leicht übersieht: eine Richtungsfigur, die beim Spiegeln in die
+falsche Richtung blickt, ist kein Schönheitsfehler, sondern eine kaputte Deckabbildung.
 
 `test/entscheidung.js` spielt komplette Partien bis zum Ende und schlägt fehl, sobald eine
 Partie nicht endet oder ohne Sieger ausgeht. Es meldet außerdem, wodurch die Partien

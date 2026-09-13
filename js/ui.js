@@ -116,6 +116,26 @@
       .join(' gegen ');
   }
 
+  /* Die gewählte Spielart: die gewohnte Aufbau-Partie oder das Sofort-Gefecht,
+     bei dem jeder mit seiner kompletten Armee in der ausgerechneten Arena
+     startet. */
+  function spielart() {
+    var sel = document.getElementById('game-kind');
+    return (sel && sel.value === 'sofort') ? 'sofort' : 'aufbau';
+  }
+
+  /* Was in der Arena auf die Spieler wartet – und wie gerecht sie ausfällt.
+     Die Zahlen kommen aus arena.js selbst, damit im Menü nichts steht, was das
+     Spiel nachher anders macht. */
+  function arenaInfo(count) {
+    var b = Arena.bericht(count);
+    var gerecht = b.exakt
+      ? 'alle Lager spiegelgleich'
+      : 'die nächsten Gegner bei allen gleich weit';
+    return 'Sofort-Gefecht · ' + b.felder + ' Felder · ' + b.baeume + ' Bäume · ' +
+           'je 8 Figuren und ' + Arena.START_HOLZ + ' Holz · ' + gerecht;
+  }
+
   function buildMenu() {
     var wrap = $('#player-fields');
 
@@ -176,8 +196,10 @@
         }
       }
 
-      var info = cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' +
-                 cfg.trees + ' Bäume gesamt';
+      var info = (spielart() === 'sofort')
+        ? arenaInfo(count)
+        : cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' +
+          cfg.trees + ' Bäume gesamt';
       if (mitTeams) info = aufstellungText(teams) + ' · ' + info;
       var einLager = mitTeams && teams.every(function (x) { return x === teams[0]; });
       $('#setup-info').textContent = einLager
@@ -189,6 +211,7 @@
 
     $('#player-count').addEventListener('change', function () { render(); });
     $('#game-mode').addEventListener('change', function () { render(); });
+    $('#game-kind').addEventListener('change', function () { render(); });
     render();
 
     $('#start-game').addEventListener('click', function () {
@@ -199,13 +222,13 @@
         var kind = $('#pkind' + i).value;
         kinds.push(kind === 'mensch' ? null : kind);
       }
-      startGame(names, kinds, teamsAusMenue(count));
+      startGame(names, kinds, teamsAusMenue(count), { mode: spielart() });
     });
   }
 
-  function startGame(names, kinds, teams) {
+  function startGame(names, kinds, teams, options) {
     beendeDenker();
-    state = G.create(names, kinds, teams);
+    state = G.create(names, kinds, teams, options);
     ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null, lift: null,
            thinking: false, shownEvent: 0, woodShown: null,
            sheetOpen: false, sheetAuto: false, sheetMove: null };

@@ -1,9 +1,11 @@
 /* Jede Partie muss enden – und zwar mit genau einem Sieger.
    Prüft auf Endlosschleifen, Stellungswiederholung und die Wertung.
-   Aufruf: node test/entscheidung.js [Partien] [SeiteA] [SeiteB] */
+   Aufruf: node test/entscheidung.js [Partien] [SeiteA] [SeiteB] [sofort]
+   Mit `sofort` wird in der Arena gespielt: komplette Armeen ab dem ersten Zug. */
 global.Hex = require('../js/hex.js');
 global.Units = require('../js/units.js');
 global.Board = require('../js/board.js');
+global.Arena = require('../js/arena.js');
 global.Moves = require('../js/moves.js');
 global.Game = require('../js/game.js');
 var AI = require('../js/ai.js');
@@ -55,12 +57,13 @@ var games = +(process.argv[2] || 8);
 var A = process.argv[3] || 'normal';
 var Bx = process.argv[4] || 'normal';
 var kinds = [A === 'zufall' ? null : A, Bx === 'zufall' ? null : Bx];
+var sofort = process.argv.indexOf('sofort') > 1;
 
 var offen = 0, sieger = 0, ohneSieger = 0, falscheSiege = 0, gruende = {}, laengen = [];
 var HARTE_GRENZE = 3000;   // weit jenseits jeder regulaeren Partie
 
 for (var g = 0; g < games; g++) {
-  var state = G.create(['A', 'B'], kinds);
+  var state = G.create(['A', 'B'], kinds, null, sofort ? { mode: 'sofort' } : null);
   var steps = 0;
   while (state.phase !== 'over' && steps++ < HARTE_GRENZE) {
     var lvl = state.players[state.current].ai;
@@ -97,7 +100,8 @@ for (var g = 0; g < games; g++) {
 }
 
 laengen.sort(function (a, b) { return a - b; });
-console.log('\n' + A + ' gegen ' + Bx + ', ' + games + ' Partien');
+console.log('\n' + A + ' gegen ' + Bx + ', ' + games + ' Partien' +
+            (sofort ? ' im Sofort-Gefecht' : ''));
 console.log('  mit Sieger beendet: ' + sieger + ' | ohne Sieger: ' + ohneSieger +
             ' | nicht beendet: ' + offen);
 console.log('  Zuglänge: kürzeste ' + laengen[0] + ', mittlere ' +
