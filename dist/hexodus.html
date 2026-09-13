@@ -20,6 +20,7 @@
   --accent-dark: #4e9d51;
   --warn: #f0a04b;
   --danger: #e35d5d;
+  --train: #ef94b8;
   --grass: #8ed07a;
   --grass-dark: #6fb45f;
   --water: #2b6a78;
@@ -200,7 +201,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .lg-capture { background: transparent; border: 2px solid var(--danger); }
 .lg-harvest { background: var(--warn); }
 .lg-shoot { background: transparent; border: 2px solid #ff8080; border-radius: 2px; }
-.lg-train { background: #ef94b8; }
+.lg-train { background: var(--train); }
 
 /* ---------- Seitenleiste ---------- */
 .sidebar {
@@ -258,8 +259,30 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .train-btn .tn { font-weight: 600; font-size: 13px; }
 .train-btn .tc { font-size: 11px; color: var(--muted); }
 .train-btn:hover:not(:disabled) { border-color: var(--accent); }
-.train-btn.is-active { border-color: var(--accent); background: #26331f; }
+.train-btn.is-active {
+  border-color: var(--train); background: rgba(239, 148, 184, .16);
+  box-shadow: 0 0 0 1px var(--train);
+}
+.train-btn.is-active .tc { color: var(--train); }
 .train-btn:disabled { opacity: .38; cursor: not-allowed; }
+/* Während eine Einheit gewählt ist, treten die übrigen zurück: Es gibt jetzt
+   nur noch einen offenen Schritt, und der ist das Feld auf dem Brett. */
+.train-grid.is-choosing .train-btn:not(.is-active):not(:disabled) { opacity: .45; }
+
+/* Der Kasten, der durch die Ausbildung führt. Er trägt die Farbe der
+   Ausbildungsfelder auf dem Brett – Menü und Brett gehören zusammen. */
+.train-aktiv {
+  border: 1px solid var(--train); border-radius: 10px; padding: 10px 12px; margin: 8px 0 10px;
+  background: rgba(239, 148, 184, .10);
+}
+.train-aktiv p { margin: 0 0 6px; font-size: 13px; line-height: 1.45; }
+.train-schritt { font-size: 14px !important; }
+.train-anleitung strong { color: var(--train); }
+.train-preis { color: var(--muted); }
+.train-aktiv .wide-btn { margin: 4px 0 0; }
+.train-kasse { float: right; font-size: 12px; font-weight: 500; color: var(--muted); }
+.train-wort { color: var(--train); font-weight: 600; }
+
 /* schon im Spiel: nicht ausgegraut, sondern als vorhanden markiert */
 .train-btn.is-fielded { opacity: .7; border-style: dashed; }
 .train-btn.is-fielded .tc { color: var(--accent); }
@@ -352,6 +375,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 /* Schatten liegen als projizierte Kreise auf dem Boden und verankern
    Bäume und Figuren auf ihrem Feld. */
 .tree-shadow { fill: rgba(0, 0, 0, .20); }
+/* Bäume ragen über ihr Feld hinaus – als Klickfläche würden sie das Nachbarfeld
+   dahinter verdecken. Getroffen wird deshalb immer die Platte darunter. */
+.tree, .tree-shadow { pointer-events: none; }
 .piece-shadow { fill: rgba(0, 0, 0, .28); }
 .tree-trunk { fill: #6b4a2f; }
 .tree-top { fill: url(#treeGrad); }
@@ -412,7 +438,8 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .marker-icon-fill { fill: var(--warn); }
 .mk-jump .marker-dot { fill: #9fd6ff; }
 .marker.has-catch .marker-dot { fill: #ffd7d7; }
-.mk-train .marker-hex { fill: rgba(239, 148, 184, .55); stroke: #ef94b8; stroke-width: 2; }
+.mk-train .marker-hex { fill: rgba(239, 148, 184, .55); stroke: var(--train); stroke-width: 2; }
+.marker-plus { fill: #fff; opacity: .92; }
 .marker:hover .marker-hex { fill: rgba(255, 255, 255, .3); }
 
 /* Flache Symbole in Seitenleiste und Regelwerk */
@@ -4939,13 +4966,27 @@ var Render = (function () {
     }));
   }
 
+  /* Wie groß ein Baum auf dem Feld steht. Bäume sind Rohstoff und Deckung
+     zugleich, und am Handy ist ein Feld keine zwei Fingerbreit groß – ein Baum
+     muss von einem leeren Grasfeld auf den ersten Blick zu unterscheiden sein.
+     Deshalb steht er ein gutes Viertel größer da, als die reine Geometrie
+     verlangt. Höher als die Figuren wird er dadurch nicht: Die stehen auf
+     einem Sockel und sind das, was gezogen wird. */
+  var BAUM_GROESSE = 1.26;
+
   function treeGlyph(g, cam, o, cell, cx, cy, k) {
     var seed = jitter(cell);
-    var scale = 0.92 + (seed % 22) / 100;
+    var scale = BAUM_GROESSE * (0.92 + (seed % 22) / 100);
     var tilt = ((seed >> 5) % 9) - 4;
     groundShadow(g, cam, o, cx, cy, 0, 13 * scale, 'tree-shadow');
+    /* Der Baum nimmt keine Klicks an (CSS: .tree). Er ragt über sein Feld
+       hinaus und läge sonst als Klickfläche über dem Nachbarfeld dahinter –
+       wer dort hintippt, träfe den Baum davor. Ohne Klickfläche entscheidet
+       immer das Feld darunter, und das ist genau das, was man treffen wollte.
+       Sein eigenes Feld verliert dabei nichts: Dort liegt seine Platte selbst
+       unter ihm. */
     // Aufsteller: Stamm und Krone stehen auf dem Standpunkt (y = 0)
-    var stand = el('g', { transform: 'scale(' + k.toFixed(3) + ') rotate(' + tilt + ')' });
+    var stand = el('g', { class: 'tree', transform: 'scale(' + k.toFixed(3) + ') rotate(' + tilt + ')' });
     var body = el('g', { transform: 'scale(' + scale.toFixed(2) + ')' });
     body.appendChild(el('rect', { class: 'tree-trunk', x: -3, y: -9, width: 6, height: 9.5, rx: 1.4 }));
     body.appendChild(el('path', { class: 'tree-top', d: 'M0,-35 L12.5,-5 L-12.5,-5 Z' }));
@@ -5148,6 +5189,17 @@ var Render = (function () {
     return g;
   }
 
+  /* Ein Kreuz als Vieleck – zwölf Punkte, damit es sich wie jede andere
+     Fläche mit dem Brett kippen und drehen lässt. */
+  function plusShape(cx, cy, z, arm, w) {
+    return [
+      [cx - w, cy - arm, z], [cx + w, cy - arm, z], [cx + w, cy - w, z],
+      [cx + arm, cy - w, z], [cx + arm, cy + w, z], [cx + w, cy + w, z],
+      [cx + w, cy + arm, z], [cx - w, cy + arm, z], [cx - w, cy + w, z],
+      [cx - arm, cy + w, z], [cx - arm, cy - w, z], [cx - w, cy - w, z]
+    ];
+  }
+
   function drawMarker(view, state, m) {
     var cam = view.cam, board = state.board;
     var key = H.key(m.q, m.r);
@@ -5176,6 +5228,14 @@ var Render = (function () {
     } else if (m.kind === 'capture') {
       g.appendChild(el('polygon', {
         class: 'marker-ring', points: pts(cam, disc(p.x, p.y, z, SIZE * 0.62, 16), o)
+      }));
+    } else if (m.kind === 'train') {
+      /* Ein Kreuz statt des Punktes: Auf diesem Feld entsteht etwas Neues.
+         Der Punkt der Zugfelder heißt "hier hin"; das Kreuz heißt "hier her" –
+         der Unterschied entscheidet, ob man mitten in einer Ausbildung merkt,
+         dass man in einer Ausbildung steckt. */
+      g.appendChild(el('polygon', {
+        class: 'marker-plus', points: pts(cam, plusShape(p.x, p.y, z, 10, 3.2), o)
       }));
     } else if (m.kind === 'harvest') {
       g.appendChild(el('polygon', {
@@ -6089,11 +6149,16 @@ var Render = (function () {
     if (state.phase !== 'play') return;
     if (state.pending) return; // erst Richtung bestätigen
 
+    /* Ausbilden geht in zwei Schritten, und der zweite kann danebengehen. Ein
+       Tipp neben die markierten Felder beendet die Ausbildung, statt stumm
+       liegen zu bleiben – wer am Handy danebentippt, käme sonst nur über die
+       wieder aufgezogene Schublade heraus. Danach läuft der Tipp weiter wie
+       jeder andere: Auf der eigenen Figur wählt er sie aus. */
     if (ui.mode === 'train') {
-      if (G.train(state, ui.trainType, cell.q, cell.r)) {
-        ui.mode = 'idle'; ui.trainType = null;
-      }
-      return refresh();
+      var gesetzt = G.train(state, ui.trainType, cell.q, cell.r);
+      ui.mode = 'idle';
+      ui.trainType = null;
+      if (gesetzt) return refresh();
     }
 
     // Aktion auf einem markierten Feld ausführen
@@ -6325,22 +6390,74 @@ var Render = (function () {
     'zu wenig Holz': null   // Kosten bleiben sichtbar
   };
 
+  /* Das Ausbildungs-Menü. Ausbilden ist der einzige Zug, der in zwei Schritten
+     geht: erst die Einheit wählen, dann das Feld antippen. Zwischen beiden
+     Schritten muss unübersehbar sein, dass man mittendrin steckt – sonst tippt
+     man aufs Brett und wundert sich, warum die Figur nicht zieht. Deshalb sagt
+     der Kasten, wer gerade ausgebildet wird, was das kostet, was danach bleibt,
+     und wie man es wieder los wird. Er trägt die Farbe der Ausbildungsfelder
+     auf dem Brett – Menü und Brett sollen als dasselbe zu erkennen sein. */
   function trainMenuHtml() {
     var spots = M.trainingSpots(state.board, state.current).length;
+    var holz = state.players[state.current].wood;
+    var gewaehlt = ui.trainType ? U.DEFS[ui.trainType] : null;
+
     var rows = U.TRAIN_ORDER.map(function (id) {
       var def = U.DEFS[id];
       var blocker = M.trainBlocker(state, state.current, id);
       var label = (blocker && BLOCK_TEXT[blocker]) || (def.cost + '× \u{1F332}');
       var disabled = blocker !== null || !spots;
-      return '<button class="train-btn' + (ui.trainType === id ? ' is-active' : '') +
+      var aktiv = ui.trainType === id;
+      return '<button class="train-btn' + (aktiv ? ' is-active' : '') +
         (blocker === 'steht im Spiel' ? ' is-fielded' : '') + '"' +
-        (disabled ? ' disabled' : '') + ' data-train="' + id + '" title="' + esc(def.short) + '">' +
+        (disabled ? ' disabled' : '') + ' aria-pressed="' + (aktiv ? 'true' : 'false') + '"' +
+        ' data-train="' + id + '" title="' + esc(def.short) + '">' +
         '<span class="tn">' + def.name + '</span>' +
         '<span class="tc">' + label + '</span>' +
         '</button>';
     }).join('');
-    var note = !spots ? '<p class="hint warn">Kein freies Feld an deiner Einheiten-Kette.</p>' : '';
-    return '<h3>Ausbilden</h3>' + note + '<div class="train-grid">' + rows + '</div>' +
+
+    var kopf = '<h3>Ausbilden <span class="train-kasse" title="dein Holzvorrat">' +
+      '\u{1F332} ' + holz + '</span></h3>';
+
+    if (!spots) {
+      return kopf + '<p class="hint warn">Kein freies Feld an deiner Einheiten-Kette – ' +
+        'hier kann gerade nichts ausgebildet werden.</p>' +
+        '<div class="train-grid">' + rows + '</div>';
+    }
+
+    if (gewaehlt) {
+      return kopf +
+        '<div class="train-aktiv">' +
+          '<p class="train-schritt"><strong>' + esc(gewaehlt.name) + '</strong> wird ausgebildet.</p>' +
+          '<p class="train-anleitung">Tippe jetzt am Brett eines der <strong>rosa Felder mit dem ' +
+            'Kreuz</strong> an – dort stellst du ihn auf.</p>' +
+          '<p class="train-preis">Kostet ' + gewaehlt.cost + ' \u{1F332} · dir bleiben ' +
+            (holz - gewaehlt.cost) + ' \u{1F332}</p>' +
+          '<button class="wide-btn" id="cancel-train">Doch nicht ausbilden</button>' +
+        '</div>' +
+        '<div class="train-grid is-choosing">' + rows + '</div>';
+    }
+
+    /* Der Satz über dem Gitter muss zur Lage passen: Steht gerade nichts zur
+       Auswahl, hilft "erst wählen, dann antippen" niemandem. Im Sofort-Gefecht
+       ist das sogar der Normalfall – dort steht von jeder Figur schon eine im
+       Feld, und ausgebildet wird erst, wenn eine fällt. */
+    var frei = M.affordableUnits(state, state.current);
+    var fehltHolz = !frei.length && U.TRAIN_ORDER.some(function (id) {
+      return M.trainBlocker(state, state.current, id) === 'zu wenig Holz';
+    });
+    var hinweis = frei.length
+      ? '<p class="hint">Erst die Einheit hier wählen, dann am Brett ein markiertes Feld ' +
+        'antippen. Es kostet den ganzen Zug.</p>'
+      : (fehltHolz
+        ? '<p class="hint warn">Dafür reicht dein Holz nicht. Schick den Arbeiter auf ein ' +
+          'Baumfeld – das fällt den Baum und bringt 1 Holz.</p>'
+        : '<p class="hint">Von jeder Figur steht schon eine im Feld. Ausgebildet wird erst ' +
+          'wieder, wenn eine von ihnen fällt.</p>');
+
+    return kopf + hinweis +
+      '<div class="train-grid">' + rows + '</div>' +
       '<p class="hint small">Von jeder Figur darf nur eine im Spiel sein. Wird sie geschlagen, ' +
       'kannst du sie neu ausbilden – den Zenturio jedoch nur einmal pro Partie.</p>';
   }
@@ -6439,9 +6556,16 @@ var Render = (function () {
     }
 
     // Spielphase
+    var wartet = '';
+    if (state.pending && ui.facing) wartet = ' · <span class="accent">Richtung antippen</span>';
+    /* Mitten in einer Ausbildung steht es auch über dem Brett: Am Handy ist die
+       Schublade dann zu, und das Brett allein soll sagen, worauf es wartet. */
+    else if (ui.mode === 'train' && ui.trainType) {
+      wartet = ' · <span class="train-wort">' + esc(U.DEFS[ui.trainType].name) +
+        ' aufstellen: Feld antippen</span>';
+    }
     banner.innerHTML = 'Runde ' + state.turn + ' · <strong style="color:' + p.color + '">' +
-      esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood +
-      (state.pending && ui.facing ? ' · <span class="accent">Richtung antippen</span>' : '');
+      esc(p.name) + '</strong> ist am Zug · \u{1F332} ' + p.wood + wartet;
 
     if (p.ai) {
       panel.innerHTML = '<h3>' + esc(p.name) + '</h3>' +
@@ -6457,7 +6581,8 @@ var Render = (function () {
     }
     html += selectedHtml();
     if (!state.pending) html += trainMenuHtml();
-    if (!state.selected && !state.pending) {
+    // Nicht während einer Ausbildung: Dort ist das Feld gefragt, nicht die Figur
+    if (!state.selected && !state.pending && ui.mode !== 'train') {
       html += '<p class="hint small">Wähle eine eigene Figur, um ihre Züge zu sehen.</p>';
     }
     panel.innerHTML = html;
@@ -6480,6 +6605,7 @@ var Render = (function () {
       if (btn.id === 'back-menu') { return backToMenu(); }
       if (btn.id === 'pass-turn') { G.pass(state); return refresh(); }
       if (btn.id === 'end-pending') { G.endPending(state); return refresh(); }
+      if (btn.id === 'cancel-train') { ui.trainType = null; ui.mode = 'idle'; return refresh(); }
       if (btn.dataset.train) {
         ui.trainType = (ui.trainType === btn.dataset.train) ? null : btn.dataset.train;
         ui.mode = ui.trainType ? 'train' : 'idle';
@@ -6740,6 +6866,14 @@ var Render = (function () {
           { duration: 340, easing: 'cubic-bezier(.2,1.3,.4,1)' });
       fade(Render.pulse(view, board, tr.key, 'pulse-train'),
            [{ opacity: .8, transform: 'scale(.4)' }, { opacity: 0, transform: 'scale(1.4)' }], 480);
+      /* Dazu die Rechnung: Welche Figur dazukam und was sie gekostet hat.
+         Beim Baumfällen steigt "+1" auf, hier das Gegenstück – so ist auch am
+         Zug des Gegners zu sehen, dass gerade ausgebildet wurde. */
+      fade(Render.floatText(view, board, tr.key,
+             U.DEFS[tr.type].name + ' \u2212' + (U.DEFS[tr.type].cost || 0) + ' \u{1F332}',
+             state.players[tr.owner].color),
+           [{ opacity: 1, transform: 'translateY(0)' },
+            { opacity: 0, transform: 'translateY(-26px)' }], 1000);
     }
   }
 

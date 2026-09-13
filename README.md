@@ -431,7 +431,10 @@ Damit nachvollziehbar bleibt, was gerade passiert ist – gerade gegen die KI:
   Feld fasst acht Spuren; ist es voll, verschwindet die älteste.
 * Beim **Baumfällen** steigt ein „+1 🌲" **genau über dem gefällten Baum** auf, der Holzstand
   in der Leiste hebt sich kurz hervor.
-* Eine **neu ausgebildete Einheit** wächst aus dem Boden.
+* Eine **neu ausgebildete Einheit** wächst aus dem Boden, und über ihr steigt auf, was sie
+  war und was sie gekostet hat – „Springer −2 🌲", das Gegenstück zum „+1 🌲" des Baumfällens.
+  Ausbilden ist der Zug, den man auch beim Gegner erkennen will: Es steht nichts Neues auf
+  dem Brett, wo eben noch nichts war, sondern es steht plötzlich mehr da.
 * Mögliche Züge stehen **still**. Sie haben einmal geatmet, damit sie ins Auge fallen –
   dabei sah man aber nie genau, wo der Punkt sitzt, auf den man zielen soll. Auffallen
   sollen sie durch Farbe und Rand, nicht durch Bewegung.
@@ -440,6 +443,51 @@ Alle Effekte sitzen in einer äußeren Gruppe, die nur die Position trägt; anim
 innere Gruppe. Ohne diese Trennung überschreibt die CSS-Transformation der Animation das
 `transform`-Attribut und der Effekt springt auf den Brett-Ursprung, statt dort zu erscheinen,
 wo er hingehört.
+
+### Ausbilden ist der einzige Zug in zwei Schritten
+
+Alles andere geht mit einem Tipp: Figur wählen, Zielfeld antippen, fertig. Ausbilden geht
+anders herum – erst die Einheit im Menü, dann das Feld auf dem Brett –, und dazwischen liegt
+ein Zustand, in dem das Spiel auf etwas wartet, was nirgends steht. Wer das übersieht, tippt
+aufs Brett und wundert sich, warum nichts zieht.
+
+Deshalb sagt es dieser Zustand jetzt selbst, an drei Stellen zugleich:
+
+* Im Menü tritt ein **Kasten** an die Stelle der Auswahl: *„Samurai wird ausgebildet."*, dazu
+  der Weg (*„tippe eines der rosa Felder mit dem Kreuz an"*), die Rechnung (*„kostet 1 🌲 ·
+  dir bleiben 1 🌲"*) und ein Knopf, der wieder herausführt. Die übrigen Einheiten treten
+  zurück – es ist nur noch ein Schritt offen.
+* In der **Kopfzeile über dem Brett** steht *„Samurai aufstellen: Feld antippen"*. Am Handy
+  ist die Schublade in diesem Moment zugefahren, damit man das Brett sieht; dann ist die
+  Kopfzeile das Einzige, was noch sprechen kann.
+* Auf dem Brett tragen die Ausbildungsfelder ein **Kreuz** statt des Punktes der Zugfelder.
+  Der Punkt heißt „hier hin", das Kreuz „hier her". Kasten, Kopfzeile und Felder tragen
+  dieselbe Farbe – Menü und Brett sollen als dasselbe zu erkennen sein.
+
+Und ein Tipp **daneben** bricht die Ausbildung ab, statt stumm liegen zu bleiben: Am Handy
+käme man sonst nur über die wieder aufgezogene Schublade heraus. Der Tipp läuft danach weiter
+wie jeder andere – auf der eigenen Figur wählt er sie aus.
+
+Dazu passt der Satz über dem Gitter zur Lage: Wo nichts zur Auswahl steht, hilft „erst
+wählen, dann antippen" niemandem. Fehlt Holz, steht da, wie man an Holz kommt; steht von
+jeder Figur schon eine im Feld – im Sofort-Gefecht der Normalfall –, steht da, dass erst
+wieder ausgebildet wird, wenn eine fällt.
+
+### Bäume sind größer als ihre Geometrie
+
+Ein Baum steht ein gutes Viertel größer auf seinem Feld, als die reine Hexgeometrie verlangt
+(`BAUM_GROESSE` in `js/render.js`). Bäume sind Rohstoff und Deckung zugleich, und am Handy ist
+ein Feld keine zwei Fingerbreit groß: Ein Baumfeld muss sich von einem leeren Grasfeld auf den
+ersten Blick unterscheiden, sonst sucht man seine Wirtschaft mit den Augen ab.
+
+Damit ragt er allerdings weiter über sein Feld hinaus – und **als Klickfläche läge er über dem
+Nachbarfeld dahinter**: Wer dort hintippt, träfe den Baum davor und wählte das falsche Feld.
+Bäume nehmen deshalb gar keine Klicks mehr an; getroffen wird immer die Platte darunter. Sein
+eigenes Feld verliert dabei nichts, denn dort liegt seine Platte selbst unter ihm.
+
+Gemessen an einem Brett mit 30 Bäumen: Vorher lag im Schnitt **eine Feldmitte je Partie**
+unter einer Baumkrone begraben, nachher **keine** – der größere Baum trifft sich also besser
+als der kleine vorher.
 
 Die Felder sind flach gefärbt, aber nicht einheitlich: Jede Zelle bekommt einen von vier
 ähnlichen Grün- beziehungsweise Blautönen. Welchen, ergibt sich fest aus ihren Koordinaten –

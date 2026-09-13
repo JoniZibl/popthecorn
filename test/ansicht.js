@@ -114,6 +114,15 @@ var vorschauFeld = state.board.keys.filter(function (k) {
 var vorschauZuege = vorschauFeld
   ? umgebung.Moves.forPiece(state.board, state.board.cells[vorschauFeld], 3) : [];
 
+/* Ein Ausbildungsfeld gehört in die Prüfung: Es wird als einziges Feld mit
+   einem Kreuz gezeichnet, und das Kreuz kippt mit dem Brett wie jede andere
+   Fläche – auch dort darf keine Koordinate entgleisen. */
+var ausbildFeld = state.board.keys.filter(function (k) { return Board.isFree(state.board.cells[k]); })[6];
+if (ausbildFeld) {
+  var af = state.board.cells[ausbildFeld];
+  markierungen.push({ kind: 'train', q: af.q, r: af.r });
+}
+
 var kontext = {
   markers: markierungen,
   placeable: null,
@@ -169,6 +178,12 @@ ok(view.cam.pitch === Render.TILT, 'das Brett startet in der Schrägsicht');
     ok(sortiert, 'gezeichnet wird von hinten nach vorn');
 
     zahlenPruefen(view, name);
+
+    var kreuze = 0;
+    alleKnoten(view.layers.markers).forEach(function (n) {
+      if ((n.attrs['class'] || '') === 'marker-plus') kreuze++;
+    });
+    ok(kreuze === 1, 'das Ausbildungsfeld trägt sein Kreuz');
 
     var baeume = 0, figuren = 0, boote = 0, waende = 0;
     alleKnoten(view.layers.scene).forEach(function (n) {
@@ -232,7 +247,10 @@ ok(view.cam.pitch === Render.TILT, 'das Brett startet in der Schrägsicht');
     });
     // Springer: ein Keilpfeil, Legionär: zwei Pfeile für seine Achse
     ok(pfeile === 3, 'Richtungspfeile liegen auf dem Boden (' + pfeile + ')');
-    ok(schilder === (markierungen.length ? 1 : 0), 'Kosten stehen am Zielfeld');
+    // Gezählt wird gegen die Marken, die wirklich Holz kosten – ein
+    // Ausbildungsfeld trägt kein Kostenschild.
+    var mitKosten = markierungen.filter(function (m) { return m.cost; }).length;
+    ok(schilder === mitKosten, 'Kosten stehen am Zielfeld (' + schilder + ')');
     ok(baeume > 0, 'Bäume stehen im Wald');
     ok(boote === (wasser.length ? 1 : 0), 'das Boot liegt im Wasser');
     if (winkel[0] === Render.FLAT) {

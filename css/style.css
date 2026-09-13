@@ -11,6 +11,7 @@
   --accent-dark: #4e9d51;
   --warn: #f0a04b;
   --danger: #e35d5d;
+  --train: #ef94b8;
   --grass: #8ed07a;
   --grass-dark: #6fb45f;
   --water: #2b6a78;
@@ -191,7 +192,7 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .lg-capture { background: transparent; border: 2px solid var(--danger); }
 .lg-harvest { background: var(--warn); }
 .lg-shoot { background: transparent; border: 2px solid #ff8080; border-radius: 2px; }
-.lg-train { background: #ef94b8; }
+.lg-train { background: var(--train); }
 
 /* ---------- Seitenleiste ---------- */
 .sidebar {
@@ -249,8 +250,30 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .train-btn .tn { font-weight: 600; font-size: 13px; }
 .train-btn .tc { font-size: 11px; color: var(--muted); }
 .train-btn:hover:not(:disabled) { border-color: var(--accent); }
-.train-btn.is-active { border-color: var(--accent); background: #26331f; }
+.train-btn.is-active {
+  border-color: var(--train); background: rgba(239, 148, 184, .16);
+  box-shadow: 0 0 0 1px var(--train);
+}
+.train-btn.is-active .tc { color: var(--train); }
 .train-btn:disabled { opacity: .38; cursor: not-allowed; }
+/* Während eine Einheit gewählt ist, treten die übrigen zurück: Es gibt jetzt
+   nur noch einen offenen Schritt, und der ist das Feld auf dem Brett. */
+.train-grid.is-choosing .train-btn:not(.is-active):not(:disabled) { opacity: .45; }
+
+/* Der Kasten, der durch die Ausbildung führt. Er trägt die Farbe der
+   Ausbildungsfelder auf dem Brett – Menü und Brett gehören zusammen. */
+.train-aktiv {
+  border: 1px solid var(--train); border-radius: 10px; padding: 10px 12px; margin: 8px 0 10px;
+  background: rgba(239, 148, 184, .10);
+}
+.train-aktiv p { margin: 0 0 6px; font-size: 13px; line-height: 1.45; }
+.train-schritt { font-size: 14px !important; }
+.train-anleitung strong { color: var(--train); }
+.train-preis { color: var(--muted); }
+.train-aktiv .wide-btn { margin: 4px 0 0; }
+.train-kasse { float: right; font-size: 12px; font-weight: 500; color: var(--muted); }
+.train-wort { color: var(--train); font-weight: 600; }
+
 /* schon im Spiel: nicht ausgegraut, sondern als vorhanden markiert */
 .train-btn.is-fielded { opacity: .7; border-style: dashed; }
 .train-btn.is-fielded .tc { color: var(--accent); }
@@ -343,6 +366,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 /* Schatten liegen als projizierte Kreise auf dem Boden und verankern
    Bäume und Figuren auf ihrem Feld. */
 .tree-shadow { fill: rgba(0, 0, 0, .20); }
+/* Bäume ragen über ihr Feld hinaus – als Klickfläche würden sie das Nachbarfeld
+   dahinter verdecken. Getroffen wird deshalb immer die Platte darunter. */
+.tree, .tree-shadow { pointer-events: none; }
 .piece-shadow { fill: rgba(0, 0, 0, .28); }
 .tree-trunk { fill: #6b4a2f; }
 .tree-top { fill: url(#treeGrad); }
@@ -403,7 +429,8 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .marker-icon-fill { fill: var(--warn); }
 .mk-jump .marker-dot { fill: #9fd6ff; }
 .marker.has-catch .marker-dot { fill: #ffd7d7; }
-.mk-train .marker-hex { fill: rgba(239, 148, 184, .55); stroke: #ef94b8; stroke-width: 2; }
+.mk-train .marker-hex { fill: rgba(239, 148, 184, .55); stroke: var(--train); stroke-width: 2; }
+.marker-plus { fill: #fff; opacity: .92; }
 .marker:hover .marker-hex { fill: rgba(255, 255, 255, .3); }
 
 /* Flache Symbole in Seitenleiste und Regelwerk */

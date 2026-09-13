@@ -359,13 +359,27 @@ var Render = (function () {
     }));
   }
 
+  /* Wie groß ein Baum auf dem Feld steht. Bäume sind Rohstoff und Deckung
+     zugleich, und am Handy ist ein Feld keine zwei Fingerbreit groß – ein Baum
+     muss von einem leeren Grasfeld auf den ersten Blick zu unterscheiden sein.
+     Deshalb steht er ein gutes Viertel größer da, als die reine Geometrie
+     verlangt. Höher als die Figuren wird er dadurch nicht: Die stehen auf
+     einem Sockel und sind das, was gezogen wird. */
+  var BAUM_GROESSE = 1.26;
+
   function treeGlyph(g, cam, o, cell, cx, cy, k) {
     var seed = jitter(cell);
-    var scale = 0.92 + (seed % 22) / 100;
+    var scale = BAUM_GROESSE * (0.92 + (seed % 22) / 100);
     var tilt = ((seed >> 5) % 9) - 4;
     groundShadow(g, cam, o, cx, cy, 0, 13 * scale, 'tree-shadow');
+    /* Der Baum nimmt keine Klicks an (CSS: .tree). Er ragt über sein Feld
+       hinaus und läge sonst als Klickfläche über dem Nachbarfeld dahinter –
+       wer dort hintippt, träfe den Baum davor. Ohne Klickfläche entscheidet
+       immer das Feld darunter, und das ist genau das, was man treffen wollte.
+       Sein eigenes Feld verliert dabei nichts: Dort liegt seine Platte selbst
+       unter ihm. */
     // Aufsteller: Stamm und Krone stehen auf dem Standpunkt (y = 0)
-    var stand = el('g', { transform: 'scale(' + k.toFixed(3) + ') rotate(' + tilt + ')' });
+    var stand = el('g', { class: 'tree', transform: 'scale(' + k.toFixed(3) + ') rotate(' + tilt + ')' });
     var body = el('g', { transform: 'scale(' + scale.toFixed(2) + ')' });
     body.appendChild(el('rect', { class: 'tree-trunk', x: -3, y: -9, width: 6, height: 9.5, rx: 1.4 }));
     body.appendChild(el('path', { class: 'tree-top', d: 'M0,-35 L12.5,-5 L-12.5,-5 Z' }));
@@ -568,6 +582,17 @@ var Render = (function () {
     return g;
   }
 
+  /* Ein Kreuz als Vieleck – zwölf Punkte, damit es sich wie jede andere
+     Fläche mit dem Brett kippen und drehen lässt. */
+  function plusShape(cx, cy, z, arm, w) {
+    return [
+      [cx - w, cy - arm, z], [cx + w, cy - arm, z], [cx + w, cy - w, z],
+      [cx + arm, cy - w, z], [cx + arm, cy + w, z], [cx + w, cy + w, z],
+      [cx + w, cy + arm, z], [cx - w, cy + arm, z], [cx - w, cy + w, z],
+      [cx - arm, cy + w, z], [cx - arm, cy - w, z], [cx - w, cy - w, z]
+    ];
+  }
+
   function drawMarker(view, state, m) {
     var cam = view.cam, board = state.board;
     var key = H.key(m.q, m.r);
@@ -596,6 +621,14 @@ var Render = (function () {
     } else if (m.kind === 'capture') {
       g.appendChild(el('polygon', {
         class: 'marker-ring', points: pts(cam, disc(p.x, p.y, z, SIZE * 0.62, 16), o)
+      }));
+    } else if (m.kind === 'train') {
+      /* Ein Kreuz statt des Punktes: Auf diesem Feld entsteht etwas Neues.
+         Der Punkt der Zugfelder heißt "hier hin"; das Kreuz heißt "hier her" –
+         der Unterschied entscheidet, ob man mitten in einer Ausbildung merkt,
+         dass man in einer Ausbildung steckt. */
+      g.appendChild(el('polygon', {
+        class: 'marker-plus', points: pts(cam, plusShape(p.x, p.y, z, 10, 3.2), o)
       }));
     } else if (m.kind === 'harvest') {
       g.appendChild(el('polygon', {
