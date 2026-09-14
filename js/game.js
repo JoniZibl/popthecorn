@@ -209,13 +209,14 @@ var Game = (function () {
      * Niemand wird von einer Karte überrascht. Sie ist eine Runde vorher zu
        sehen, und alle können sich darauf einstellen – Wetter ist damit eine
        Frage der Planung und nicht des Glücks.
-     * Es gilt für alle dasselbe: Die Karte greift zum Rundenbeginn, also
-       spielt jeder eine volle Runde unter ihr.
+     * Es gilt für alle dasselbe: Jeder zieht genau zweimal unter der Karte,
+       gleich an welcher Stelle der Reihe er sitzt.
      * In ruhigen Phasen ist ruhiges Wetter. Erst wenn gekämpft wird, dreht es –
-       und je härter gekämpft wird, desto wilder wird es.
+       aber nie zweimal hintereinander, denn während es weht, zählt kein Schlag.
 
-     Solange eine Karte aufzieht, deckt ein weiterer Schlag keine zweite auf:
-     Es steht immer höchstens eine am Horizont.
+     Aufdecken kann nur, wer bei klarem Wetter schlägt: Solange eine Karte
+     aufzieht oder gilt, dreht kein weiterer Schlag daran. Erst wenn es
+     aufgeklart ist, kann der nächste das Wetter wieder drehen.
 
      Ist der Stapel leer, wird die Ablage gemischt und neu aufgelegt. */
 
@@ -241,10 +242,20 @@ var Game = (function () {
   var WETTER_HILFE = { hatTyp: hatTyp, nachschubFeld: nachschubFeld };
 
   /* Ein Schlag deckt die oberste Karte auf – sie zieht auf, gilt aber noch
-     nicht. Höchstens eine steht am Horizont: Fällt in derselben Runde noch
-     eine Figur (ein Kettensprung nimmt mehrere mit), ändert das nichts mehr. */
+     nicht.
+
+     Aufdecken kann nur, wer bei **klarem Wetter** schlägt. Solange eine Karte
+     aufzieht oder gilt, dreht kein weiterer Schlag daran: Ein Kettensprung, der
+     drei Figuren mitnimmt, deckt genauso eine Karte auf wie ein einzelner
+     Schlag, und wer mitten im Sturm weiterkämpft, verlängert ihn nicht. Erst
+     wenn es aufgeklart ist, kann der nächste Schlag wieder das Wetter drehen.
+
+     So bleibt der Takt lesbar: klar – aufziehen – zwei Runden Wetter – klar.
+     Ohne die Sperre liefe im Gefecht eine Karte in die nächste, und zwischen
+     zwei Kämpfen wäre nie Ruhe. */
   function kuendigeAn(state) {
-    if (!state.wetterAn || state.phase !== 'play' || state.kommt) return null;
+    if (!state.wetterAn || state.phase !== 'play') return null;
+    if (state.kommt || state.karte) return null;
     if (!state.stapel.length) {
       state.stapel = W.mischen(state.ablage.length ? state.ablage : W.stapel());
       state.ablage = [];

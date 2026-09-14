@@ -313,11 +313,13 @@ var Wetter = (function () {
      können, dass gerade nichts gilt und was das Wetter drehen würde. */
   var KLAR = {
     id: 'kein', name: 'Klares Wetter', icon: '🌤️', farbe: '#7f8c9b', gruppe: 'Wetter', menge: 0,
-    kurz: 'Keine Karte gilt. Fällt eine Figur, dreht der Wind.',
+    kurz: 'Keine Karte gilt. Fällt jetzt eine Figur, dreht der Wind.',
     text: 'Zwischen zwei Karten ist das Wetter klar, und es wird nach den Grundregeln gespielt. ' +
-          'Das ändert sich, sobald eine Figur fällt: Wer schlägt, deckt die oberste Karte des ' +
-          'Stapels auf. Sie zieht auf, lässt eine volle Runde ohne Wirkung verstreichen und ' +
-          'gilt dann zwei volle Runden lang. Danach klart es wieder auf.'
+          'Nur jetzt lässt sich das Wetter drehen: Wer als Nächster eine Figur schlägt, deckt ' +
+          'die oberste Karte des Stapels auf. Sie zieht auf, lässt eine volle Runde ohne ' +
+          'Wirkung verstreichen und gilt dann zwei volle Runden lang. Solange sie aufzieht oder ' +
+          'gilt, ändert kein weiterer Schlag etwas – danach klart es wieder auf, und der ' +
+          'nächste Schlag zählt wieder.'
   };
 
   var NACH_ID = {};

@@ -1107,8 +1107,10 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
           erneut eine Figur fällt. Ist der Stapel leer, wird die Ablage neu gemischt.</li>
       </ol>
       <ul>
-        <li>Solange eine Karte aufzieht, deckt ein weiterer Schlag <strong>keine zweite</strong>
-          auf: Es steht immer höchstens eine am Horizont.</li>
+        <li>Das Wetter drehen kann nur, wer bei <strong>klarem Wetter</strong> schlägt. Solange
+          eine Karte aufzieht oder gilt, ändert kein weiterer Schlag etwas – wer mitten im Sturm
+          weiterkämpft, verlängert ihn nicht. Erst wenn es aufgeklart ist, deckt der nächste
+          Schlag wieder eine Karte auf.</li>
         <li>In ruhigen Phasen bleibt das Wetter ruhig. Je härter gekämpft wird, desto wilder
           wird es – das Wetter folgt dem Spiel und nicht dem Kalender.</li>
         <li>Die Karte gilt für <strong>alle</strong> – nur der Aufbruch gilt für den, der als
@@ -1851,11 +1853,13 @@ var Wetter = (function () {
      können, dass gerade nichts gilt und was das Wetter drehen würde. */
   var KLAR = {
     id: 'kein', name: 'Klares Wetter', icon: '🌤️', farbe: '#7f8c9b', gruppe: 'Wetter', menge: 0,
-    kurz: 'Keine Karte gilt. Fällt eine Figur, dreht der Wind.',
+    kurz: 'Keine Karte gilt. Fällt jetzt eine Figur, dreht der Wind.',
     text: 'Zwischen zwei Karten ist das Wetter klar, und es wird nach den Grundregeln gespielt. ' +
-          'Das ändert sich, sobald eine Figur fällt: Wer schlägt, deckt die oberste Karte des ' +
-          'Stapels auf. Sie zieht auf, lässt eine volle Runde ohne Wirkung verstreichen und ' +
-          'gilt dann zwei volle Runden lang. Danach klart es wieder auf.'
+          'Nur jetzt lässt sich das Wetter drehen: Wer als Nächster eine Figur schlägt, deckt ' +
+          'die oberste Karte des Stapels auf. Sie zieht auf, lässt eine volle Runde ohne ' +
+          'Wirkung verstreichen und gilt dann zwei volle Runden lang. Solange sie aufzieht oder ' +
+          'gilt, ändert kein weiterer Schlag etwas – danach klart es wieder auf, und der ' +
+          'nächste Schlag zählt wieder.'
   };
 
   var NACH_ID = {};
@@ -2654,13 +2658,14 @@ var Game = (function () {
      * Niemand wird von einer Karte überrascht. Sie ist eine Runde vorher zu
        sehen, und alle können sich darauf einstellen – Wetter ist damit eine
        Frage der Planung und nicht des Glücks.
-     * Es gilt für alle dasselbe: Die Karte greift zum Rundenbeginn, also
-       spielt jeder eine volle Runde unter ihr.
+     * Es gilt für alle dasselbe: Jeder zieht genau zweimal unter der Karte,
+       gleich an welcher Stelle der Reihe er sitzt.
      * In ruhigen Phasen ist ruhiges Wetter. Erst wenn gekämpft wird, dreht es –
-       und je härter gekämpft wird, desto wilder wird es.
+       aber nie zweimal hintereinander, denn während es weht, zählt kein Schlag.
 
-     Solange eine Karte aufzieht, deckt ein weiterer Schlag keine zweite auf:
-     Es steht immer höchstens eine am Horizont.
+     Aufdecken kann nur, wer bei klarem Wetter schlägt: Solange eine Karte
+     aufzieht oder gilt, dreht kein weiterer Schlag daran. Erst wenn es
+     aufgeklart ist, kann der nächste das Wetter wieder drehen.
 
      Ist der Stapel leer, wird die Ablage gemischt und neu aufgelegt. */
 
@@ -2686,10 +2691,20 @@ var Game = (function () {
   var WETTER_HILFE = { hatTyp: hatTyp, nachschubFeld: nachschubFeld };
 
   /* Ein Schlag deckt die oberste Karte auf – sie zieht auf, gilt aber noch
-     nicht. Höchstens eine steht am Horizont: Fällt in derselben Runde noch
-     eine Figur (ein Kettensprung nimmt mehrere mit), ändert das nichts mehr. */
+     nicht.
+
+     Aufdecken kann nur, wer bei **klarem Wetter** schlägt. Solange eine Karte
+     aufzieht oder gilt, dreht kein weiterer Schlag daran: Ein Kettensprung, der
+     drei Figuren mitnimmt, deckt genauso eine Karte auf wie ein einzelner
+     Schlag, und wer mitten im Sturm weiterkämpft, verlängert ihn nicht. Erst
+     wenn es aufgeklart ist, kann der nächste Schlag wieder das Wetter drehen.
+
+     So bleibt der Takt lesbar: klar – aufziehen – zwei Runden Wetter – klar.
+     Ohne die Sperre liefe im Gefecht eine Karte in die nächste, und zwischen
+     zwei Kämpfen wäre nie Ruhe. */
   function kuendigeAn(state) {
-    if (!state.wetterAn || state.phase !== 'play' || state.kommt) return null;
+    if (!state.wetterAn || state.phase !== 'play') return null;
+    if (state.kommt || state.karte) return null;
     if (!state.stapel.length) {
       state.stapel = W.mischen(state.ablage.length ? state.ablage : W.stapel());
       state.ablage = [];
@@ -6171,8 +6186,9 @@ var Render = (function () {
       }
 
       $('#mode-info').textContent = ($('#play-mode').value === 'wetter')
-        ? 'Fällt eine Figur, wird eine von ' + Wet.KARTEN.length + ' Wetterkarten aufgedeckt. ' +
-          'Eine Runde lang passiert nichts, danach gilt sie zwei Runden – für alle.'
+        ? 'Fällt bei klarem Wetter eine Figur, wird eine von ' + Wet.KARTEN.length +
+          ' Wetterkarten aufgedeckt. Eine Runde lang passiert nichts, danach gilt sie zwei ' +
+          'Runden – für alle.'
         : 'Die Grundregeln, ohne Zusätze.';
 
       var info = cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' +

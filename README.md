@@ -137,12 +137,16 @@ zählt nicht mit. Das ist kein Detail: Sonst hinge die Vorwarnung daran, an welc
 Reihe jemand schlägt – wer als Letzter zieht, überrollte seinen Nachbarn fast ohne Vorlauf.
 So bekommt jeder dieselbe volle Runde Vorwarnung und danach genau zwei Züge unter der Karte.
 
-Solange eine Karte aufzieht, deckt ein weiterer Schlag keine zweite auf: Es steht immer
-höchstens eine am Horizont. Damit ist Wetter kein Zufall im Sekundentakt, sondern eine
-Folge des Spiels – in ruhigen Phasen bleibt es ruhig, und je härter gekämpft wird, desto
-wilder wird es. In Zufallspartien gilt dadurch in etwa **jedem dritten Zug** eine Karte; den Rest der Zeit
-ist das Wetter klar. Die Karte am Brett zählt mit, wie lange sie noch liegt – in Runden,
-solange es glatt aufgeht, sonst in Zügen.
+Das Wetter drehen kann nur, wer bei **klarem Wetter** schlägt. Solange eine Karte aufzieht
+oder gilt, ändert kein weiterer Schlag etwas: Ein Kettensprung, der drei Figuren mitnimmt,
+deckt genauso eine Karte auf wie ein einzelner Schlag, und wer mitten im Sturm weiterkämpft,
+verlängert ihn nicht. Erst wenn es aufgeklart ist, deckt der nächste Schlag wieder eine Karte
+auf. Der Takt bleibt damit lesbar – klar, aufziehen, zwei Runden Wetter, klar – und Wetter
+ist kein Zufall im Sekundentakt, sondern eine Folge des Spiels.
+
+In Zufallspartien gilt dadurch in etwa in **jedem vierten bis fünften Zug** eine Karte; den
+Rest der Zeit ist das Wetter klar. Die Karte am Brett zählt mit, wie lange sie noch liegt –
+in Runden, solange es glatt aufgeht, sonst in Zügen.
 
 Die Spielweise ist so gebaut, dass sie auch auf einem Tisch aus Pappe funktioniert:
 

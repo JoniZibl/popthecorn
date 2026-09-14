@@ -381,7 +381,7 @@ ok(st16b.karte === null, 'nach einem Zug noch nicht');
 gibAb(st16b);
 ok(st16b.karte === 'frost', 'nach der vollen Runde schon');
 
-titel('Ein Schlag genügt, bis sie eingetreten ist');
+titel('Nur bei klarem Wetter dreht ein Schlag etwas');
 var st17 = schlagStellung(['frost', 'nebel']);
 zieheMit(st17, 3, 2, 'capture');
 var ersteKarte = st17.kommt;
@@ -393,6 +393,39 @@ st17.board.cells[H.key(4, 2)].piece = { type: 'tangolin', owner: 0, facing: 0 };
 zieheMit(st17, 4, 2, 'capture');
 ok((st17.kommt || st17.karte) === ersteKarte, 'es bleibt bei der ersten Karte');
 ok(st17.stapel.length === 1, 'ein zweiter Schlag nimmt keine zweite Karte vom Stapel');
+
+/* Und dasselbe, während die Karte gilt: Wer mitten im Sturm weiterkämpft,
+   verlängert ihn nicht und deckt auch nichts Neues auf. */
+var st17b = schlagStellung(['frost', 'nebel']);
+zieheMit(st17b, 3, 2, 'capture');
+gibAb(st17b); gibAb(st17b);                // eine Runde Vorlauf
+ok(!!st17b.karte, 'die Karte gilt: ' + st17b.karte);
+var gilt = st17b.karte, restVorher = st17b.karteZaehler, stapelVorher = st17b.stapel.length;
+// Noch ein Schlag, mitten im Wetter
+st17b.current = 0;
+st17b.board.cells[H.key(4, 2)].piece = { type: 'tangolin', owner: 0, facing: 0 };
+st17b.board.cells[H.key(5, 2)].piece = { type: 'archer', owner: 1, facing: 0 };
+zieheMit(st17b, 4, 2, 'capture');
+ok(st17b.karte === gilt, 'es gilt weiter dieselbe Karte');
+ok(st17b.kommt === null, 'es zieht nichts Neues auf');
+ok(st17b.stapel.length === stapelVorher, 'der Stapel bleibt unangetastet');
+ok(st17b.karteZaehler === restVorher - 1, 'und die Karte läuft normal weiter ab');
+
+/* Erst wenn es aufgeklart ist, dreht der nächste Schlag wieder etwas. */
+var schutz17 = 0;
+while (st17b.karte && schutz17++ < 20) gibAb(st17b);
+ok(st17b.karte === null && st17b.kommt === null, 'das Wetter ist wieder klar');
+st17b.current = 0;
+var tang = null;
+st17b.board.keys.forEach(function (k) {
+  var c = st17b.board.cells[k];
+  if (c.piece && c.piece.type === 'tangolin' && c.piece.owner === 0) tang = c;
+});
+var opfer = H.neighbors(tang).map(function (nb) { return Board.at(st17b.board, nb); })
+  .filter(function (c) { return c && !c.piece && !c.tree && c.terrain === 'grass'; })[0];
+opfer.piece = { type: 'samurai', owner: 1, facing: 0 };
+zieheMit(st17b, tang.q, tang.r, 'capture');
+ok(!!st17b.kommt, 'jetzt zieht wieder eine Karte auf: ' + st17b.kommt);
 
 titel('Der Aufbruch gehört dem, der als Erster darunter zieht');
 var st18 = schlagStellung(['aufbruch']);

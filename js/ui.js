@@ -178,8 +178,9 @@
       }
 
       $('#mode-info').textContent = ($('#play-mode').value === 'wetter')
-        ? 'Fällt eine Figur, wird eine von ' + Wet.KARTEN.length + ' Wetterkarten aufgedeckt. ' +
-          'Eine Runde lang passiert nichts, danach gilt sie zwei Runden – für alle.'
+        ? 'Fällt bei klarem Wetter eine Figur, wird eine von ' + Wet.KARTEN.length +
+          ' Wetterkarten aufgedeckt. Eine Runde lang passiert nichts, danach gilt sie zwei ' +
+          'Runden – für alle.'
         : 'Die Grundregeln, ohne Zusätze.';
 
       var info = cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' +
