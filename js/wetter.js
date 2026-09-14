@@ -1,10 +1,11 @@
 /* Hexodus – Wetterkarten (eigene Spielweise)
 
    Das Standardspiel bleibt, wie es ist. Wer mit Wetter spielt, deckt eine Karte
-   auf, sobald eine Figur fällt. Sie zieht erst einmal auf: Gültig wird sie zu
-   Beginn der nächsten vollen Runde, wenn alle Spieler einmal dran waren, und
-   gilt dann eine Runde lang für **alle** gleichermaßen. Wann gewechselt wird,
-   steht damit im Spiel und nicht im Kalender – und niemand wird überrascht.
+   auf, sobald eine Figur fällt. Sie zieht erst einmal auf: Gültig wird sie, wenn
+   alle Spieler einmal dran waren, und gilt dann **zwei volle Runden** lang für
+   **alle** gleichermaßen – jeder zieht also zweimal unter ihr. Wann gewechselt
+   wird, steht damit im Spiel und nicht im Kalender, niemand wird überrascht, und
+   zwei Runden reichen, um aus einer Karte auch etwas zu machen.
 
    Jede Karte verändert eine ganze Regel-Schicht – Gelände, Sicht, Wirtschaft,
    Nachschub, Bewegung –, nie nur eine einzelne Figur. Eine Karte, die genau
@@ -155,8 +156,8 @@ var Wetter = (function () {
     {
       id: 'frost', name: 'Frost', icon: '❄️', farbe: '#7dd3fc', gruppe: 'Gelände', menge: 1,
       kurz: 'Das Wasser trägt: Boote kosten nichts.',
-      text: 'Über Nacht ist das Wasser hart geworden. Wer diese Runde aufs Wasser zieht, ' +
-            'bekommt sein Boot umsonst – für jedes Feld, so oft er will. Inseln, Buchten und ' +
+      text: 'Über Nacht ist das Wasser hart geworden. Wer aufs Wasser zieht, solange die Karte ' +
+            'liegt, bekommt sein Boot umsonst – für jedes Feld, so oft er will. Inseln, Buchten und ' +
             'ganze Küstenlinien stehen plötzlich offen; wer sich hinter dem Wasser sicher ' +
             'wähnte, ist es nicht mehr.',
       effekt: { bootPreis: 0 }
@@ -185,7 +186,7 @@ var Wetter = (function () {
       id: 'nebel', name: 'Nebel', icon: '🌫️', farbe: '#cbd5e1', gruppe: 'Sicht', menge: 2,
       kurz: 'Bogenschützen treffen nur ein Feld weit.',
       text: 'Milchige Schwaden liegen über der Insel. Der Bogenschütze sieht kaum weiter als ' +
-            'bis zum Nachbarfeld und trifft diese Runde nur auf Distanz 1. Wer sich sonst ' +
+            'bis zum Nachbarfeld und trifft nur noch auf Distanz 1. Wer sich sonst ' +
             'vorsichtig außerhalb seiner Reichweite hält, darf heranrücken.',
       effekt: { schuss: 1 }
     },
@@ -201,7 +202,7 @@ var Wetter = (function () {
       id: 'windstille', name: 'Windstille', icon: '🪶', farbe: '#fcd34d', gruppe: 'Sicht', menge: 1,
       kurz: 'Springer und Legionär ziehen in jede Richtung.',
       text: 'Keine Fahne rührt sich, kein Wimpel zeigt irgendwohin. Springer und Legionär sind ' +
-            'diese Runde nicht an ihre Blickrichtung gebunden und ziehen in jede der sechs ' +
+            'nicht an ihre Blickrichtung gebunden und ziehen in jede der sechs ' +
             'Richtungen. Ihre Pfeile bleiben, wo sie stehen – gedreht wird nichts, es ist nur ' +
             'einmal gleich, wohin sie zeigen.',
       effekt: { freieRichtung: true }
@@ -212,24 +213,25 @@ var Wetter = (function () {
       id: 'trockenheit', name: 'Trockenheit', icon: '🌾', farbe: '#fbbf24', gruppe: 'Wirtschaft', menge: 2,
       kurz: 'Bäume fällen kostet keinen Zug.',
       text: 'Das Holz ist staubtrocken und fällt fast von selbst. Der Arbeiter fällt einen Baum ' +
-            'und ist danach noch am Zug – so oft, wie Bäume neben ihm stehen. Es entsteht kein ' +
-            'Holz aus dem Nichts: Jeder Baum gibt genau ein Holz wie immer, es geht nur schneller.',
+            'und ist danach noch am Zug – so oft, wie Bäume neben ihm stehen, und das zwei ' +
+            'Runden lang. Es entsteht kein Holz aus dem Nichts: Jeder Baum gibt genau ein Holz ' +
+            'wie immer, es geht nur schneller.',
       effekt: { faellenFrei: true }
     },
     {
       id: 'markt', name: 'Fahrender Markt', icon: '🛒', farbe: '#f59e0b', gruppe: 'Wirtschaft', menge: 1,
       kurz: 'Jede Ausbildung kostet 1 Holz weniger (mindestens 1).',
       text: 'Händler sind auf der Insel gelandet und verkaufen unter Preis. Jede Einheit kostet ' +
-            'diese Runde ein Holz weniger, mindestens aber eines. Der Zenturio für zwei Holz ' +
+            'ein Holz weniger, mindestens aber eines. Der Zenturio für zwei Holz ' +
             'statt drei ist die Gelegenheit, auf die man ein paar Runden gewartet hat.',
       effekt: { kosten: -1 }
     },
     {
       id: 'hunger', name: 'Hungerwinter', icon: '🌨️', farbe: '#94a3b8', gruppe: 'Wirtschaft', menge: 1,
-      kurz: 'Diese Runde bildet niemand aus.',
-      text: 'Die Vorräte sind knapp, in den Lagern wird nicht ausgebildet. Diese Runde entsteht ' +
-            'keine einzige neue Einheit – bei niemandem. Gefällt, gezogen und geschlagen wird ' +
-            'weiter; wer Holz sammelt, sammelt es für die nächste Runde.',
+      kurz: 'Solange sie gilt, bildet niemand aus.',
+      text: 'Die Vorräte sind knapp, in den Lagern wird nicht ausgebildet. Solange die Karte ' +
+            'liegt, entsteht keine einzige neue Einheit – bei niemandem. Gefällt, gezogen und ' +
+            'geschlagen wird weiter; wer Holz sammelt, sammelt es für danach.',
       effekt: { keineAusbildung: true }
     },
 
@@ -237,17 +239,17 @@ var Wetter = (function () {
     {
       id: 'feldlager', name: 'Feldlager', icon: '⛺', farbe: '#fb923c', gruppe: 'Nachschub', menge: 1,
       kurz: 'Die Kette überspringt ein Feld ohne Figur.',
-      text: 'Läufer tragen den Nachschub über die Lücke. Die Versorgungskette darf diese Runde ' +
+      text: 'Läufer tragen den Nachschub über die Lücke. Die Versorgungskette darf ' +
             'ein Feld überspringen: Zwei eigene Figuren mit genau einem Feld ohne Figur ' +
             'dazwischen gelten als verbunden – ob dort Gras, ein Baum oder Wasser liegt, ist ' +
             'gleich. Steht eine fremde Figur in der Lücke, reißt die Kette doch. Wer seine ' +
-            'Reihe verloren hat, kann vorn wieder ausbilden – nur diese eine Runde lang.',
+            'Reihe verloren hat, kann vorn wieder ausbilden – solange die Karte liegt.',
       effekt: { luecke: true }
     },
     {
       id: 'belagerung', name: 'Belagerung', icon: '🛡️', farbe: '#ef4444', gruppe: 'Nachschub', menge: 1,
       kurz: 'Nachschub nur im Umkreis von 3 Feldern um Turm und Feldzeichen.',
-      text: 'Die Wege sind abgeschnitten. Ausgebildet wird diese Runde nur an Feldern, die ' +
+      text: 'Die Wege sind abgeschnitten. Ausgebildet wird nur noch an Feldern, die ' +
             'höchstens drei Felder von einem eigenen Königs-Turm oder Feldzeichen entfernt ' +
             'liegen – wie lang die Kette auch sein mag. Lange Ketten quer über die Insel nützen ' +
             'nichts; wer vorn nachschieben will, braucht den Zenturio dort.',
@@ -267,7 +269,7 @@ var Wetter = (function () {
     {
       id: 'schlamm', name: 'Schlamm', icon: '🌧️', farbe: '#a16207', gruppe: 'Bewegung', menge: 2,
       kurz: 'Kein Zug führt weiter als 2 Felder.',
-      text: 'Regen hat den Boden aufgeweicht. Kein Zug führt diese Runde weiter als zwei Felder ' +
+      text: 'Regen hat den Boden aufgeweicht. Kein Zug führt weiter als zwei Felder ' +
             'vom Startfeld weg: Legionär und Zenturio bleiben nach zwei Feldern stecken, der ' +
             'Springer springt nur die kurze Weite, und der Tangolin kommt über einen einzigen ' +
             'Sprung nicht hinaus. Schritte über ein Feld merken den Schlamm nicht.',
@@ -277,7 +279,7 @@ var Wetter = (function () {
       id: 'marsch', name: 'Marschbefehl', icon: '🥁', farbe: '#60a5fa', gruppe: 'Bewegung', menge: 2,
       kurz: 'Schrittfiguren ziehen 2 Felder, der Springer bis zu 4.',
       text: 'Die Trommel gibt den Takt vor. Arbeiter, Bogenschütze, Tangolin und Königs-Turm ' +
-            'ziehen diese Runde zwei Felder geradeaus statt eines – das Feld dazwischen muss ' +
+            'ziehen zwei Felder geradeaus statt eines – das Feld dazwischen muss ' +
             'frei sein, marschiert wird, nicht gesprungen. Der Springer springt 2, 3 oder 4 ' +
             'Felder weit. Gefällt wird weiter nur vom Nachbarfeld aus; Legionär, Zenturio und ' +
             'Samurai sind ohnehin weit unterwegs.',
@@ -298,8 +300,8 @@ var Wetter = (function () {
     {
       id: 'ruhe', name: 'Ruhe vor dem Sturm', icon: '🌙', farbe: '#64748b', gruppe: 'Ruhe', menge: 2,
       kurz: 'Der Sturm bleibt aus. Es wird gespielt wie immer.',
-      text: 'Es hat sich zusammengebraut – und dann doch nichts. Keine Regel ändert sich, diese ' +
-            'Runde wird gespielt wie im Standardspiel. Zwei dieser Karten liegen im Stapel: ' +
+      text: 'Es hat sich zusammengebraut – und dann doch nichts. Keine Regel ändert sich, es ' +
+            'wird gespielt wie im Standardspiel. Zwei dieser Karten liegen im Stapel: ' +
             'Nicht jeder Schlag soll das Brett umkippen, und eine Karte, die man kommen sieht ' +
             'und die dann ausbleibt, ist ihre eigene kleine Spannung.'
     }
@@ -313,8 +315,8 @@ var Wetter = (function () {
     kurz: 'Keine Karte gilt. Fällt eine Figur, dreht der Wind.',
     text: 'Zwischen zwei Karten ist das Wetter klar, und es wird nach den Grundregeln gespielt. ' +
           'Das ändert sich, sobald eine Figur fällt: Wer schlägt, deckt die oberste Karte des ' +
-          'Stapels auf. Sie zieht auf und gilt ab der nächsten vollen Runde – eine Runde lang, ' +
-          'dann klart es wieder auf.'
+          'Stapels auf. Sie zieht auf, gilt ab dem Zug, in dem die Reihe einmal herum ist, ' +
+          'und dann zwei volle Runden lang. Danach klart es wieder auf.'
   };
 
   var NACH_ID = {};

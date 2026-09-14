@@ -188,15 +188,22 @@ var Game = (function () {
      geschieht: **Fällt eine Figur, dreht der Wind.** Wer schlägt – im Zug oder
      mit dem Bogenschützen –, deckt die oberste Karte des Stapels auf. Sie liegt
      offen am Rand und **zieht auf**: Gültig wird sie erst, wenn die Reihe einmal
-     herum ist und **alle Spieler einmal dran waren**. Dann gilt sie genau eine
-     Runde lang – also je einen Zug für jeden –, danach klart es wieder auf.
+     herum ist und **alle Spieler einmal dran waren**. Dann gilt sie **zwei volle
+     Runden** – jeder Spieler zieht also zweimal unter ihr –, danach klart es
+     wieder auf.
+
+     Zwei Runden, weil eine zu kurz ist, um etwas daraus zu machen: Wer unter
+     Frost übers Eis will oder unter Belagerung seinen Nachschub umbaut, braucht
+     einen Zug zum Stellen und einen zum Ausführen. Eine Karte, die nach einem
+     einzigen Zug je Spieler wieder weg ist, belohnt nur den, der gerade zufällig
+     richtig stand.
 
      Gezählt wird in Zügen, nicht in Rundennummern: Wer die Karte aufdeckt, sieht
-     sie eintreten, wenn er wieder an der Reihe ist, und wieder verschwinden, wenn
-     er das nächste Mal drankommt. Am Tisch liegt sie so lange vor ihm. Ginge es
-     nach der Rundennummer, träfe es den, der als Letzter in der Reihe schlägt,
-     sofort – und sein Nachbar bekäme die Karte ohne eine einzige Runde Vorwarnung
-     ins Gesicht.
+     sie eintreten, wenn er wieder an der Reihe ist, und zwei Züge später wieder
+     verschwinden. Am Tisch liegt sie so lange vor ihm. Ginge es nach der
+     Rundennummer, träfe es den, der als Letzter in der Reihe schlägt, sofort –
+     und sein Nachbar bekäme die Karte ohne eine einzige Runde Vorwarnung ins
+     Gesicht.
 
      Drei Dinge kommen dabei zusammen:
 
@@ -252,7 +259,7 @@ var Game = (function () {
        es nicht ins Gewicht. */
     state.kommtZaehler = alivePlayers(state).length;
     log(state, 'Der Wind dreht: ' + W.karte(id).name + ' zieht auf – gilt, sobald alle ' +
-        'einmal am Zug waren.');
+        'einmal am Zug waren, und dann zwei Runden lang.');
     return W.karte(id);
   }
 
@@ -277,9 +284,12 @@ var Game = (function () {
     log(state, 'Das Wetter klart auf.');
   }
 
+  /* Wie viele volle Runden eine Karte gilt, wenn sie eingetreten ist. */
+  var WETTER_RUNDEN = 2;
+
   /* Die aufgezogene Karte tritt ein: Die Reihe war einmal herum, jeder hat sie
-     kommen sehen. Von hier an gilt sie so viele Züge, wie Spieler im Spiel
-     sind – also genau eine Runde, je einen Zug für jeden. */
+     kommen sehen. Von hier an gilt sie zwei volle Runden – so viele Züge, wie
+     zwei Durchgänge der Reihe lang sind. */
   function trittEin(state) {
     if (state.karte) klareAuf(state);        // Platz für die neue Lage
     if (!state.kommt) return null;
@@ -289,7 +299,7 @@ var Game = (function () {
     state.kommtZaehler = 0;
     state.karte = id;
     state.karteNr++;
-    state.karteZaehler = alivePlayers(state).length;   // je ein Zug für jeden
+    state.karteZaehler = WETTER_RUNDEN * alivePlayers(state).length;   // je zwei Züge für jeden
     state.board.wetter = W.wirkungVon(id);
     state.karteText = k.kurz;
     state.karteFelder = null;
@@ -903,6 +913,7 @@ var Game = (function () {
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
     kuendigeAn: kuendigeAn, wetterTakt: wetterTakt, trittEin: trittEin, behaeltZug: behaeltZug,
+    WETTER_RUNDEN: WETTER_RUNDEN,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
     checkVictory: checkVictory, adjudicate: adjudicate,
     plunder: plunder,

@@ -862,12 +862,18 @@
     }
   }
 
-  /* Wie lange noch? Gezählt wird in Zügen, weil genau das die Regel ist: Eine
-     Karte tritt ein, wenn die Reihe einmal herum ist, und hat dann je einen Zug
-     für jeden Spieler. */
-  function zugRest(n) {
-    if (n <= 0) return '';
-    return n === 1 ? 'noch 1 Zug' : 'noch ' + n + ' Züge';
+  /* Wie lange noch? Gerechnet wird in Zügen, weil genau das die Regel ist: Eine
+     Karte gilt zwei volle Runden, also je zwei Züge für jeden Spieler. Geht das
+     glatt auf, steht es als Runden da – danach fragt man beim Planen –, sonst
+     als Züge, damit die Zahl stimmt und nicht nur ungefähr. */
+  function zugRest(rest) {
+    if (rest <= 0) return '';
+    var spieler = state.players.filter(function (p) { return !p.eliminated; }).length || 1;
+    if (rest % spieler === 0) {
+      var runden = rest / spieler;
+      return runden === 1 ? 'noch 1 Runde' : 'noch ' + runden + ' Runden';
+    }
+    return rest === 1 ? 'noch 1 Zug' : 'noch ' + rest + ' Züge';
   }
 
   function karteHtml(k, kom) {

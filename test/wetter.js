@@ -306,6 +306,7 @@ ok(st15.current === 1, 'nach dem zweiten gibt er ab');
 /* ---------------- Ablauf einer Partie ---------------- */
 
 titel('Wann das Wetter dreht');
+ok(G.WETTER_RUNDEN === 2, 'eine Karte gilt zwei volle Runden');
 /* Zwei Spieler, zwei Arbeiter nebeneinander: Spieler 1 kann schlagen. */
 function schlagStellung(karten) {
   var b = brett(10, 5);
@@ -350,12 +351,15 @@ ok(st16.board.wetter.schuss === 1, 'und wirkt am Brett');
 ok(st16.kommt === null, 'am Horizont steht nichts mehr');
 ok(st16.current === 0, 'und zwar ab dem Zug dessen, der sie aufgedeckt hat');
 
-/* Eine Runde lang – je ein Zug für jeden – dann klart es auf */
-ok(st16.karteZaehler === 2, 'sie hat zwei Züge, einen je Spieler');
+/* Zwei volle Runden – je zwei Züge für jeden – dann klart es auf */
+ok(st16.karteZaehler === 4, 'sie hat vier Züge: zwei Runden mal zwei Spieler');
+gibAb(st16); gibAb(st16);
+ok(st16.karte === 'nebel', 'nach der ersten Runde gilt sie noch');
+ok(st16.karteZaehler === 2, 'noch eine Runde');
 gibAb(st16);
-ok(st16.karte === 'nebel', 'nach dem ersten Zug gilt sie noch');
+ok(st16.karte === 'nebel', 'und auch mitten in der zweiten');
 gibAb(st16);
-ok(st16.karte === null, 'nachdem beide einmal darunter gezogen haben, klart es auf');
+ok(st16.karte === null, 'nachdem beide zweimal darunter gezogen haben, klart es auf');
 ok(st16.board.wetter.schuss === 2, 'am Brett gilt wieder die Grundregel');
 ok(st16.ablage.indexOf('nebel') >= 0, 'die Karte liegt auf der Ablage');
 
@@ -481,6 +485,7 @@ ok(Object.keys(summe.karten).length >= 3, 'dabei galten ' +
 ok(summe.ohne > 0, 'zwischen den Karten war das Wetter klar (' + summe.ohne +
    ' von ' + (summe.ohne + summe.mit) + ' Zügen)');
 ok(summe.mit < summe.ohne + summe.mit, 'es gilt nicht in jedem Zug eine Karte');
+ok(summe.mit > 0, 'aber auch nicht nie (' + summe.mit + ' Züge unter einer Karte)');
 ok(summe.voll === summe.partien, 'keine Partie verliert eine Karte aus dem Umlauf');
 
 titel('Das Standardspiel bleibt unberührt');

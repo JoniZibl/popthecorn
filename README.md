@@ -124,21 +124,26 @@ Das Wetter folgt nicht dem Takt der Züge, sondern dem, was auf dem Brett geschi
    und können sich darauf einstellen.
 3. Sobald die Reihe einmal herum ist und **alle Spieler einmal dran waren**, tritt sie ein.
    Für den, der sie aufgedeckt hat, heißt das: Sie gilt, wenn er wieder an der Reihe ist.
-4. Sie gilt **genau eine Runde** – je einen Zug für jeden Spieler –, danach kommt sie auf die
+4. Sie gilt **zwei volle Runden** – je zwei Züge für jeden Spieler –, danach kommt sie auf die
    Ablage und es **klart wieder auf**, bis erneut eine Figur fällt. Ist der Stapel leer, wird
    die Ablage gemischt und neu aufgelegt.
+
+Zwei Runden, weil eine zu kurz ist, um etwas daraus zu machen: Wer unter Frost übers Eis will
+oder unter Belagerung seinen Nachschub umbaut, braucht einen Zug zum Stellen und einen zum
+Ausführen. Eine Karte, die nach einem einzigen Zug je Spieler wieder weg ist, belohnt nur den,
+der zufällig richtig stand.
 
 Gezählt wird dabei in **Zügen**, nicht in Rundennummern. Das ist kein Detail: Ginge es nach
 der Rundennummer, träfe eine Karte, die der Letzte in der Reihe aufdeckt, seinen Nachbarn
 sofort – ohne eine einzige Runde Vorwarnung. So bekommt jeder dieselbe Vorwarnung und jeder
-genau einen Zug unter der Karte.
+genau zwei Züge unter der Karte.
 
 Solange eine Karte aufzieht, deckt ein weiterer Schlag keine zweite auf: Es steht immer
 höchstens eine am Horizont. Damit ist Wetter kein Zufall im Sekundentakt, sondern eine
 Folge des Spiels – in ruhigen Phasen bleibt es ruhig, und je härter gekämpft wird, desto
-wilder wird es. In Zufallspartien gilt dadurch in etwa **jedem fünften Zug** eine Karte;
-den Rest der Zeit ist das Wetter klar. Die Karte am Brett zählt mit, wie viele Züge ihr
-noch bleiben.
+wilder wird es. In Zufallspartien gilt dadurch in etwa **jedem dritten Zug** eine Karte; den Rest der Zeit
+ist das Wetter klar. Die Karte am Brett zählt mit, wie lange sie noch liegt – in Runden,
+solange es glatt aufgeht, sonst in Zügen.
 
 Die Spielweise ist so gebaut, dass sie auch auf einem Tisch aus Pappe funktioniert:
 
