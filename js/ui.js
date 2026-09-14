@@ -13,7 +13,7 @@
   var ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null, lift: null,
              thinking: false, shownEvent: 0, woodShown: null,
              sheetOpen: false, sheetAuto: false, sheetMove: null,
-             karteGezeigt: 0, karteOffen: false, fxKarte: null };
+             karteGezeigt: 0, kommtGezeigt: 0, karteOffen: false, fxKarte: null };
 
   function $(sel) { return document.querySelector(sel); }
   function esc(s) {
@@ -178,8 +178,8 @@
       }
 
       $('#mode-info').textContent = ($('#play-mode').value === 'wetter')
-        ? 'Zu Beginn jeder Runde wird eine von ' + Wet.KARTEN.length +
-          ' Wetterkarten aufgedeckt. Sie gilt eine Runde lang für alle.'
+        ? 'Fällt eine Figur, wird eine von ' + Wet.KARTEN.length + ' Wetterkarten aufgedeckt. ' +
+          'Sie zieht auf und gilt ab der nächsten Runde – eine Runde lang, für alle.'
         : 'Die Grundregeln, ohne Zusätze.';
 
       var info = cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' +
@@ -217,7 +217,7 @@
     ui = { mode: 'idle', trainType: null, markers: [], placeable: null, facing: null, preview: null, lift: null,
            thinking: false, shownEvent: 0, woodShown: null,
            sheetOpen: false, sheetAuto: false, sheetMove: null,
-           karteGezeigt: 0, karteOffen: false, fxKarte: null };
+           karteGezeigt: 0, kommtGezeigt: 0, karteOffen: false, fxKarte: null };
     document.body.classList.toggle('mit-wetter', !!(optionen && optionen.wetter));
     $('#screen-menu').classList.add('hidden');
     $('#screen-game').classList.remove('hidden');
@@ -823,9 +823,18 @@
     ruhe:        { art: null,       n: 0 }
   };
 
+  /* Was gerade gilt. Bei Wetter ist das immer etwas – zwischen zwei Karten das
+     klare Wetter, damit die Ecke nicht leer bleibt und jeder sieht, woran er
+     ist und was das Wetter drehen würde. */
   function karteJetzt() {
-    if (!state || !state.wetterAn || !state.karte) return null;
-    return Wet.karte(state.karte);
+    if (!state || !state.wetterAn) return null;
+    return Wet.karte(state.karte || Wet.KLAR.id);
+  }
+
+  /* Was aufzieht und ab der nächsten Runde gilt. */
+  function karteKommt() {
+    if (!state || !state.wetterAn || !state.kommt) return null;
+    return Wet.karte(state.kommt);
   }
 
   /* Teilchen über dem Brett. Sie werden nur beim Kartenwechsel neu gebaut –
@@ -853,46 +862,97 @@
     }
   }
 
-  function karteHtml(k) {
+  /* Wie lange noch? Gezählt wird in Zügen, weil genau das die Regel ist: Eine
+     Karte tritt ein, wenn die Reihe einmal herum ist, und hat dann je einen Zug
+     für jeden Spieler. */
+  function zugRest(n) {
+    if (n <= 0) return '';
+    return n === 1 ? 'noch 1 Zug' : 'noch ' + n + ' Züge';
+  }
+
+  function karteHtml(k, kom) {
     var folge = (state.karteText && state.karteText !== k.kurz)
       ? '<p class="karte-folge">' + esc(state.karteText) + '</p>' : '';
+    /* Die aufziehende Karte steht unter der geltenden: Man sieht eine Runde
+       vorher, was kommt, und kann sich darauf einstellen. */
+    var zieht = kom
+      ? '<div class="karte-kommt" style="--kk:' + kom.farbe + '">' +
+          '<span class="karte-icon">' + kom.icon + '</span>' +
+          '<span><strong>' + esc(kom.name) + '</strong> zieht auf' +
+          '<span class="kommt-wann"> · ' +
+            (state.kommtZaehler === 1 ? 'gilt ab dem nächsten Zug'
+                                      : 'gilt in ' + state.kommtZaehler + ' Zügen') +
+          '</span>' +
+          // am Handy nur die Zahl – der Satz bräche die schmale Karte um
+          '<span class="kommt-bald"> · in ' + state.kommtZaehler +
+            (state.kommtZaehler === 1 ? ' Zug' : ' Zügen') + '</span><br>' +
+          '<span class="kommt-kurz">' + esc(kom.kurz) + '</span></span>' +
+        '</div>'
+      : '';
     return '<button type="button" class="karte-flaeche" id="karte-auf" ' +
         'aria-expanded="' + (ui.karteOffen ? 'true' : 'false') + '">' +
         '<span class="karte-icon">' + k.icon + '</span>' +
         '<span class="karte-wort">' +
-          '<span class="karte-gruppe">' + esc(k.gruppe) +
-            '<span class="karte-runde"> · Runde ' + state.turn + '</span></span>' +
+          '<span class="karte-gruppe"><span class="karte-art">' + esc(k.gruppe) + '</span>' +
+            (state.karte ? '<span class="karte-rest">' + zugRest(state.karteZaehler) + '</span>' : '') +
+          '</span>' +
           '<strong class="karte-name">' + esc(k.name) + '</strong>' +
           '<span class="karte-kurz">' + esc(k.kurz) + '</span>' +
         '</span>' +
       '</button>' +
+      zieht +
       '<div class="karte-lang"><p>' + esc(k.text) + '</p>' + folge + '</div>';
   }
 
   function zeigeWetter() {
     var el = $('#wetter-karte'), wrap = $('#board-wrap');
-    var k = karteJetzt();
-    wrap.className = 'board-wrap' + (k ? ' w-' + k.id : '');
-    bauStimmung(k);
+    var k = karteJetzt(), kom = karteKommt();
     if (!k) {
+      wrap.className = 'board-wrap';
+      bauStimmung(null);
       el.className = 'wetter-karte hidden';
       el.innerHTML = '';
       return;
     }
-    var neu = state.karteNr !== ui.karteGezeigt;
-    if (neu || el.dataset.karte !== k.id || el.dataset.offen !== String(ui.karteOffen)) {
-      el.innerHTML = karteHtml(k);
-      el.dataset.karte = k.id;
-      el.dataset.offen = String(ui.karteOffen);
+    wrap.className = 'board-wrap w-' + k.id;
+    // Bei klarem Wetter liegt keine Stimmung über dem Brett – es ist ja keine da
+    bauStimmung(state.karte ? k : null);
+
+    var stand = k.id + '|' + (kom ? kom.id : '-') + '|' + ui.karteOffen +
+                '|' + state.karteZaehler + '|' + state.kommtZaehler;
+    if (el.dataset.stand !== stand) {
+      el.innerHTML = karteHtml(k, kom);
+      el.dataset.stand = stand;
     }
-    el.className = 'wetter-karte' + (ui.karteOffen ? ' is-offen' : '');
+    el.className = 'wetter-karte' + (ui.karteOffen ? ' is-offen' : '') +
+      (state.karte ? '' : ' ist-klar');
     el.style.setProperty('--kf', k.farbe);
     wrap.style.setProperty('--kf', k.farbe);
-    if (neu) {
+
+    if (state.karteNr !== ui.karteGezeigt) {   // eine Karte ist eingetreten
       ui.karteGezeigt = state.karteNr;
       zeigeKarteAn(el);
       zeigeKartenFelder();
+    } else if (state.kommtNr !== ui.kommtGezeigt) {   // eine zieht auf
+      ui.kommtGezeigt = state.kommtNr;
+      zeigeAufzug(el.querySelector('.karte-kommt'));
     }
+    ui.kommtGezeigt = state.kommtNr;
+  }
+
+  /* Eine Karte zieht auf: Sie schiebt sich unter die geltende und blinkt
+     einmal – auffällig genug, um die Runde davor zu planen, aber ohne die
+     große Bewegung, die dem Eintreten vorbehalten bleibt. */
+  function zeigeAufzug(node) {
+    if (!node || reducedMotion()) return;
+    run(node, [
+      { transform: 'translateX(40px)', opacity: 0 },
+      { transform: 'translateX(0)', opacity: 1 }
+    ], { duration: 420, easing: 'cubic-bezier(.2,.9,.3,1)' });
+    run(node, [
+      { boxShadow: '0 0 0 0 var(--kk)' },
+      { boxShadow: '0 0 0 4px transparent' }
+    ], { duration: 900, easing: 'ease-out' });
   }
 
   /* Windbruch, neuer Wuchs und Musterung verändern das Brett selbst. Damit
@@ -1125,11 +1185,21 @@
     var html = '';
     /* Am Handy verdeckt die Schublade das Brett – die Karte gehört deshalb
        auch hierher, kurz und in ihrer Farbe. */
-    var wk = karteJetzt();
+    var wk = karteJetzt(), wkom = karteKommt();
     if (wk) {
       html += '<div class="panel-wetter" style="--kf:' + wk.farbe + '">' +
         '<span class="karte-icon">' + wk.icon + '</span>' +
-        '<span><strong>' + esc(wk.name) + '</strong><br>' + esc(wk.kurz) + '</span></div>';
+        '<span><strong>' + esc(wk.name) + '</strong>' +
+        (state.karte ? ' · ' + zugRest(state.karteZaehler) : '') +
+        '<br>' + esc(wk.kurz) + '</span></div>';
+    }
+    if (wkom) {
+      html += '<div class="panel-wetter ist-kommend" style="--kf:' + wkom.farbe + '">' +
+        '<span class="karte-icon">' + wkom.icon + '</span>' +
+        '<span><strong>' + esc(wkom.name) + '</strong> zieht auf – ' +
+        (state.kommtZaehler === 1 ? 'gilt ab dem nächsten Zug'
+                                  : 'gilt in ' + state.kommtZaehler + ' Zügen') + '<br>' +
+        esc(wkom.kurz) + '</span></div>';
     }
     if (state.nochmal) {
       html += '<p class="hint accent">Du bist noch einmal am Zug.</p>';

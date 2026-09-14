@@ -42,17 +42,20 @@ function invariants(state, where) {
       throw new Error(where + ': Boot auf Land (' + k + ')');
     }
   });
-  /* Wetter: Was offen liegt, muss auch am Brett hängen – die Zuggeneratoren
-     lesen nur das Brett. Und der Stapel darf nichts verlieren. */
+  /* Wetter: Was gilt, muss auch am Brett hängen – die Zuggeneratoren lesen nur
+     das Brett. Zwischen zwei Karten ist beides leer. Und keine Karte darf aus
+     dem Umlauf verschwinden: Stapel, Ablage, das Geltende und das Aufziehende
+     sind zusammen der ganze Satz. */
   if (state.wetterAn && state.phase === 'play') {
-    if (!state.karte) throw new Error(where + ': keine Wetterkarte aufgedeckt');
-    if (state.board.wetter.id !== state.karte) {
-      throw new Error(where + ': am Brett hängt ' + state.board.wetter.id +
-        ', offen liegt ' + state.karte);
+    var amBrett = state.board.wetter.id || null;
+    if (amBrett !== (state.karte || null)) {
+      throw new Error(where + ': am Brett hängt ' + amBrett + ', es gilt ' + state.karte);
     }
-    if (state.stapel.length + state.ablage.length + 1 < Wetter.stapel().length &&
-        !state.stapel.length) {
-      throw new Error(where + ': der Kartenstapel ist verschwunden');
+    var imUmlauf = state.stapel.length + state.ablage.length +
+                   (state.karte ? 1 : 0) + (state.kommt ? 1 : 0);
+    if (imUmlauf !== Wetter.stapel().length) {
+      throw new Error(where + ': ' + imUmlauf + ' statt ' + Wetter.stapel().length +
+        ' Karten im Umlauf');
     }
   }
   state.players.forEach(function (p) {
@@ -160,12 +163,13 @@ function randomTurn(state) {
 function playGame(playerCount, maxTurns, teams, wetter) {
   var state = setup(playerCount, teams, wetter);
   if (!state) return null;
-  var steps = 0, karten = {};
+  var steps = 0, karten = {}, mitWetter = 0;
   while (state.phase === 'play' && steps++ < maxTurns) {
     var before = state.current;
     randomTurn(state);
     invariants(state, 'Zug ' + steps);
     if (state.karte) karten[state.karte] = true;
+    if (state.karte) mitWetter++;
     /* Derselbe Spieler bleibt nur dran, wenn eine Karte das sagt (Trockenheit,
        Aufbruch) – sonst steckt das Spiel fest. */
     if (state.phase === 'play' && !state.pending && !state.nochmal &&
@@ -173,11 +177,13 @@ function playGame(playerCount, maxTurns, teams, wetter) {
       throw new Error('Spieler wechselt nicht');
     }
   }
-  return { state: state, steps: steps, karten: Object.keys(karten).length };
+  return { state: state, steps: steps, karten: Object.keys(karten).length,
+           mitWetter: mitWetter };
 }
 
 var games = +(process.argv[2] || 60);
-var stats = { finished: 0, timeout: 0, skipped: 0, steps: 0, elim: 0, wetter: 0, karten: 0 };
+var stats = { finished: 0, timeout: 0, skipped: 0, steps: 0, elim: 0,
+              wetter: 0, karten: 0, unterWetter: 0, wetterZuege: 0 };
 /* Gespielt wird abwechselnd "jeder für sich" und in Mannschaften, und die
    Spielerzahl läuft bis acht durch – beides muss dieselben Invarianten halten. */
 function teamsFuer(i, count) {
@@ -199,7 +205,8 @@ for (var i = 0; i < games; i++) {
   var mitWetter = (i % 2) === 1;
   var res = playGame(count, 1200, teams, mitWetter);
   if (!res) { stats.skipped++; continue; }
-  if (mitWetter) { stats.wetter++; stats.karten += res.karten; }
+  if (mitWetter) { stats.wetter++; stats.karten += res.karten; stats.unterWetter += res.mitWetter;
+                   stats.wetterZuege += res.steps; }
   stats.steps += res.steps;
   if (res.state.phase === 'over') stats.finished++; else stats.timeout++;
   stats.elim += res.state.players.filter(function (p) { return p.eliminated; }).length;
@@ -211,5 +218,6 @@ console.log('Partien:', games,
   '| Ø Züge:', Math.round(stats.steps / Math.max(1, games - stats.skipped)),
   '| Ausscheidungen:', stats.elim,
   '| mit Wetter:', stats.wetter,
-  '| Ø Karten/Partie:', Math.round(stats.karten / Math.max(1, stats.wetter)));
+  '| Ø Karten/Partie:', Math.round(stats.karten / Math.max(1, stats.wetter)),
+  '| Züge unter Wetter:', Math.round(100 * stats.unterWetter / Math.max(1, stats.wetterZuege)) + '%');
 console.log('Alle Invarianten eingehalten.');

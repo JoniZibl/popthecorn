@@ -114,10 +114,31 @@ Königs-Turm, je eine der sechs übrigen Figuren und den einmaligen Zenturio.
 
 ## Spielweise „Mit Wetterkarten“
 
-Eine **eigene Spielweise**, im Startmenü wählbar. Das Standardspiel bleibt unverändert;
-wer Wetter wählt, deckt zu Beginn jeder Runde die oberste Karte eines Stapels auf. Sie
-liegt offen am Brett, gilt **eine Runde lang für alle Spieler** und kommt danach auf den
-Ablagestapel. Ist der Stapel leer, wird die Ablage gemischt und neu aufgelegt.
+Eine **eigene Spielweise**, im Startmenü wählbar. Das Standardspiel bleibt unverändert.
+
+Das Wetter folgt nicht dem Takt der Züge, sondern dem, was auf dem Brett geschieht:
+
+1. **Fällt eine Figur, dreht der Wind.** Wer schlägt – im Zug oder mit dem Bogenschützen –,
+   deckt die oberste Karte des Stapels auf.
+2. Sie **zieht auf** und liegt offen am Rand, gilt aber noch nicht. Alle sehen sie kommen
+   und können sich darauf einstellen.
+3. Sobald die Reihe einmal herum ist und **alle Spieler einmal dran waren**, tritt sie ein.
+   Für den, der sie aufgedeckt hat, heißt das: Sie gilt, wenn er wieder an der Reihe ist.
+4. Sie gilt **genau eine Runde** – je einen Zug für jeden Spieler –, danach kommt sie auf die
+   Ablage und es **klart wieder auf**, bis erneut eine Figur fällt. Ist der Stapel leer, wird
+   die Ablage gemischt und neu aufgelegt.
+
+Gezählt wird dabei in **Zügen**, nicht in Rundennummern. Das ist kein Detail: Ginge es nach
+der Rundennummer, träfe eine Karte, die der Letzte in der Reihe aufdeckt, seinen Nachbarn
+sofort – ohne eine einzige Runde Vorwarnung. So bekommt jeder dieselbe Vorwarnung und jeder
+genau einen Zug unter der Karte.
+
+Solange eine Karte aufzieht, deckt ein weiterer Schlag keine zweite auf: Es steht immer
+höchstens eine am Horizont. Damit ist Wetter kein Zufall im Sekundentakt, sondern eine
+Folge des Spiels – in ruhigen Phasen bleibt es ruhig, und je härter gekämpft wird, desto
+wilder wird es. In Zufallspartien gilt dadurch in etwa **jedem fünften Zug** eine Karte;
+den Rest der Zeit ist das Wetter klar. Die Karte am Brett zählt mit, wie viele Züge ihr
+noch bleiben.
 
 Die Spielweise ist so gebaut, dass sie auch auf einem Tisch aus Pappe funktioniert:
 
@@ -145,11 +166,11 @@ Die Spielweise ist so gebaut, dass sie auch auf einem Tisch aus Pappe funktionie
 | **Musterung** | Nachschub | Wer keinen Arbeiter mehr hat, bekommt einen gestellt |
 | **Schlamm** | Bewegung | Kein Zug führt weiter als 2 Felder |
 | **Marschbefehl** | Bewegung | Schrittfiguren ziehen 2 Felder, der Springer bis zu 4 |
-| **Aufbruch** | Tempo | Wer die Karte aufdeckt, hat zwei Züge |
-| **Ruhe vor dem Sturm** | – | Nichts passiert (dreimal im Stapel) |
+| **Aufbruch** | Tempo | Wer als Erster unter der Karte zieht, hat zwei Züge |
+| **Ruhe vor dem Sturm** | – | Der Sturm bleibt aus, nichts passiert (zweimal im Stapel) |
 
-Nur der **Aufbruch** gilt für einen Einzelnen – für den, der ihn aufdeckt; dafür liegt er
-nur einmal im Stapel. Alles andere gilt für alle gleichermaßen.
+Nur der **Aufbruch** gilt für einen Einzelnen – für den, der die Runde eröffnet, in der die
+Karte wirkt; dafür liegt er nur einmal im Stapel. Alles andere gilt für alle gleichermaßen.
 
 ### Wie das Wetter ins Spiel kommt
 
@@ -163,9 +184,11 @@ Generatoren **unter jeder einzelnen Karte** Zug für Zug.
 
 Am Brett sieht man das Wetter, ohne zu lesen: Unter Frost wird das Wasser zur Eisfläche,
 im Hungerwinter liegt Schnee auf der Wiese, im Schlamm wird der Boden braun und es regnet,
-unter Belagerung legt sich ein dunkler Rand ums Brett. Die aufgedeckte Karte kommt einmal
-je Runde groß aus der Brettmitte und legt sich dann in die Ecke; ein Antippen klappt ihren
-Regeltext auf.
+unter Belagerung legt sich ein dunkler Rand ums Brett. Die Karte in der Ecke zeigt, was
+gilt – bei klarem Wetter, dass gerade nichts gilt. Was aufzieht, steht als gestrichelter
+Streifen darunter, eine Runde lang, bevor es eintritt. Tritt eine Karte ein, kommt sie groß
+aus der Brettmitte geflogen und legt sich in die Ecke; ein Antippen klappt ihren Regeltext
+auf.
 
 ## Einheiten
 

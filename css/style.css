@@ -601,9 +601,10 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
 .karte-icon { font-size: 22px; line-height: 1.15; flex: 0 0 auto; }
 .karte-wort { min-width: 0; }
 .karte-gruppe {
-  display: block; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
+  display: flex; gap: 6px; font-size: 10px; letter-spacing: .09em; text-transform: uppercase;
   color: var(--muted);
 }
+.karte-rest::before { content: '·'; margin-right: 6px; }
 .karte-name { display: block; font-size: 15px; color: var(--kf, #fff); line-height: 1.25; }
 .karte-kurz { display: block; font-size: 12px; color: var(--muted); line-height: 1.4; margin-top: 3px; }
 .karte-lang {
@@ -797,13 +798,46 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
   }
   .wetter-karte.is-offen { width: calc(100% - 16px); max-height: 52%; overflow: auto; }
   .karte-flaeche { padding: 8px 10px; gap: 8px; }
-  /* Die Runde steht schon in der Statuszeile – auf der schmalen Karte
-     bräche sie die Kopfzeile um */
-  .karte-runde { display: none; }
+  /* Auf der schmalen Karte zählt, wie lange die Lage noch gilt – die Gruppe
+     steht ohnehin im Regelwerk und bräche die Kopfzeile um */
+  .karte-art { display: none; }
+  .karte-rest::before { display: none; }
   .karte-icon { font-size: 19px; }
   .karte-name { font-size: 14px; }
   .karte-kurz { font-size: 11.5px; }
   /* Die Kamerasteuerung fährt über der Karte auf – dann tritt sie beiseite */
   .board-wrap:has(.board-hud.is-open) .wetter-karte { opacity: .2; }
   .wetter-galerie { grid-template-columns: 1fr; }
+}
+
+/* ---------- Was aufzieht ----------
+   Eine Karte gilt nicht sofort: Sie zieht auf und greift erst, wenn alle
+   Spieler einmal dran waren. Diese Runde dazwischen ist der Sinn der Sache –
+   man soll sie kommen sehen und sich darauf einstellen können. Deshalb steht
+   sie unter der geltenden Karte, in ihrer eigenen Farbe, aber ruhiger. */
+.karte-kommt {
+  display: flex; gap: 8px; align-items: flex-start;
+  margin: 0 10px 10px; padding: 7px 9px; border-radius: 9px;
+  border: 1px dashed var(--kk, var(--line)); border-left-width: 3px;
+  background: rgba(255, 255, 255, .04);
+  font-size: 11.5px; line-height: 1.4; color: var(--muted);
+}
+.karte-kommt .karte-icon { font-size: 15px; }
+.karte-kommt strong { color: var(--kk); font-weight: 700; }
+.kommt-kurz { color: var(--muted); opacity: .85; }
+.kommt-bald { display: none; }
+
+/* Klares Wetter ist ein Zustand, keine Karte – die Ecke bleibt trotzdem
+   besetzt, damit man sieht, dass mit Wetter gespielt wird. */
+.wetter-karte.ist-klar { border-left-style: dashed; opacity: .92; }
+.wetter-karte.ist-klar .karte-flaeche { background: none; }
+
+.panel-wetter.ist-kommend { border-style: dashed; opacity: .9; }
+
+@media (max-width: 900px) {
+  /* Auf der schmalen Karte zählt, was kommt – nicht die ganze Erklärung dazu */
+  .karte-kommt { font-size: 11px; margin: 0 8px 8px; }
+  .kommt-wann, .karte-kommt br { display: none; }
+  .kommt-bald { display: inline; }
+  .kommt-kurz { display: none; }
 }

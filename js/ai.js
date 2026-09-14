@@ -122,8 +122,9 @@ var AI = (function () {
       wood: new Int32Array(np), alive: new Uint8Array(np), zent: new Uint8Array(np),
       kingAt: new Int16Array(np), team: new Int16Array(np),
       /* Das Wetter hängt am Brett wie die Mannschaften. Die Suche rechnet es
-         für den ganzen Baum durch – welche Karte in zwei Runden liegt, weiß
-         niemand, und an der Wurzel gilt genau diese hier. */
+         für den ganzen Baum durch, auch über das Ende der Karte hinaus: Was in
+         drei Zügen aufgedeckt wird, weiß ohnehin niemand, und an der Wurzel –
+         wo der Zug wirklich gespielt wird – gilt genau diese Lage hier. */
       w: W.wirkung(state.board),
       extra: state.extra | 0,     // offene Extra-Züge (Aufbruch)
       nochmal: 0                  // bleibt derselbe Spieler am Zug?

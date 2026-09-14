@@ -1,8 +1,10 @@
 /* Hexodus – Wetterkarten (eigene Spielweise)
 
-   Das Standardspiel bleibt, wie es ist. Wer mit Wetter spielt, deckt zu Beginn
-   jeder Runde eine Karte auf. Sie liegt offen, bis die Runde herum ist, und
-   gilt für **alle** Spieler gleichermaßen.
+   Das Standardspiel bleibt, wie es ist. Wer mit Wetter spielt, deckt eine Karte
+   auf, sobald eine Figur fällt. Sie zieht erst einmal auf: Gültig wird sie zu
+   Beginn der nächsten vollen Runde, wenn alle Spieler einmal dran waren, und
+   gilt dann eine Runde lang für **alle** gleichermaßen. Wann gewechselt wird,
+   steht damit im Spiel und nicht im Kalender – und niemand wird überrascht.
 
    Jede Karte verändert eine ganze Regel-Schicht – Gelände, Sicht, Wirtschaft,
    Nachschub, Bewegung –, nie nur eine einzelne Figur. Eine Karte, die genau
@@ -283,29 +285,45 @@ var Wetter = (function () {
     },
     {
       id: 'aufbruch', name: 'Aufbruch', icon: '📯', farbe: '#fcd34d', gruppe: 'Bewegung', menge: 1,
-      kurz: 'Wer die Karte aufdeckt, hat zwei Züge.',
-      text: 'Das Horn ruft zum Aufbruch. Der Spieler, der diese Karte aufdeckt – also der, der ' +
-            'die Runde eröffnet –, führt zwei Aktionen nacheinander aus statt einer. Alle ' +
-            'anderen ziehen wie immer. Die einzige Karte, die nicht für alle gleich gilt; ' +
-            'dafür liegt sie nur einmal im Stapel.',
+      kurz: 'Wer als Erster unter der Karte zieht, hat zwei Züge.',
+      text: 'Das Horn ruft zum Aufbruch. Wer als Erster unter dieser Karte zieht – also der, ' +
+            'der sie aufgedeckt hat, sobald er wieder an der Reihe ist –, führt zwei Aktionen ' +
+            'nacheinander aus statt einer. Alle anderen ziehen wie immer. Die einzige Karte, ' +
+            'die nicht für alle gleich gilt; dafür sieht man sie kommen, und sie liegt nur ' +
+            'einmal im Stapel.',
       effekt: null, sofort: null, extraZug: 1
     },
 
     /* --- Füllkarte --- */
     {
-      id: 'ruhe', name: 'Ruhe vor dem Sturm', icon: '🌙', farbe: '#64748b', gruppe: 'Ruhe', menge: 3,
-      kurz: 'Nichts passiert. Es wird gespielt wie immer.',
-      text: 'Ein stiller Tag. Keine Regel ändert sich, diese Runde wird gespielt wie im ' +
-            'Standardspiel. Drei dieser Karten liegen im Stapel – ohne sie kippte jede Runde ' +
-            'das Brett, und aus einem Strategiespiel mit einer Prise Glück würde ein Glücksspiel.',
-      effekt: null
+      id: 'ruhe', name: 'Ruhe vor dem Sturm', icon: '🌙', farbe: '#64748b', gruppe: 'Ruhe', menge: 2,
+      kurz: 'Der Sturm bleibt aus. Es wird gespielt wie immer.',
+      text: 'Es hat sich zusammengebraut – und dann doch nichts. Keine Regel ändert sich, diese ' +
+            'Runde wird gespielt wie im Standardspiel. Zwei dieser Karten liegen im Stapel: ' +
+            'Nicht jeder Schlag soll das Brett umkippen, und eine Karte, die man kommen sieht ' +
+            'und die dann ausbleibt, ist ihre eigene kleine Spannung.'
     }
   ];
+
+  /* Klares Wetter: keine Karte, sondern der Zustand dazwischen. Er liegt nicht
+     im Stapel und wird nie gezogen – die Anzeige braucht ihn nur, um zeigen zu
+     können, dass gerade nichts gilt und was das Wetter drehen würde. */
+  var KLAR = {
+    id: 'kein', name: 'Klares Wetter', icon: '🌤️', farbe: '#7f8c9b', gruppe: 'Wetter', menge: 0,
+    kurz: 'Keine Karte gilt. Fällt eine Figur, dreht der Wind.',
+    text: 'Zwischen zwei Karten ist das Wetter klar, und es wird nach den Grundregeln gespielt. ' +
+          'Das ändert sich, sobald eine Figur fällt: Wer schlägt, deckt die oberste Karte des ' +
+          'Stapels auf. Sie zieht auf und gilt ab der nächsten vollen Runde – eine Runde lang, ' +
+          'dann klart es wieder auf.'
+  };
 
   var NACH_ID = {};
   KARTEN.forEach(function (k) { NACH_ID[k.id] = k; });
 
-  function karte(id) { return NACH_ID[id] || null; }
+  function karte(id) {
+    if (id === KLAR.id) return KLAR;
+    return NACH_ID[id] || null;
+  }
 
   /* Der Stapel: jede Karte so oft, wie ihre Menge sagt. */
   function stapel() {
@@ -346,7 +364,7 @@ var Wetter = (function () {
   }
 
   return {
-    NEUTRAL: NEUTRAL, KARTEN: KARTEN, WUCHS_MAX: WUCHS_MAX,
+    NEUTRAL: NEUTRAL, KARTEN: KARTEN, KLAR: KLAR, WUCHS_MAX: WUCHS_MAX,
     wirkung: wirkung, wirkungVon: wirkungVon, karte: karte,
     stapel: stapel, mischen: mischen, kosten: kosten
   };

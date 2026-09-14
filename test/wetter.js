@@ -305,54 +305,192 @@ ok(st15.current === 1, 'nach dem zweiten gibt er ab');
 
 /* ---------------- Ablauf einer Partie ---------------- */
 
-titel('Aufdecken, ablegen, neu mischen');
-var st16 = G.create(['A', 'B'], [null, null], null, { wetter: true });
-G.autoPlaceTrees(st16);
-var schutz = 0;
-while (st16.phase === 'kings' && schutz++ < 400) {
-  var frei = st16.board.keys.map(function (k) { return st16.board.cells[k]; });
-  if (st16.awaitWorker) {
-    var wf = frei.filter(function (c) {
-      return Board.isFree(c) && H.neighbors(c).some(function (nb) {
-        var x = Board.at(st16.board, nb);
-        return x && x.piece && x.piece.type === 'king' && x.piece.owner === st16.current;
-      });
-    })[0];
-    G.placeWorker(st16, wf.q, wf.r);
-  } else {
-    var kf = frei.filter(function (c) { return G.canPlaceKing(st16, c); })[0];
-    G.placeKing(st16, kf.q, kf.r);
+titel('Wann das Wetter dreht');
+/* Zwei Spieler, zwei Arbeiter nebeneinander: Spieler 1 kann schlagen. */
+function schlagStellung(karten) {
+  var b = brett(10, 5);
+  stelle(b, 0, 0, 'king', 0);
+  stelle(b, 8, 4, 'king', 1);
+  stelle(b, 3, 2, 'worker', 0);
+  stelle(b, 4, 2, 'worker', 1);
+  stelle(b, 6, 0, 'samurai', 1);          // damit Spieler 2 auch ziehen kann
+  var st = zustand(b, 0);
+  st.stapel = karten.slice();
+  return st;
+}
+/* Irgendein harmloser Zug des Spielers am Zug – nur, um weiterzugeben */
+function gibAb(st) {
+  for (var i = 0; i < st.board.keys.length; i++) {
+    var c = st.board.cells[st.board.keys[i]];
+    if (!c.piece || c.piece.owner !== st.current) continue;
+    var a = M.forPiece(st.board, c, st.players[st.current].wood)
+      .filter(function (x) { return x.kind === 'move'; })[0];
+    if (a) return G.perform(st, c, a);
   }
+  return G.pass(st);
 }
-ok(st16.phase === 'play', 'die Partie hat begonnen');
-ok(!!st16.karte, 'zum Start liegt eine Karte offen: ' + (W.karte(st16.karte) || {}).name);
-ok(st16.board.wetter.id === st16.karte, 'ihre Wirkung hängt am Brett');
-var gesehen = {}, runde0 = st16.turn;
-for (var z = 0; z < 240 && st16.phase === 'play'; z++) {
-  gesehen[st16.karte] = (gesehen[st16.karte] || 0) + 1;
-  if (st16.pending) { G.endPending(st16); continue; }
-  var opts = [];
-  st16.board.keys.forEach(function (key) {
-    var c = st16.board.cells[key];
-    if (!c.piece || c.piece.owner !== st16.current) return;
-    G.actionsFor(st16, c).forEach(function (a) { opts.push({ c: c, a: a }); });
-  });
-  if (!opts.length) { G.pass(st16); continue; }
-  var o = opts[Math.floor(Math.random() * opts.length)];
-  G.perform(st16, o.c, o.a);
+function zieheMit(st, q, r, art) {
+  var c = st.board.cells[H.key(q, r)];
+  var a = M.forPiece(st.board, c, st.players[c.piece.owner].wood)
+    .filter(function (x) { return x.kind === art; })[0];
+  return G.perform(st, c, a);
 }
-ok(Object.keys(gesehen).length >= 3, 'über die Partie kamen ' + Object.keys(gesehen).length +
-   ' verschiedene Karten');
-ok(st16.stapel.length + st16.ablage.length + 1 >= 18 || st16.phase !== 'play',
-   'Stapel und Ablage bleiben zusammen vollständig');
+
+var st16 = schlagStellung(['nebel']);
+ok(st16.karte === null && st16.kommt === null, 'zu Beginn gilt kein Wetter');
+zieheMit(st16, 3, 2, 'capture');           // Spieler 1 schlägt
+ok(st16.kommt === 'nebel', 'der Schlag lässt eine Karte aufziehen');
+ok(st16.karte === null, 'sie gilt aber noch nicht');
+ok(st16.board.wetter.schuss === 2, 'am Brett hängt weiter das alte Wetter');
+ok(st16.current === 1, 'Spieler 2 ist am Zug');
+ok(st16.kommtZaehler === 1, 'noch ein Zug, bis die Reihe herum ist');
+gibAb(st16);                               // Spieler 2 zieht: die Reihe ist herum
+ok(st16.karte === 'nebel', 'nachdem alle einmal dran waren, gilt sie');
+ok(st16.board.wetter.schuss === 1, 'und wirkt am Brett');
+ok(st16.kommt === null, 'am Horizont steht nichts mehr');
+ok(st16.current === 0, 'und zwar ab dem Zug dessen, der sie aufgedeckt hat');
+
+/* Eine Runde lang – je ein Zug für jeden – dann klart es auf */
+ok(st16.karteZaehler === 2, 'sie hat zwei Züge, einen je Spieler');
+gibAb(st16);
+ok(st16.karte === 'nebel', 'nach dem ersten Zug gilt sie noch');
+gibAb(st16);
+ok(st16.karte === null, 'nachdem beide einmal darunter gezogen haben, klart es auf');
+ok(st16.board.wetter.schuss === 2, 'am Brett gilt wieder die Grundregel');
+ok(st16.ablage.indexOf('nebel') >= 0, 'die Karte liegt auf der Ablage');
+
+/* Und derselbe Ablauf, wenn der letzte Spieler der Reihe schlägt: Auch dann
+   bekommt jeder seine Runde Vorwarnung – nach der Rundennummer gerechnet
+   hätte es seinen Nachbarn ohne jede Vorwarnung getroffen. */
+var st16b = schlagStellung(['frost']);
+st16b.current = 1;
+st16b.board.cells[H.key(4, 2)].piece = { type: 'worker', owner: 1, facing: 0 };
+st16b.board.cells[H.key(3, 2)].piece = { type: 'worker', owner: 0, facing: 0 };
+zieheMit(st16b, 4, 2, 'capture');          // der Letzte in der Reihe schlägt
+ok(st16b.kommt === 'frost' && st16b.karte === null,
+   'auch beim letzten Spieler der Reihe zieht sie erst auf');
+ok(st16b.current === 0, 'der Nächste ist dran');
+gibAb(st16b);
+ok(st16b.karte === 'frost', 'erst nach seinem Zug tritt sie ein');
+
+titel('Ein Schlag genügt, bis sie eingetreten ist');
+var st17 = schlagStellung(['frost', 'nebel']);
+zieheMit(st17, 3, 2, 'capture');
+var ersteKarte = st17.kommt;
+ok(!!ersteKarte, 'die erste Karte zieht auf');
+// Noch ein Schlag in derselben Runde: es bleibt bei einer
+st17.board.cells[H.key(5, 2)].piece = { type: 'archer', owner: 1, facing: 0 };
+st17.current = 0;
+st17.board.cells[H.key(4, 2)].piece = { type: 'tangolin', owner: 0, facing: 0 };
+zieheMit(st17, 4, 2, 'capture');
+ok((st17.kommt || st17.karte) === ersteKarte, 'es bleibt bei der ersten Karte');
+ok(st17.stapel.length === 1, 'ein zweiter Schlag nimmt keine zweite Karte vom Stapel');
+
+titel('Der Aufbruch gehört dem, der als Erster darunter zieht');
+var st18 = schlagStellung(['aufbruch']);
+zieheMit(st18, 3, 2, 'capture');           // Spieler 1 schlägt, Aufbruch zieht auf
+ok(st18.extra === 0, 'solange sie aufzieht, hat niemand einen Extra-Zug');
+gibAb(st18);                               // Reihe herum: die Karte tritt ein
+ok(st18.karte === 'aufbruch' && st18.extra === 1,
+   'wer als Erster darunter zieht, bekommt den zweiten Zug');
+ok(st18.current === 0, 'das ist Spieler 1');
+gibAb(st18);
+ok(st18.current === 0 && st18.nochmal === true, 'er ist gleich noch einmal dran');
+
+titel('Einmalige Änderungen geschehen beim Eintreten, nicht beim Aufziehen');
+var st19 = schlagStellung(['windbruch']);
+baum(st19.board, 2, 4);                    // steht allein
+zieheMit(st19, 3, 2, 'capture');
+ok(st19.board.cells[H.key(2, 4)].tree, 'während sie aufzieht, steht der Baum noch');
+gibAb(st19);
+ok(!st19.board.cells[H.key(2, 4)].tree, 'mit dem Sturm fällt er');
+
+titel('Ganze Partien');
+/* Eine einzelne Zufallspartie sagt wenig: Sie kann nach fünfzehn Zügen vorbei
+   sein, weil ein Turm fällt. Gezählt wird deshalb über mehrere Partien. */
+function zufallsPartie(spieler, maxZuege) {
+  var st = G.create(['A', 'B', 'C', 'D'].slice(0, spieler),
+                    [null, null, null, null].slice(0, spieler), null, { wetter: true });
+  G.autoPlaceTrees(st);
+  var schutz = 0;
+  while (st.phase === 'kings' && schutz++ < 500) {
+    var frei = st.board.keys.map(function (k) { return st.board.cells[k]; });
+    if (st.awaitWorker) {
+      var wf = frei.filter(function (c) {
+        return Board.isFree(c) && H.neighbors(c).some(function (nb) {
+          var x = Board.at(st.board, nb);
+          return x && x.piece && x.piece.type === 'king' && x.piece.owner === st.current;
+        });
+      })[0];
+      if (!wf) return null;
+      G.placeWorker(st, wf.q, wf.r);
+    } else {
+      var kf = frei.filter(function (c) { return G.canPlaceKing(st, c); })[0];
+      if (!kf) return null;
+      G.placeKing(st, kf.q, kf.r);
+    }
+  }
+  if (st.phase !== 'play') return null;
+  var zahl = { karten: {}, mit: 0, ohne: 0, schlaege: 0, start: st.karte, zieht: 0 };
+  for (var z = 0; z < maxZuege && st.phase === 'play'; z++) {
+    if (st.karte) { zahl.karten[st.karte] = true; zahl.mit++; } else { zahl.ohne++; }
+    if (st.kommt) zahl.zieht++;
+    if (st.pending) { G.endPending(st); continue; }
+    var opts = [];
+    st.board.keys.forEach(function (key) {
+      var c = st.board.cells[key];
+      if (!c.piece || c.piece.owner !== st.current) return;
+      G.actionsFor(st, c).forEach(function (a) { opts.push({ c: c, a: a }); });
+    });
+    var spots = M.trainingSpots(st.board, st.current);
+    M.affordableUnits(st, st.current).forEach(function (id) {
+      spots.forEach(function (sp) { opts.push({ train: id, sp: sp }); });
+    });
+    if (!opts.length) { G.pass(st); continue; }
+    var scharf = opts.filter(function (x) {
+      return x.train || x.a.kind === 'capture' || x.a.kind === 'shoot' || x.a.kind === 'harvest';
+    });
+    var o = (scharf.length && Math.random() < 0.7)
+      ? scharf[Math.floor(Math.random() * scharf.length)]
+      : opts[Math.floor(Math.random() * opts.length)];
+    if (o.train) G.train(st, o.train, o.sp.q, o.sp.r);
+    else G.perform(st, o.c, o.a);
+    if (st.lastCaptures && st.lastCaptures.length) zahl.schlaege++;
+  }
+  zahl.state = st;
+  return zahl;
+}
+
+var summe = { karten: {}, mit: 0, ohne: 0, schlaege: 0, partien: 0, klarStart: 0, voll: 0 };
+for (var g = 0; g < 8; g++) {
+  var r = zufallsPartie(3 + (g % 2), 400);
+  if (!r) continue;
+  summe.partien++;
+  if (r.start === null) summe.klarStart++;
+  summe.mit += r.mit; summe.ohne += r.ohne; summe.schlaege += r.schlaege;
+  Object.keys(r.karten).forEach(function (k) { summe.karten[k] = true; });
+  var imUmlauf = r.state.stapel.length + r.state.ablage.length +
+                 (r.state.karte ? 1 : 0) + (r.state.kommt ? 1 : 0);
+  if (imUmlauf === W.stapel().length) summe.voll++;
+}
+ok(summe.partien >= 6, summe.partien + ' Partien gespielt');
+ok(summe.klarStart === summe.partien, 'jede Partie beginnt bei klarem Wetter');
+ok(summe.schlaege > 0, 'es fielen Figuren (' + summe.schlaege + ' Schläge)');
+ok(Object.keys(summe.karten).length >= 3, 'dabei galten ' +
+   Object.keys(summe.karten).length + ' verschiedene Karten');
+ok(summe.ohne > 0, 'zwischen den Karten war das Wetter klar (' + summe.ohne +
+   ' von ' + (summe.ohne + summe.mit) + ' Zügen)');
+ok(summe.mit < summe.ohne + summe.mit, 'es gilt nicht in jedem Zug eine Karte');
+ok(summe.voll === summe.partien, 'keine Partie verliert eine Karte aus dem Umlauf');
 
 titel('Das Standardspiel bleibt unberührt');
-var st17 = G.create(['A', 'B'], [null, null]);
-ok(st17.wetterAn === false, 'ohne Wahl wird ohne Wetter gespielt');
-ok(st17.board.wetter === W.NEUTRAL, 'am Brett hängt die neutrale Wirkung');
-G.autoPlaceTrees(st17);
-ok(st17.karte === null, 'es wird keine Karte gezogen');
-ok(G.ziehe(st17) === null, 'auch nicht auf Nachfrage');
+var st21 = G.create(['A', 'B'], [null, null]);
+ok(st21.wetterAn === false, 'ohne Wahl wird ohne Wetter gespielt');
+ok(st21.board.wetter === W.NEUTRAL, 'am Brett hängt die neutrale Wirkung');
+G.autoPlaceTrees(st21);
+ok(st21.karte === null, 'es wird keine Karte gezogen');
+ok(G.kuendigeAn(st21) === null, 'ein Schlag lässt dort nichts aufziehen');
+ok(G.wetterTakt(st21) === null, 'und der Takt deckt nichts auf');
 
 console.log(fehler ? '\n' + fehler + ' Prüfung(en) fehlgeschlagen.' : '\nAlle Prüfungen bestanden.');
 process.exit(fehler ? 1 : 0);

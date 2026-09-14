@@ -146,11 +146,16 @@ var Game = (function () {
       /* Wetterkarten: eigene Spielweise. Zu Beginn jeder Runde wird eine Karte
          aufgedeckt; sie liegt offen, bis die Runde herum ist. */
       wetterAn: !!optionen.wetter,
-      stapel: [],              // verdeckter Rest des Kartenstapels
+      // Der Stapel liegt von Anfang an gemischt bereit, wie am Tisch
+      stapel: optionen.wetter ? W.mischen(W.stapel()) : [],
       ablage: [],              // schon gespielte Karten
-      karte: null,             // was gerade offen liegt (Karten-Kennung)
-      karteNr: 0,              // zählt Karten – die Anzeige erkennt daran neue
-      karteText: null,         // was die Karte beim Aufdecken bewirkt hat
+      karte: null,             // was gerade gilt (Karten-Kennung, null = klar)
+      kommt: null,             // was aufzieht und ab der nächsten Runde gilt
+      karteNr: 0,              // zählt gültige Karten – die Anzeige erkennt daran neue
+      kommtNr: 0,              // dasselbe für die aufziehende Karte
+      karteZaehler: 0,         // Züge, die die geltende Karte noch hat
+      kommtZaehler: 0,         // Züge, bis die aufziehende eintritt
+      karteText: null,         // was die Karte beim Eintreten bewirkt hat
       karteFelder: null,       // Felder, die sie verändert hat (für die Anzeige)
       extra: 0,                // offene Extra-Züge des Spielers am Zug (Aufbruch)
       nochmal: false,          // bleibt derselbe Spieler am Zug?
@@ -179,11 +184,32 @@ var Game = (function () {
 
   /* ---------------- Wetterkarten ----------------
 
-     Gespielt wird, wie man es auf dem Tisch täte: Zu Beginn jeder Runde deckt
-     der Spieler, der die Runde eröffnet, die oberste Karte auf. Sie liegt
-     offen in der Mitte und gilt für alle, bis die Runde herum ist – danach
-     kommt sie auf den Ablagestapel. Dadurch braucht keine Karte ein Gedächtnis
-     und keinen Zähler: „diese Runde“ ist sichtbar, solange die Karte liegt.
+     Das Wetter folgt nicht dem Takt der Züge, sondern dem, was auf dem Brett
+     geschieht: **Fällt eine Figur, dreht der Wind.** Wer schlägt – im Zug oder
+     mit dem Bogenschützen –, deckt die oberste Karte des Stapels auf. Sie liegt
+     offen am Rand und **zieht auf**: Gültig wird sie erst, wenn die Reihe einmal
+     herum ist und **alle Spieler einmal dran waren**. Dann gilt sie genau eine
+     Runde lang – also je einen Zug für jeden –, danach klart es wieder auf.
+
+     Gezählt wird in Zügen, nicht in Rundennummern: Wer die Karte aufdeckt, sieht
+     sie eintreten, wenn er wieder an der Reihe ist, und wieder verschwinden, wenn
+     er das nächste Mal drankommt. Am Tisch liegt sie so lange vor ihm. Ginge es
+     nach der Rundennummer, träfe es den, der als Letzter in der Reihe schlägt,
+     sofort – und sein Nachbar bekäme die Karte ohne eine einzige Runde Vorwarnung
+     ins Gesicht.
+
+     Drei Dinge kommen dabei zusammen:
+
+     * Niemand wird von einer Karte überrascht. Sie ist eine Runde vorher zu
+       sehen, und alle können sich darauf einstellen – Wetter ist damit eine
+       Frage der Planung und nicht des Glücks.
+     * Es gilt für alle dasselbe: Die Karte greift zum Rundenbeginn, also
+       spielt jeder eine volle Runde unter ihr.
+     * In ruhigen Phasen ist ruhiges Wetter. Erst wenn gekämpft wird, dreht es –
+       und je härter gekämpft wird, desto wilder wird es.
+
+     Solange eine Karte aufzieht, deckt ein weiterer Schlag keine zweite auf:
+     Es steht immer höchstens eine am Horizont.
 
      Ist der Stapel leer, wird die Ablage gemischt und neu aufgelegt. */
 
@@ -208,30 +234,74 @@ var Game = (function () {
 
   var WETTER_HILFE = { hatTyp: hatTyp, nachschubFeld: nachschubFeld };
 
-  function ziehe(state) {
-    if (!state.wetterAn || state.phase !== 'play') return null;
+  /* Ein Schlag deckt die oberste Karte auf – sie zieht auf, gilt aber noch
+     nicht. Höchstens eine steht am Horizont: Fällt in derselben Runde noch
+     eine Figur (ein Kettensprung nimmt mehrere mit), ändert das nichts mehr. */
+  function kuendigeAn(state) {
+    if (!state.wetterAn || state.phase !== 'play' || state.kommt) return null;
     if (!state.stapel.length) {
       state.stapel = W.mischen(state.ablage.length ? state.ablage : W.stapel());
       state.ablage = [];
     }
-    if (state.karte) state.ablage.push(state.karte);
-
     var id = state.stapel.pop();
-    var k = W.karte(id);
+    state.kommt = id;
+    state.kommtNr++;
+    /* So viele Züge, bis die Reihe einmal herum ist. Scheidet zwischendurch
+       jemand aus, wird die Reihe kürzer und die Karte kommt einen Zug später
+       als gedacht – das ist die Runde, in der ein Turm gefallen ist, da fällt
+       es nicht ins Gewicht. */
+    state.kommtZaehler = alivePlayers(state).length;
+    log(state, 'Der Wind dreht: ' + W.karte(id).name + ' zieht auf – gilt, sobald alle ' +
+        'einmal am Zug waren.');
+    return W.karte(id);
+  }
+
+  /* Nach jedem abgegebenen Zug einen Schritt weiter. Was seine Runde hinter
+     sich hat, klart auf; was aufgezogen ist, tritt ein. Beides geschieht
+     zwischen zwei Zügen, nie mitten in einem. */
+  function wetterTakt(state) {
+    if (!state.wetterAn || state.phase !== 'play') return null;
+    if (state.karte && --state.karteZaehler <= 0) klareAuf(state);
+    if (state.kommt && --state.kommtZaehler <= 0) return trittEin(state);
+    return null;
+  }
+
+  function klareAuf(state) {
+    state.ablage.push(state.karte);
+    state.karte = null;
+    state.karteText = null;
+    state.karteFelder = null;
+    state.karteZaehler = 0;
+    state.board.wetter = W.NEUTRAL;
+    state.extra = 0;
+    log(state, 'Das Wetter klart auf.');
+  }
+
+  /* Die aufgezogene Karte tritt ein: Die Reihe war einmal herum, jeder hat sie
+     kommen sehen. Von hier an gilt sie so viele Züge, wie Spieler im Spiel
+     sind – also genau eine Runde, je einen Zug für jeden. */
+  function trittEin(state) {
+    if (state.karte) klareAuf(state);        // Platz für die neue Lage
+    if (!state.kommt) return null;
+
+    var id = state.kommt, k = W.karte(id);
+    state.kommt = null;
+    state.kommtZaehler = 0;
     state.karte = id;
     state.karteNr++;
+    state.karteZaehler = alivePlayers(state).length;   // je ein Zug für jeden
     state.board.wetter = W.wirkungVon(id);
-    state.karteFelder = null;
     state.karteText = k.kurz;
-    state.extra = 0;
+    state.karteFelder = null;
 
-    // Was die Karte einmalig am Brett verändert, geschieht jetzt – und bleibt
+    /* Was die Karte einmalig am Brett verändert, geschieht jetzt – nicht beim
+       Aufziehen. Der Sturm wirft die Bäume um, wenn er da ist. */
     if (k.sofort) {
       var folge = k.sofort(state, WETTER_HILFE);
       state.karteText = folge.text;
       state.karteFelder = folge.felder && folge.felder.length ? folge.felder : null;
     }
-    // Aufbruch: Wer aufdeckt, zieht zweimal
+    // Aufbruch: Wer als Erster unter der neuen Lage zieht, zieht zweimal
     if (k.extraZug) state.extra = k.extraZug;
 
     log(state, 'Wetter: ' + k.name + ' – ' + state.karteText);
@@ -458,7 +528,9 @@ var Game = (function () {
       state.current = state.players.length - 1;
       state.turn = 1;
       log(state, 'Das Spiel beginnt – ' + state.players[state.current].name + ' ist am Zug.', state.current);
-      ziehe(state);          // die erste Wetterkarte der Partie
+      if (state.wetterAn) {
+        log(state, 'Klares Wetter. Fällt die erste Figur, dreht der Wind.');
+      }
     } else {
       state.current++;
     }
@@ -484,6 +556,7 @@ var Game = (function () {
     state.lastCaptures.push(state.lastCapture);
     markScar(cell, victim.owner);
     cell.piece = null;
+    kuendigeAn(state);          // wo eine Figur fällt, dreht der Wind
     var vName = U.DEFS[victim.type].name;
     log(state, vName + ' von ' + state.players[victim.owner].name + ' geschlagen.', attacker);
     if (victim.type === 'king') {
@@ -797,10 +870,9 @@ var Game = (function () {
       return;
     }
     var next = nextPlayer(state);
-    var neueRunde = next <= state.current;
-    if (neueRunde) state.turn++;
+    if (next <= state.current) state.turn++;
     state.current = next;
-    if (neueRunde) ziehe(state);        // neue Runde, neue Wetterkarte
+    wetterTakt(state);        // ein Zug weiter: was fällig ist, tritt ein oder klart auf
     checkStalemate(state);
   }
 
@@ -830,7 +902,7 @@ var Game = (function () {
     KING_GAP: KING_GAP, kingGap: kingGap,
     actionsFor: actionsFor, perform: perform, rotate: rotate, train: train,
     pass: pass, endPending: endPending, finishTurn: finishTurn,
-    ziehe: ziehe, behaeltZug: behaeltZug,
+    kuendigeAn: kuendigeAn, wetterTakt: wetterTakt, trittEin: trittEin, behaeltZug: behaeltZug,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
     checkVictory: checkVictory, adjudicate: adjudicate,
     plunder: plunder,
