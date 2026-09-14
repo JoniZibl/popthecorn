@@ -1583,6 +1583,8 @@ var Wetter = (function () {
     id: null,
     bootPreis: 1,          // was ein Boot kostet (Frost: 0)
     schuss: 2,             // Schussweite des Bogenschützen (Nebel 1, Klare Sicht 3)
+    nahSchlag: false,      // Nebel: Legionär und Zenturio schlagen nur direkt vor sich
+    weitSprung: false,     // Klare Sicht: der Springer springt 2, 3 oder 4 Felder
     maxWeite: 0,           // 0 = unbegrenzt; Schlamm: kein Zug weiter als 2 Felder
     extraFeld: false,      // Marschbefehl: Schrittfiguren gehen ein Feld weiter
     freieRichtung: false,  // Windstille: Springer und Legionär ziehen in jede Richtung
@@ -1725,19 +1727,22 @@ var Wetter = (function () {
     /* --- Sicht --- */
     {
       id: 'nebel', name: 'Nebel', icon: '🌫️', farbe: '#cbd5e1', gruppe: 'Sicht', menge: 2,
-      kurz: 'Bogenschützen treffen nur ein Feld weit.',
-      text: 'Milchige Schwaden liegen über der Insel. Der Bogenschütze sieht kaum weiter als ' +
-            'bis zum Nachbarfeld und trifft nur noch auf Distanz 1. Wer sich sonst ' +
-            'vorsichtig außerhalb seiner Reichweite hält, darf heranrücken.',
-      effekt: { schuss: 1 }
+      kurz: 'Auf Distanz trifft niemand: Schuss nur 1 Feld, Läufer nur direkt vor sich.',
+      text: 'Milchige Schwaden liegen über der Insel, und was weiter weg steht, ist nur noch ' +
+            'ein Schatten. Der Bogenschütze trifft nur auf Distanz 1. Legionär und Zenturio ' +
+            'laufen zwar so weit wie immer, schlagen aber nur, was direkt vor ihnen steht – ' +
+            'eine Figur am Ende der Bahn verschwindet im Dunst. Wer sich sonst außerhalb der ' +
+            'Reichweite hält, darf heranrücken; wer eine lange Bahn hütet, verliert sie.',
+      effekt: { schuss: 1, nahSchlag: true }
     },
     {
       id: 'klar', name: 'Klare Sicht', icon: '☀️', farbe: '#fde047', gruppe: 'Sicht', menge: 1,
-      kurz: 'Bogenschützen treffen drei Felder weit.',
-      text: 'Ein Tag ohne Dunst, die Luft steht still und klar. Der Bogenschütze trifft diese ' +
-            'Runde auf Distanz 3 statt 2 – über Bäume und Wasser hinweg wie immer. Jede ' +
-            'Stellung, die gestern noch außer Reichweite lag, liegt heute darin.',
-      effekt: { schuss: 3 }
+      kurz: 'Jeder sieht weiter: Schuss 3 Felder, der Springer springt bis 4.',
+      text: 'Ein Tag ohne Dunst, die Luft steht still und klar. Der Bogenschütze trifft auf ' +
+            'Distanz 3 statt 2 – über Bäume und Wasser hinweg wie immer –, und der Springer ' +
+            'sieht so weit, dass er 2, 3 oder 4 Felder springt. Jede Stellung, die gestern ' +
+            'noch außer Reichweite lag, liegt heute darin.',
+      effekt: { schuss: 3, weitSprung: true }
     },
     {
       id: 'windstille', name: 'Windstille', icon: '🪶', farbe: '#fcd34d', gruppe: 'Sicht', menge: 1,
@@ -1818,12 +1823,12 @@ var Wetter = (function () {
     },
     {
       id: 'marsch', name: 'Marschbefehl', icon: '🥁', farbe: '#60a5fa', gruppe: 'Bewegung', menge: 2,
-      kurz: 'Schrittfiguren ziehen 2 Felder, der Springer bis zu 4.',
+      kurz: 'Arbeiter, Bogenschütze, Tangolin und Turm ziehen 2 Felder.',
       text: 'Die Trommel gibt den Takt vor. Arbeiter, Bogenschütze, Tangolin und Königs-Turm ' +
-            'ziehen zwei Felder geradeaus statt eines – das Feld dazwischen muss ' +
-            'frei sein, marschiert wird, nicht gesprungen. Der Springer springt 2, 3 oder 4 ' +
-            'Felder weit. Gefällt wird weiter nur vom Nachbarfeld aus; Legionär, Zenturio und ' +
-            'Samurai sind ohnehin weit unterwegs.',
+            'ziehen zwei Felder geradeaus statt eines – das Feld dazwischen muss frei sein, ' +
+            'marschiert wird, nicht gesprungen. Gefällt wird weiter nur vom Nachbarfeld aus. ' +
+            'Legionär, Zenturio und Samurai sind ohnehin weit unterwegs, und der Springer ' +
+            'springt weiter, wenn er weit sieht – das ist die klare Sicht, nicht die Trommel.',
       effekt: { extraFeld: true }
     },
     {
@@ -2063,7 +2068,12 @@ var Moves = (function () {
           carrying = false;                     // Boot bleibt zurück
         }
         if (cell.piece) {
-          if (!allied(board, cell.piece.owner, owner)) out.push(act('capture', cell, cost ? { cost: cost } : null));
+          /* Im Nebel schlagen Legionär und Zenturio nur, was direkt vor ihnen
+             steht – weiter hinten sehen sie nichts. Im Weg steht die Figur
+             trotzdem, die Bahn endet hier so oder so. */
+          if (!allied(board, cell.piece.owner, owner) && (!w.nahSchlag || schritte === 1)) {
+            out.push(act('capture', cell, cost ? { cost: cost } : null));
+          }
           break;
         }
         out.push(act('move', cell, cost ? { cost: cost } : null));
@@ -2209,9 +2219,9 @@ var Moves = (function () {
       case 'springer':
         /* Zwei benachbarte Richtungen, jeweils genau 2 oder 3 Felder weit.
            Windstille löst ihn von seiner Blickrichtung, Schlamm nimmt ihm die
-           weite Weite, der Marschbefehl legt eine dazu. */
+           weite Weite, klare Sicht legt eine dazu. */
         (w.freieRichtung ? [0, 1, 2, 3, 4, 5] : H.wedgeDirs(piece.facing)).forEach(function (dd) {
-          (w.maxWeite === 2 ? [2] : (w.extraFeld ? [2, 3, 4] : [2, 3])).forEach(function (n) {
+          (w.maxWeite === 2 ? [2] : (w.weitSprung ? [2, 3, 4] : [2, 3])).forEach(function (n) {
             leapTo(board, cell, H.scale(H.DIRS[dd], n), owner, wood, out, w);
           });
         });
@@ -3634,7 +3644,7 @@ var AI = (function () {
 
   function weiten(s) {
     if (s.w.maxWeite === 2) return [2];
-    return s.w.extraFeld ? [2, 3, 4] : [2, 3];
+    return s.w.weitSprung ? [2, 3, 4] : [2, 3];
   }
 
   /* Was eine Einheit gerade kostet (fahrender Markt). */
@@ -3880,7 +3890,8 @@ var AI = (function () {
               carrying = false;
             }
             if (s.pt[cur] >= 0) {
-              if (!allied(s, s.po[cur], p)) {
+              // Nebel: geschlagen wird nur, was direkt vor der Figur steht
+              if (!allied(s, s.po[cur], p) && (!s.w.nahSchlag || schritte === 1)) {
                 if (fac2) pushFacings(out, KIND_CAPTURE, i, cur, fac2);
                 else out.push(mk(KIND_CAPTURE, i, cur, KEEP));
               }

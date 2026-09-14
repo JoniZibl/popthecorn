@@ -43,6 +43,8 @@ var Wetter = (function () {
     id: null,
     bootPreis: 1,          // was ein Boot kostet (Frost: 0)
     schuss: 2,             // Schussweite des Bogenschützen (Nebel 1, Klare Sicht 3)
+    nahSchlag: false,      // Nebel: Legionär und Zenturio schlagen nur direkt vor sich
+    weitSprung: false,     // Klare Sicht: der Springer springt 2, 3 oder 4 Felder
     maxWeite: 0,           // 0 = unbegrenzt; Schlamm: kein Zug weiter als 2 Felder
     extraFeld: false,      // Marschbefehl: Schrittfiguren gehen ein Feld weiter
     freieRichtung: false,  // Windstille: Springer und Legionär ziehen in jede Richtung
@@ -185,19 +187,22 @@ var Wetter = (function () {
     /* --- Sicht --- */
     {
       id: 'nebel', name: 'Nebel', icon: '🌫️', farbe: '#cbd5e1', gruppe: 'Sicht', menge: 2,
-      kurz: 'Bogenschützen treffen nur ein Feld weit.',
-      text: 'Milchige Schwaden liegen über der Insel. Der Bogenschütze sieht kaum weiter als ' +
-            'bis zum Nachbarfeld und trifft nur noch auf Distanz 1. Wer sich sonst ' +
-            'vorsichtig außerhalb seiner Reichweite hält, darf heranrücken.',
-      effekt: { schuss: 1 }
+      kurz: 'Auf Distanz trifft niemand: Schuss nur 1 Feld, Läufer nur direkt vor sich.',
+      text: 'Milchige Schwaden liegen über der Insel, und was weiter weg steht, ist nur noch ' +
+            'ein Schatten. Der Bogenschütze trifft nur auf Distanz 1. Legionär und Zenturio ' +
+            'laufen zwar so weit wie immer, schlagen aber nur, was direkt vor ihnen steht – ' +
+            'eine Figur am Ende der Bahn verschwindet im Dunst. Wer sich sonst außerhalb der ' +
+            'Reichweite hält, darf heranrücken; wer eine lange Bahn hütet, verliert sie.',
+      effekt: { schuss: 1, nahSchlag: true }
     },
     {
       id: 'klar', name: 'Klare Sicht', icon: '☀️', farbe: '#fde047', gruppe: 'Sicht', menge: 1,
-      kurz: 'Bogenschützen treffen drei Felder weit.',
-      text: 'Ein Tag ohne Dunst, die Luft steht still und klar. Der Bogenschütze trifft diese ' +
-            'Runde auf Distanz 3 statt 2 – über Bäume und Wasser hinweg wie immer. Jede ' +
-            'Stellung, die gestern noch außer Reichweite lag, liegt heute darin.',
-      effekt: { schuss: 3 }
+      kurz: 'Jeder sieht weiter: Schuss 3 Felder, der Springer springt bis 4.',
+      text: 'Ein Tag ohne Dunst, die Luft steht still und klar. Der Bogenschütze trifft auf ' +
+            'Distanz 3 statt 2 – über Bäume und Wasser hinweg wie immer –, und der Springer ' +
+            'sieht so weit, dass er 2, 3 oder 4 Felder springt. Jede Stellung, die gestern ' +
+            'noch außer Reichweite lag, liegt heute darin.',
+      effekt: { schuss: 3, weitSprung: true }
     },
     {
       id: 'windstille', name: 'Windstille', icon: '🪶', farbe: '#fcd34d', gruppe: 'Sicht', menge: 1,
@@ -278,12 +283,12 @@ var Wetter = (function () {
     },
     {
       id: 'marsch', name: 'Marschbefehl', icon: '🥁', farbe: '#60a5fa', gruppe: 'Bewegung', menge: 2,
-      kurz: 'Schrittfiguren ziehen 2 Felder, der Springer bis zu 4.',
+      kurz: 'Arbeiter, Bogenschütze, Tangolin und Turm ziehen 2 Felder.',
       text: 'Die Trommel gibt den Takt vor. Arbeiter, Bogenschütze, Tangolin und Königs-Turm ' +
-            'ziehen zwei Felder geradeaus statt eines – das Feld dazwischen muss ' +
-            'frei sein, marschiert wird, nicht gesprungen. Der Springer springt 2, 3 oder 4 ' +
-            'Felder weit. Gefällt wird weiter nur vom Nachbarfeld aus; Legionär, Zenturio und ' +
-            'Samurai sind ohnehin weit unterwegs.',
+            'ziehen zwei Felder geradeaus statt eines – das Feld dazwischen muss frei sein, ' +
+            'marschiert wird, nicht gesprungen. Gefällt wird weiter nur vom Nachbarfeld aus. ' +
+            'Legionär, Zenturio und Samurai sind ohnehin weit unterwegs, und der Springer ' +
+            'springt weiter, wenn er weit sieht – das ist die klare Sicht, nicht die Trommel.',
       effekt: { extraFeld: true }
     },
     {

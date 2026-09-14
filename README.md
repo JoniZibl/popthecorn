@@ -166,15 +166,21 @@ Die Spielweise ist so gebaut, dass sie auch auf einem Tisch aus Pappe funktionie
   verdoppelt Einkommen – das ginge am Tisch nicht auf.
 * Was eine Karte am Brett verändert – gefallene und nachgewachsene Bäume, eingerückte
   Arbeiter –, bleibt **dauerhaft** stehen.
-* Jede Karte verändert eine **ganze Regel-Schicht**, nie nur eine einzelne Figur.
+* Jede Karte verändert eine **ganze Regel-Schicht**, nie nur eine einzelne Figur. Geprüft
+  wird das: `test/wetter.js` rechnet für jede Karte nach, welche Figuren ihre Stellschrauben
+  berühren, und lässt keine durchgehen, die an genau einer Figur hängt. Ausgenommen sind Turm
+  und Arbeiter – die hat jeder Spieler, eine Karte am Arbeiter ist eine Wirtschaftskarte.
+  (Nebel und Klare Sicht drehten anfangs beide nur an der Schussweite und betrafen damit nur
+  den Bogenschützen; seither hängt am Nebel auch die Schlagweite von Legionär und Zenturio und
+  an der klaren Sicht die Sprungweite des Springers.)
 
 | Karte | Gruppe | Wirkung für eine Runde |
 | --- | --- | --- |
 | **Frost** | Gelände | Das Wasser trägt: Boote kosten nichts |
 | **Windbruch** | Gelände | Jeder Baum ohne Nachbarbaum fällt – ohne Holz für irgendwen |
 | **Neuer Wuchs** | Gelände | Zwischen zwei Bäumen wächst ein neuer (höchstens acht) |
-| **Nebel** | Sicht | Bogenschützen treffen nur ein Feld weit |
-| **Klare Sicht** | Sicht | Bogenschützen treffen drei Felder weit |
+| **Nebel** | Sicht | Schuss nur 1 Feld weit; Legionär und Zenturio schlagen nur direkt vor sich |
+| **Klare Sicht** | Sicht | Schuss 3 Felder weit; der Springer springt 2, 3 oder 4 |
 | **Windstille** | Sicht | Springer und Legionär ziehen in jede Richtung |
 | **Trockenheit** | Wirtschaft | Bäume fällen kostet keinen Zug |
 | **Fahrender Markt** | Wirtschaft | Jede Ausbildung kostet 1 Holz weniger (mindestens 1) |
@@ -183,7 +189,7 @@ Die Spielweise ist so gebaut, dass sie auch auf einem Tisch aus Pappe funktionie
 | **Belagerung** | Nachschub | Nachschub nur im Umkreis von 3 um Turm und Feldzeichen |
 | **Musterung** | Nachschub | Wer keinen Arbeiter mehr hat, bekommt einen gestellt |
 | **Schlamm** | Bewegung | Kein Zug führt weiter als 2 Felder |
-| **Marschbefehl** | Bewegung | Schrittfiguren ziehen 2 Felder, der Springer bis zu 4 |
+| **Marschbefehl** | Bewegung | Arbeiter, Bogenschütze, Tangolin und Turm ziehen 2 Felder |
 | **Aufbruch** | Tempo | Wer als Erster unter der Karte zieht, hat zwei Züge |
 | **Ruhe vor dem Sturm** | – | Der Sturm bleibt aus, nichts passiert (zweimal im Stapel) |
 

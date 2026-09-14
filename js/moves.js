@@ -141,7 +141,12 @@ var Moves = (function () {
           carrying = false;                     // Boot bleibt zurück
         }
         if (cell.piece) {
-          if (!allied(board, cell.piece.owner, owner)) out.push(act('capture', cell, cost ? { cost: cost } : null));
+          /* Im Nebel schlagen Legionär und Zenturio nur, was direkt vor ihnen
+             steht – weiter hinten sehen sie nichts. Im Weg steht die Figur
+             trotzdem, die Bahn endet hier so oder so. */
+          if (!allied(board, cell.piece.owner, owner) && (!w.nahSchlag || schritte === 1)) {
+            out.push(act('capture', cell, cost ? { cost: cost } : null));
+          }
           break;
         }
         out.push(act('move', cell, cost ? { cost: cost } : null));
@@ -287,9 +292,9 @@ var Moves = (function () {
       case 'springer':
         /* Zwei benachbarte Richtungen, jeweils genau 2 oder 3 Felder weit.
            Windstille löst ihn von seiner Blickrichtung, Schlamm nimmt ihm die
-           weite Weite, der Marschbefehl legt eine dazu. */
+           weite Weite, klare Sicht legt eine dazu. */
         (w.freieRichtung ? [0, 1, 2, 3, 4, 5] : H.wedgeDirs(piece.facing)).forEach(function (dd) {
-          (w.maxWeite === 2 ? [2] : (w.extraFeld ? [2, 3, 4] : [2, 3])).forEach(function (n) {
+          (w.maxWeite === 2 ? [2] : (w.weitSprung ? [2, 3, 4] : [2, 3])).forEach(function (n) {
             leapTo(board, cell, H.scale(H.DIRS[dd], n), owner, wood, out, w);
           });
         });

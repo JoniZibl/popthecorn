@@ -217,7 +217,7 @@ var AI = (function () {
 
   function weiten(s) {
     if (s.w.maxWeite === 2) return [2];
-    return s.w.extraFeld ? [2, 3, 4] : [2, 3];
+    return s.w.weitSprung ? [2, 3, 4] : [2, 3];
   }
 
   /* Was eine Einheit gerade kostet (fahrender Markt). */
@@ -463,7 +463,8 @@ var AI = (function () {
               carrying = false;
             }
             if (s.pt[cur] >= 0) {
-              if (!allied(s, s.po[cur], p)) {
+              // Nebel: geschlagen wird nur, was direkt vor der Figur steht
+              if (!allied(s, s.po[cur], p) && (!s.w.nahSchlag || schritte === 1)) {
                 if (fac2) pushFacings(out, KIND_CAPTURE, i, cur, fac2);
                 else out.push(mk(KIND_CAPTURE, i, cur, KEEP));
               }

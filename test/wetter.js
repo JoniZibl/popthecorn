@@ -76,6 +76,42 @@ var unbekannt = W.KARTEN.filter(function (k) {
 });
 ok(!unbekannt.length, 'keine Karte dreht an einer Schraube, die es nicht gibt');
 
+/* Keine Karte darf an genau einer Figur hängen, die nicht jeder hat: Wer
+   gerade keinen Bogenschützen im Spiel hat, spielte sonst eine Runde lang
+   unter einer Karte, die für ihn nichts bedeutet – das ist eine Strafe für
+   den Besitzer und kein Wetter.
+
+   Die Ausnahmen sind Turm und Arbeiter: Die hat jeder Spieler von der ersten
+   Runde an, und wer seinen Arbeiter verliert, bekommt ihn per Musterung
+   wieder. Eine Karte, die am Arbeiter hängt, ist eine Wirtschaftskarte und
+   trifft jeden. */
+var ALLE = '*';                               // betrifft jede Figur
+var IMMER_DA = { king: true, worker: true };  // die hat jeder Spieler
+var FIGUREN_JE_SCHRAUBE = {
+  bootPreis: [ALLE],            // jede Figur, die aufs Wasser zieht
+  schuss: ['archer'],
+  nahSchlag: ['legionaer', 'zenturio'],
+  weitSprung: ['springer'],
+  maxWeite: ['legionaer', 'zenturio', 'springer', 'tangolin'],
+  extraFeld: ['worker', 'archer', 'tangolin', 'king'],
+  freieRichtung: ['springer', 'legionaer'],
+  kosten: [ALLE], keineAusbildung: [ALLE],    // jede Ausbildung
+  luecke: [ALLE], radius: [ALLE],             // der Nachschub aller
+  faellenFrei: ['worker']
+};
+var zuEng = W.KARTEN.filter(function (k) {
+  if (!k.effekt) return false;                // Sofortkarten treffen das Brett, nicht eine Figur
+  var betroffen = {};
+  Object.keys(k.effekt).forEach(function (e) {
+    (FIGUREN_JE_SCHRAUBE[e] || []).forEach(function (f) { betroffen[f] = true; });
+  });
+  var namen = Object.keys(betroffen);
+  if (betroffen[ALLE] || namen.length >= 2) return false;
+  return !namen.some(function (f) { return IMMER_DA[f]; });
+});
+ok(!zuEng.length, 'keine Karte hängt an einer einzigen Figur' +
+   (zuEng.length ? ' (' + zuEng.map(function (k) { return k.name; }).join(', ') + ')' : ''));
+
 /* ---------------- Gelände ---------------- */
 
 titel('Frost – das Wasser trägt umsonst');
@@ -118,7 +154,7 @@ ok(nachher4 - vorher4 <= W.WUCHS_MAX, 'höchstens ' + W.WUCHS_MAX + ' Bäume je 
 
 /* ---------------- Sicht ---------------- */
 
-titel('Nebel und Klare Sicht – die Schussweite');
+titel('Nebel – auf Distanz trifft niemand');
 var b5 = brett(10, 4);
 stelle(b5, 2, 2, 'archer', 0);
 stelle(b5, 3, 2, 'worker', 1);                 // Distanz 1
@@ -126,13 +162,43 @@ stelle(b5, 4, 2, 'samurai', 1);                // Distanz 2
 stelle(b5, 5, 2, 'legionaer', 1);              // Distanz 3
 var st5 = zustand(b5);
 var z5 = zuege(st5, 2, 2);
-ok(hat(z5, 'shoot:4,2') && !hat(z5, 'shoot:5,2'), 'normal trifft er auf Distanz 2');
+ok(hat(z5, 'shoot:4,2') && !hat(z5, 'shoot:5,2'), 'normal trifft der Bogenschütze auf Distanz 2');
 setzeWetter(st5, 'nebel');
 var z5n = zuege(st5, 2, 2);
 ok(hat(z5n, 'shoot:3,2') && !hat(z5n, 'shoot:4,2'), 'im Nebel nur auf Distanz 1');
+
+/* Und der zweite Teil der Karte: Die Läufer schlagen nur direkt vor sich. */
+var b5b = brett(12, 5);
+stelle(b5b, 1, 1, 'zenturio', 0);
+stelle(b5b, 5, 1, 'worker', 1);                // vier Felder voraus
+var st5b = zustand(b5b);
+ok(hat(zuege(st5b, 1, 1), 'capture:5,1'), 'sonst schlägt der Zenturio ans Ende seiner Bahn');
+setzeWetter(st5b, 'nebel');
+var z5b = zuege(st5b, 1, 1);
+ok(!hat(z5b, 'capture:5,1'), 'im Nebel nicht mehr');
+ok(hat(z5b, 'move:4,1') && !hat(z5b, 'move:5,1'), 'die Figur steht ihm trotzdem im Weg');
+b5b.cells[H.key(5, 1)].piece = null;
+b5b.cells[H.key(2, 1)].piece = { type: 'worker', owner: 1, facing: 0 };
+ok(hat(zuege(st5b, 1, 1), 'capture:2,1'), 'was direkt vor ihm steht, schlägt er weiter');
+
+titel('Klare Sicht – jeder sieht weiter');
 setzeWetter(st5, 'klar');
 var z5k = zuege(st5, 2, 2);
-ok(hat(z5k, 'shoot:5,2') && !hat(z5k, 'shoot:4,2'), 'bei klarer Sicht auf Distanz 3');
+ok(hat(z5k, 'shoot:5,2') && !hat(z5k, 'shoot:4,2'), 'der Bogenschütze trifft auf Distanz 3');
+var b5c = brett(12, 8);
+stelle(b5c, 4, 4, 'springer', 0, 0);
+var st5c = zustand(b5c);
+function weiten5(st) {
+  return zuege(st, 4, 4).map(function (x) {
+    var p = x.split(':')[1].split(',');
+    return H.distance({ q: 4, r: 4 }, { q: +p[0], r: +p[1] });
+  });
+}
+ok(weiten5(st5c).indexOf(4) < 0, 'sonst springt der Springer höchstens 3 Felder');
+setzeWetter(st5c, 'klar');
+ok(weiten5(st5c).indexOf(4) >= 0, 'bei klarer Sicht 4 Felder weit');
+setzeWetter(st5c, 'marsch');
+ok(weiten5(st5c).indexOf(4) < 0, 'der Marschbefehl gilt ihm nicht – er marschiert nicht');
 
 titel('Windstille – Springer und Legionär ziehen in jede Richtung');
 var b6 = brett(10, 6);
@@ -279,10 +345,10 @@ b14.cells[H.key(3, 2)].piece = { type: 'samurai', owner: 1, facing: 0 };
 ok(!hat(zuege(st14, 2, 2), 'move:4,2'), 'eine Figur auf halbem Weg beendet den Marsch');
 b14.cells[H.key(3, 2)].piece = null;
 var z14 = zuege(st14, 6, 4);
-ok(z14.some(function (x) {
+ok(!z14.some(function (x) {
   var p = x.split(':')[1].split(',');
   return H.distance({ q: 6, r: 4 }, { q: +p[0], r: +p[1] }) === 4;
-}), 'der Springer springt bis zu 4 Felder');
+}), 'der Springer marschiert nicht mit – 4 Felder gibt es nur bei klarer Sicht');
 
 titel('Aufbruch – zwei Züge für den, der aufdeckt');
 var b15 = brett(10, 5);
