@@ -179,7 +179,7 @@
 
       $('#mode-info').textContent = ($('#play-mode').value === 'wetter')
         ? 'Fällt eine Figur, wird eine von ' + Wet.KARTEN.length + ' Wetterkarten aufgedeckt. ' +
-          'Sie zieht auf und gilt ab der nächsten Runde – eine Runde lang, für alle.'
+          'Eine Runde lang passiert nichts, danach gilt sie zwei Runden – für alle.'
         : 'Die Grundregeln, ohne Zusätze.';
 
       var info = cfg.tiles + ' Plättchen (' + (cfg.tiles * 7) + ' Felder) · ' +

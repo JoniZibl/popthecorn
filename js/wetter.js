@@ -1,11 +1,12 @@
 /* Hexodus – Wetterkarten (eigene Spielweise)
 
    Das Standardspiel bleibt, wie es ist. Wer mit Wetter spielt, deckt eine Karte
-   auf, sobald eine Figur fällt. Sie zieht erst einmal auf: Gültig wird sie, wenn
-   alle Spieler einmal dran waren, und gilt dann **zwei volle Runden** lang für
-   **alle** gleichermaßen – jeder zieht also zweimal unter ihr. Wann gewechselt
-   wird, steht damit im Spiel und nicht im Kalender, niemand wird überrascht, und
-   zwei Runden reichen, um aus einer Karte auch etwas zu machen.
+   auf, sobald eine Figur fällt. Sie zieht erst einmal auf: Zunächst läuft eine
+   **volle Runde ohne Wirkung** ab, in der jeder noch einmal ganz normal zieht.
+   Danach gilt sie **zwei volle Runden** lang für **alle** gleichermaßen – jeder
+   zieht also zweimal unter ihr. Wann gewechselt wird, steht damit im Spiel und
+   nicht im Kalender, niemand wird überrascht, und zwei Runden reichen, um aus
+   einer Karte auch etwas zu machen.
 
    Jede Karte verändert eine ganze Regel-Schicht – Gelände, Sicht, Wirtschaft,
    Nachschub, Bewegung –, nie nur eine einzelne Figur. Eine Karte, die genau
@@ -315,8 +316,8 @@ var Wetter = (function () {
     kurz: 'Keine Karte gilt. Fällt eine Figur, dreht der Wind.',
     text: 'Zwischen zwei Karten ist das Wetter klar, und es wird nach den Grundregeln gespielt. ' +
           'Das ändert sich, sobald eine Figur fällt: Wer schlägt, deckt die oberste Karte des ' +
-          'Stapels auf. Sie zieht auf, gilt ab dem Zug, in dem die Reihe einmal herum ist, ' +
-          'und dann zwei volle Runden lang. Danach klart es wieder auf.'
+          'Stapels auf. Sie zieht auf, lässt eine volle Runde ohne Wirkung verstreichen und ' +
+          'gilt dann zwei volle Runden lang. Danach klart es wieder auf.'
   };
 
   var NACH_ID = {};

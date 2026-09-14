@@ -120,10 +120,9 @@ Das Wetter folgt nicht dem Takt der Züge, sondern dem, was auf dem Brett geschi
 
 1. **Fällt eine Figur, dreht der Wind.** Wer schlägt – im Zug oder mit dem Bogenschützen –,
    deckt die oberste Karte des Stapels auf.
-2. Sie **zieht auf** und liegt offen am Rand, gilt aber noch nicht. Alle sehen sie kommen
-   und können sich darauf einstellen.
-3. Sobald die Reihe einmal herum ist und **alle Spieler einmal dran waren**, tritt sie ein.
-   Für den, der sie aufgedeckt hat, heißt das: Sie gilt, wenn er wieder an der Reihe ist.
+2. Sie **zieht auf** und liegt offen am Rand, gilt aber noch nicht: Erst läuft **eine volle
+   Runde ohne Wirkung** ab. Jeder zieht noch einmal ganz normal, auch der, der geschlagen hat.
+3. Danach **tritt sie ein**. Jeder hatte dieselbe volle Runde Zeit, sich darauf zu stellen.
 4. Sie gilt **zwei volle Runden** – je zwei Züge für jeden Spieler –, danach kommt sie auf die
    Ablage und es **klart wieder auf**, bis erneut eine Figur fällt. Ist der Stapel leer, wird
    die Ablage gemischt und neu aufgelegt.
@@ -133,10 +132,10 @@ oder unter Belagerung seinen Nachschub umbaut, braucht einen Zug zum Stellen und
 Ausführen. Eine Karte, die nach einem einzigen Zug je Spieler wieder weg ist, belohnt nur den,
 der zufällig richtig stand.
 
-Gezählt wird dabei in **Zügen**, nicht in Rundennummern. Das ist kein Detail: Ginge es nach
-der Rundennummer, träfe eine Karte, die der Letzte in der Reihe aufdeckt, seinen Nachbarn
-sofort – ohne eine einzige Runde Vorwarnung. So bekommt jeder dieselbe Vorwarnung und jeder
-genau zwei Züge unter der Karte.
+Gezählt wird dabei in **Zügen**, nicht in Rundennummern, und der Zug, in dem geschlagen wurde,
+zählt nicht mit. Das ist kein Detail: Sonst hinge die Vorwarnung daran, an welcher Stelle der
+Reihe jemand schlägt – wer als Letzter zieht, überrollte seinen Nachbarn fast ohne Vorlauf.
+So bekommt jeder dieselbe volle Runde Vorwarnung und danach genau zwei Züge unter der Karte.
 
 Solange eine Karte aufzieht, deckt ein weiterer Schlag keine zweite auf: Es steht immer
 höchstens eine am Horizont. Damit ist Wetter kein Zufall im Sekundentakt, sondern eine

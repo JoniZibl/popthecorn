@@ -344,12 +344,14 @@ ok(st16.kommt === 'nebel', 'der Schlag lässt eine Karte aufziehen');
 ok(st16.karte === null, 'sie gilt aber noch nicht');
 ok(st16.board.wetter.schuss === 2, 'am Brett hängt weiter das alte Wetter');
 ok(st16.current === 1, 'Spieler 2 ist am Zug');
-ok(st16.kommtZaehler === 1, 'noch ein Zug, bis die Reihe herum ist');
-gibAb(st16);                               // Spieler 2 zieht: die Reihe ist herum
-ok(st16.karte === 'nebel', 'nachdem alle einmal dran waren, gilt sie');
+ok(st16.kommtZaehler === 2, 'noch eine volle Runde ohne Wirkung');
+gibAb(st16);                               // Spieler 2 zieht ohne Wirkung
+ok(st16.karte === null, 'auch danach gilt sie noch nicht');
+ok(st16.current === 0, 'jetzt zieht der Schlagende noch einmal ohne Wirkung');
+gibAb(st16);                               // die Runde ist ohne Wirkung abgelaufen
+ok(st16.karte === 'nebel', 'nach der vollen Runde tritt sie ein');
 ok(st16.board.wetter.schuss === 1, 'und wirkt am Brett');
 ok(st16.kommt === null, 'am Horizont steht nichts mehr');
-ok(st16.current === 0, 'und zwar ab dem Zug dessen, der sie aufgedeckt hat');
 
 /* Zwei volle Runden – je zwei Züge für jeden – dann klart es auf */
 ok(st16.karteZaehler === 4, 'sie hat vier Züge: zwei Runden mal zwei Spieler');
@@ -373,9 +375,11 @@ st16b.board.cells[H.key(3, 2)].piece = { type: 'worker', owner: 0, facing: 0 };
 zieheMit(st16b, 4, 2, 'capture');          // der Letzte in der Reihe schlägt
 ok(st16b.kommt === 'frost' && st16b.karte === null,
    'auch beim letzten Spieler der Reihe zieht sie erst auf');
-ok(st16b.current === 0, 'der Nächste ist dran');
+ok(st16b.kommtZaehler === 2, 'und auch er gibt eine volle Runde Vorlauf');
 gibAb(st16b);
-ok(st16b.karte === 'frost', 'erst nach seinem Zug tritt sie ein');
+ok(st16b.karte === null, 'nach einem Zug noch nicht');
+gibAb(st16b);
+ok(st16b.karte === 'frost', 'nach der vollen Runde schon');
 
 titel('Ein Schlag genügt, bis sie eingetreten ist');
 var st17 = schlagStellung(['frost', 'nebel']);
@@ -394,17 +398,19 @@ titel('Der Aufbruch gehört dem, der als Erster darunter zieht');
 var st18 = schlagStellung(['aufbruch']);
 zieheMit(st18, 3, 2, 'capture');           // Spieler 1 schlägt, Aufbruch zieht auf
 ok(st18.extra === 0, 'solange sie aufzieht, hat niemand einen Extra-Zug');
-gibAb(st18);                               // Reihe herum: die Karte tritt ein
+gibAb(st18); gibAb(st18);                  // eine Runde ohne Wirkung, dann tritt sie ein
 ok(st18.karte === 'aufbruch' && st18.extra === 1,
    'wer als Erster darunter zieht, bekommt den zweiten Zug');
-ok(st18.current === 0, 'das ist Spieler 1');
+ok(st18.current === 1, 'das ist der Nächste in der Reihe');
+var wer = st18.current;
 gibAb(st18);
-ok(st18.current === 0 && st18.nochmal === true, 'er ist gleich noch einmal dran');
+ok(st18.current === wer && st18.nochmal === true, 'er ist gleich noch einmal dran');
 
 titel('Einmalige Änderungen geschehen beim Eintreten, nicht beim Aufziehen');
 var st19 = schlagStellung(['windbruch']);
 baum(st19.board, 2, 4);                    // steht allein
 zieheMit(st19, 3, 2, 'capture');
+gibAb(st19);
 ok(st19.board.cells[H.key(2, 4)].tree, 'während sie aufzieht, steht der Baum noch');
 gibAb(st19);
 ok(!st19.board.cells[H.key(2, 4)].tree, 'mit dem Sturm fällt er');
