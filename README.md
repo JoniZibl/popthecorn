@@ -47,7 +47,7 @@ Für die Regeln heißt Mannschaft:
   Bündnis, keine gemeinsame Kasse.
 * Gewonnen hat die **letzte Mannschaft**, die noch steht. Fällt ein Turm, scheidet nur dieser
   Spieler aus; seine Mannschaft spielt weiter. Wer den Turm schlägt, erbeutet dessen Holz.
-* Bei einer Wertung zählt das **Vermögen der Mannschaft** zusammen.
+* Muss doch einmal gewertet werden, zählt das **Vermögen der Mannschaft** zusammen.
 
 Spielt jeder für sich, ist jeder Spieler seine eigene Mannschaft – dann rechnet und spielt
 alles wie zuvor. Auch die KI kennt die Aufstellung: Ihre Suche lässt Verbündete für dieselbe
@@ -93,19 +93,29 @@ Damit hängt an ihm mehr als eine schnelle Figur: Wer den Zenturio schlägt, kap
 die Versorgung an der Front. Für drei Holz und eine Ausbildung pro Partie ist das ein Preis,
 über den sich nachdenken lässt.
 
-### Eine Partie endet immer mit einem Sieger
+### Eine Partie läuft, bis nur noch ein Turm steht
 
-Läuft die Partie fest, wird gewertet – ein Unentschieden gibt es nicht. Ausgelöst wird die
-Wertung, wenn dieselbe Stellung zum **dritten Mal** auftritt, wenn **50 Züge** ohne
-gefällten Baum, ohne Schlag und ohne Ausbildung vergehen, oder wenn niemand mehr ziehen kann.
+Es gibt **keine Zugzahl und keine Stellung**, die eine Partie vorher beendet. Wer zwei Figuren
+vorsichtig hin und her zieht, hat nicht verloren – er sammelt Holz und wartet auf seine
+Gelegenheit.
 
-Dann gewinnt, wer das größte **Vermögen** hat: Holzvorrat plus das Holz, das in den eigenen
-Figuren steckt. Bei Gleichstand entscheiden nacheinander die Zahl der Figuren, der
-Holzvorrat und wer zuletzt etwas bewegt hat – die Kette bricht jeden Gleichstand auf.
+Früher wurde vorher gewertet: dieselbe Stellung zum dritten Mal, oder 50 Züge ohne gefällten
+Baum, Schlag und Ausbildung. Beides beendete Partien, die noch lange nicht entschieden waren –
+zwei Türme standen, und plötzlich stand „gewinnt nach Wertung“ auf dem Brett. Beide Regeln
+sind weg.
 
-Die KI kennt diese Regel: Sie zählt die Züge ohne Fortschritt in der Suche mit und erkennt
-an der Wurzel, welcher Zug die dritte Wiederholung auslösen würde. Wer bei einer Wertung
-verlieren würde, sucht deshalb den Durchbruch, statt Figuren hin und her zu schieben.
+Bleibt der eine Fall, in dem es wirklich nicht weitergeht: Wenn reihum **niemand mehr einen
+Zug hat**, muss gewertet werden. Dann gewinnt, wer das größte **Vermögen** hat: Holzvorrat
+plus das Holz, das in den eigenen Figuren steckt. Bei Gleichstand entscheiden nacheinander die
+Zahl der Figuren, der Holzvorrat und wer zuletzt etwas bewegt hat – die Kette bricht jeden
+Gleichstand auf.
+
+Die KI braucht trotzdem einen Grund, vorwärts zu spielen, sonst schöbe sie Figuren bis in alle
+Ewigkeit. Zwei Dinge sorgen dafür, beide nur in ihrem Kopf und nicht im Regelwerk: Nach 50
+Zügen ohne Fortschritt bewertet ihre Suche die Stellung nach dem Vermögen – wer da zurückläge,
+sucht den Durchbruch. Und eine Stellung, die in dieser Partie schon vorkam, bekommt in der
+Suche einen kleinen Abschlag, damit dieselben zwei Züge nicht endlos im Kreis laufen. In
+Messläufen endet dadurch weiterhin **jede** KI-Partie mit einem gefallenen Turm.
 
 Von **jeder Figur darf höchstens eine** je Spieler auf dem Feld stehen. Erst wenn sie
 geschlagen wird, darf sie neu ausgebildet werden – der Zenturio bleibt davon ausgenommen
@@ -348,8 +358,8 @@ Bäume mit je einer Sekunde wären eine halbe Minute Zuschauen.
 *leicht* spielt zusätzlich **angriffslustig**: Druck auf den gegnerischen Turm zählt doppelt,
 Figuren werden fürs Vorrücken belohnt, und unter gleichwertigen Zügen wählt sie bevorzugt
 einen, der die Partie voranbringt. Das macht sie nicht stärker – sie überdehnt sich eher –,
-aber ihre Partien enden entschieden statt im Stillstand: Zwei leichte KIs schlagen sich in
-vier von fünf Partien gegenseitig den Turm ab, vorher endete etwa die Hälfte per Wertung.
+aber ihre Partien enden entschieden statt im Stillstand: Zwei leichte KIs schlagen sich
+gegenseitig den Turm ab, statt sich gegenseitig zu umkreisen.
 Steht der eigene Turm unter Druck, tritt der Angriffsdrang zurück; ohne diese Bremse hat sie
 gegen einen gezielten Angriff ihren eigenen Turm verloren. Gemessen in
 kompletten Partien schlägt *stark* die Stufe *normal* mit 7:0 und *normal* die Stufe
@@ -710,8 +720,9 @@ node test/entscheidung.js 10 normal normal   # endet jede Partie mit einem Siege
 
 `test/entscheidung.js` spielt komplette Partien bis zum Ende und schlägt fehl, sobald eine
 Partie nicht endet oder ohne Sieger ausgeht. Es meldet außerdem, wodurch die Partien
-entschieden wurden – so sieht man, ob die Wertung nur die Notbremse ist oder ob die KI
-zu oft ins Festfahren läuft.
+entschieden wurden. Seit eine Partie erst endet, wenn nur noch ein Turm steht, ist das der
+schärfste Nachweis dafür, dass die KI wirklich auf die Entscheidung spielt: Bliebe sie im
+Stillstand hängen, liefe die Partie ewig und der Test schlüge fehl.
 
 `test/jagd.js` ist der schärfste Test der KI: Der Gegner läuft stur mit allem auf ihren
 Königs-Turm zu und schlägt ihn, sobald er kann. Genau daran scheitert eine KI, die den

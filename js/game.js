@@ -160,7 +160,8 @@ var Game = (function () {
       extra: 0,                // offene Extra-Züge des Spielers am Zug (Aufbruch)
       nochmal: false,          // bleibt derselbe Spieler am Zug?
       phase: 'trees',          // trees → kings → play → over
-      history: {},             // wie oft trat jede Stellung auf?
+      history: {},             // wie oft trat jede Stellung zuletzt auf?
+      histOrder: [],           // Reihenfolge dazu, damit Altes herausfallen kann
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
       lastProgressBy: null,
       endReason: null,
@@ -342,8 +343,23 @@ var Game = (function () {
     return false;
   }
 
-  var STALL_LIMIT = 50;      // Züge ohne Fortschritt, dann wird gewertet
-  var REPEAT_LIMIT = 3;      // dieselbe Stellung dreimal, dann wird gewertet
+  /* Eine Partie läuft, bis nur noch ein Königs-Turm steht.
+
+     Früher wurde vorher gewertet: dieselbe Stellung zum dritten Mal oder 50
+     Züge ohne Baum, Schlag und Ausbildung. Beides beendete Partien, die noch
+     lange nicht entschieden waren – zwei Türme standen, und plötzlich stand
+     „gewinnt nach Wertung“ auf dem Brett. Wer zwei Figuren vorsichtig hin und
+     her zieht, hat noch nicht verloren; er sammelt Holz.
+
+     Gewertet wird deshalb nur noch in dem einen Fall, in dem es gar nicht
+     weitergehen kann: wenn reihum niemand mehr einen einzigen Zug hat.
+
+     `sinceProgress` wird weitergezählt – nicht mehr als Regel, sondern als
+     Hinweis für die Suche des Computergegners: Wer in einer festgefahrenen
+     Stellung zurückliegt, soll den Durchbruch suchen, statt Figuren zu
+     schieben. Dasselbe gilt für `history`: Die KI meidet Wiederholungen jetzt
+     nur noch, statt sie als Spielende zu lesen. */
+  var STALL_LIMIT = 50;      // Züge ohne Fortschritt – nur noch ein Hinweis für die KI
   /* Beute: Wer eine Figur schlägt, bekommt die Hälfte ihrer Ausbildungskosten
      als Holz zurück (aufgerundet). Beim Königs-Turm wechselt ohnehin der ganze
      Vorrat den Besitzer. */
@@ -677,18 +693,24 @@ var Game = (function () {
     return true;
   }
 
-  /* Nach jedem Zug prüfen, ob die Partie festgefahren ist. */
+  /* Wie viele Stellungen zurück die KI schauen kann, um Wiederholungen zu
+     meiden. Seit Partien bis zum letzten Turm laufen, können sie lang werden –
+     ohne Deckel wüchse die Liste mit jedem Zug, und sie wird bei jedem Zug des
+     Computergegners in seinen Rechenfaden kopiert. Was älter ist, interessiert
+     ohnehin niemanden: Wiederholungen, die man meiden will, liegen kurz zurück. */
+  var HISTORY_MAX = 200;
+
+  /* Nach jedem Zug mitschreiben, wie festgefahren die Partie ist. Beendet wird
+     dadurch nichts – die Zahlen sind nur Futter für die Suche der KI. */
   function checkStalemate(state) {
     if (state.phase !== 'play') return false;
-
     state.sinceProgress++;
     var key = positionKey(state);
     state.history[key] = (state.history[key] || 0) + 1;
-    if (state.history[key] >= REPEAT_LIMIT) {
-      return adjudicate(state, 'Dieselbe Stellung zum ' + REPEAT_LIMIT + '. Mal');
-    }
-    if (state.sinceProgress >= STALL_LIMIT) {
-      return adjudicate(state, STALL_LIMIT + ' Züge ohne Baum, Schlag oder Ausbildung');
+    state.histOrder.push(key);
+    if (state.histOrder.length > HISTORY_MAX) {
+      var alt = state.histOrder.shift();
+      if (--state.history[alt] <= 0) delete state.history[alt];
     }
     return false;
   }
@@ -874,6 +896,9 @@ var Game = (function () {
     log(state, state.players[state.current].name + ' setzt aus.', state.current);
     state.extra = 0;            // wer aussetzt, verschenkt auch seinen Extra-Zug
     state.passes++;
+    /* Der einzige Fall, in dem eine Partie ohne gefallenen Turm endet: Reihum
+       hat niemand mehr einen Zug. Dann geht es wirklich nicht weiter, und der
+       Spielstand entscheidet. */
     if (state.passes >= alivePlayers(state).length) {
       return adjudicate(state, 'Niemand kann mehr ziehen');
     }
@@ -930,9 +955,9 @@ var Game = (function () {
     kuendigeAn: kuendigeAn, wetterTakt: wetterTakt, trittEin: trittEin, behaeltZug: behaeltZug,
     WETTER_RUNDEN: WETTER_RUNDEN,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
-    checkVictory: checkVictory, adjudicate: adjudicate,
+    checkVictory: checkVictory, adjudicate: adjudicate, positionKey: positionKey,
     plunder: plunder,
-    STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT
+    STALL_LIMIT: STALL_LIMIT
   };
 })();
 

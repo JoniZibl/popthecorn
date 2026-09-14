@@ -137,6 +137,33 @@ for (var round = 0; round < 60; round++) {
 console.log('Zuggenerierung: ' + checked + ' Stellungen/Spieler aus ' + positions +
             ' Partien geprüft, ' + fails + ' Abweichungen');
 
+/* --- Regelwerk und KI müssen dieselbe Stellungskennung schreiben ---
+   Die KI meidet Stellungen, die in dieser Partie schon vorkamen. Nachgesehen
+   wird in der Liste, die game.js führt – also muss ihre Kennung Zeichen für
+   Zeichen dieselbe sein. Weicht sie ab, sucht die KI stumm ins Leere und
+   schiebt Figuren im Kreis, ohne dass irgendetwas kaputt aussieht. */
+var keyFails = 0, keyChecked = 0;
+for (var kr = 0; kr < 8; kr++) {
+  var kst = randomPosition(2 + (kr % 3), 4 + kr * 4);
+  if (!kst) continue;
+  if (kr % 2) {                       // die Hälfte mit geltender Wetterkarte
+    kst.wetterAn = true;
+    kst.karte = Wetter.KARTEN[kr % Wetter.KARTEN.length].id;
+    kst.board.wetter = Wetter.wirkungVon(kst.karte);
+  }
+  keyChecked++;
+  var ks = AI.snapshot(kst);
+  if (Game.positionKey(kst) !== AI.positionKeyOf(ks, kst.current)) {
+    keyFails++;
+    if (keyFails === 1) {
+      console.log('Stellungskennung weicht ab:');
+      console.log('  Regelwerk ' + Game.positionKey(kst).slice(-90));
+      console.log('  KI        ' + AI.positionKeyOf(ks, kst.current).slice(-90));
+    }
+  }
+}
+console.log('Stellungskennung: ' + keyChecked + ' Stellungen geprüft, ' + keyFails + ' Abweichungen');
+
 /* --- Dasselbe noch einmal unter jeder Wetterkarte ---
    Die Karten greifen in beide Zuggeneratoren ein: Bootspreise, Schussweiten,
    Sprungweiten, Blickrichtungen, die Versorgungskette, die Ausbildung. Weicht
@@ -201,6 +228,6 @@ for (var r2 = 0; r2 < 40; r2++) {
 }
 console.log('make/unmake: ' + undoChecked + ' Züge geprüft, ' + undoFails + ' Fehler');
 
-var bad = fails + undoFails + wetterFails;
+var bad = fails + undoFails + wetterFails + keyFails;
 console.log(bad ? '\n' + bad + ' Problem(e)' : '\nKI-Zuggenerierung deckt sich mit dem Regelwerk.');
 process.exit(bad ? 1 : 0);

@@ -48,6 +48,7 @@ var AI = (function () {
      jedes Ausbilden wie geschenkter Wert – die Suche jagt dann am Horizont
      Ausbildungszüge statt echten Vorteilen nach. */
   var WOOD_VALUE = 210;
+  var WIEDERHOLUNG = 45;        // Abschlag für eine schon dagewesene Stellung
   var COST = [0, 1, 1, 2, 2, 2, 2, 3];
   var DIRECTIONAL = [false, false, false, true, true, false, false, false];
 
@@ -1120,6 +1121,11 @@ var AI = (function () {
     for (var p = 0; p < s.np; p++) wood.push(s.wood[p]);
     parts.push('h' + wood.join('.'));
     parts.push('z' + current);
+    /* Muss Zeichen für Zeichen dasselbe ergeben wie Game.positionKey – sonst
+       findet die Suche ihre eigenen Stellungen im Verlauf der Partie nicht
+       wieder. Dazu gehört auch die geltende Wetterkarte: Dieselbe Stellung
+       spielt sich im Nebel anders als im Frost. test/ki.js vergleicht beide. */
+    if (s.w && s.w.id) parts.push('w' + s.w.id);
     return parts.join('|');
   }
 
@@ -1213,7 +1219,11 @@ var AI = (function () {
     var me = ctx.me, p;
     if (!seiteLebt(s, me)) return -WIN + ply;
     if (!gegnerLeben(s, me)) return WIN - ply;
-    // Festgefahren: das Regelwerk wertet aus, danach ist die Partie vorbei
+    /* Festgefahren: Nach so vielen Zügen ohne Baum, Schlag und Ausbildung
+       bewertet die Suche die Stellung nach dem Vermögen. Das ist keine Regel
+       mehr – gewertet wird im Spiel nur, wenn niemand mehr ziehen kann –,
+       sondern der Antrieb, der die KI den Durchbruch suchen lässt, statt
+       Figuren zu schieben, bis niemand mehr Lust hat. */
     if (stall >= ctx.stallLimit) return adjudicationScore(s, me);
     if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0);
 
@@ -1294,7 +1304,6 @@ var AI = (function () {
 
     var stall0 = state.sinceProgress || 0;
     var history = state.history || {};
-    var repeatLimit = (typeof Game !== 'undefined' && Game.REPEAT_LIMIT) || 3;
 
     var rootMoves = [];
     genMoves(s, me, rootMoves, false);
@@ -1334,15 +1343,15 @@ var AI = (function () {
         var u = make(s, mv, me);
         var nxt = nextAlive(s, me);
         var val;
-        var repKey = positionKeyOf(s, nxt);
-        if ((history[repKey] || 0) + 1 >= repeatLimit) {
-          // Dieser Zug führt zur dritten Wiederholung: die Partie wird gewertet
-          val = adjudicationScore(s, me);
-        } else {
-          var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
-          val = alphabeta(s, nxt, depth - 1, alpha, INF, ctx, 1,
-                          isProgress(mv) ? 0 : stall0 + 1);
-        }
+        var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
+        val = alphabeta(s, nxt, depth - 1, alpha, INF, ctx, 1,
+                        isProgress(mv) ? 0 : stall0 + 1);
+        /* Eine Wiederholung beendet die Partie nicht mehr. Sie bleibt aber
+           unattraktiv: Ohne diesen kleinen Abzug schiebt die Suche dieselben
+           zwei Figuren endlos hin und her, weil das den Stellungswert nicht
+           ändert. Der Abzug ist klein gegen ein Holz (WOOD_VALUE), kippt also
+           keinen echten Vorteil – er bricht nur den Gleichstand auf. */
+        if (history[positionKeyOf(s, nxt)]) val -= WIEDERHOLUNG;
         unmake(s, u);
 
         if (ctx.stop) { if (endDepth()) finished = true; break; }
@@ -1606,6 +1615,7 @@ var AI = (function () {
            makeRootSearch: makeRootSearch,
            makeContext: makeContext,
            wealthOf: wealthOf, adjudicationScore: adjudicationScore,
+           positionKeyOf: positionKeyOf,
            playMove: playMove, step: step, chooseTree: chooseTree,
            chooseKing: chooseKing, chooseWorker: chooseWorker, LEVELS: LEVELS };
 })();

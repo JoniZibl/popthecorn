@@ -1047,8 +1047,9 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
           wird nur am eigenen Turm und am eigenen Feldzeichen. Jeder wirtschaftet für sich.</li>
         <li>Gewonnen hat die <strong>letzte Mannschaft</strong>, die noch steht. Fällt ein
           Turm, scheidet nur dieser Spieler aus – die Mannschaft spielt weiter.</li>
-        <li>Wird eine festgefahrene Partie gewertet, zählt das <strong>Vermögen der
-          Mannschaft</strong>: Was die Mitglieder besitzen, kommt zusammen.</li>
+        <li>Muss doch einmal gewertet werden – wenn reihum niemand mehr ziehen kann –, zählt
+          das <strong>Vermögen der Mannschaft</strong>: Was die Mitglieder besitzen, kommt
+          zusammen.</li>
       </ul>
     </section>
 
@@ -1073,16 +1074,15 @@ select:focus, input:focus { outline: 2px solid var(--accent-dark); outline-offse
     </section>
 
     <section class="rule-block">
-      <h3>Wenn nichts mehr vorangeht</h3>
-      <p>Eine Partie endet immer mit einem Sieger. Läuft sie fest, wird gewertet:</p>
-      <ul>
-        <li>Dieselbe Stellung zum <strong>dritten Mal</strong>, oder</li>
-        <li><strong>50 Züge</strong> ohne gefällten Baum, ohne Schlag und ohne Ausbildung, oder</li>
-        <li>niemand kann mehr ziehen.</li>
-      </ul>
-      <p>Dann gewinnt, wer das größte <strong>Vermögen</strong> hat: Holzvorrat plus das Holz,
-        das in den eigenen Figuren steckt. Bei Gleichstand entscheiden nacheinander die Zahl
-        der Figuren, der Holzvorrat und wer zuletzt etwas bewegt hat.</p>
+      <h3>Wie eine Partie endet</h3>
+      <p>Eine Partie läuft, <strong>bis nur noch ein Königs-Turm steht</strong>. Es gibt keine
+        Zugzahl und keine Stellung, die sie vorher beendet: Wer zwei Figuren vorsichtig hin und
+        her zieht, hat nicht verloren – er sammelt Holz und wartet auf seine Gelegenheit.</p>
+      <p>Nur einen einzigen Fall gibt es, in dem es wirklich nicht weitergeht: Wenn reihum
+        <strong>niemand mehr einen Zug hat</strong>, muss gewertet werden. Dann gewinnt, wer das
+        größte <strong>Vermögen</strong> hat: Holzvorrat plus das Holz, das in den eigenen
+        Figuren steckt. Bei Gleichstand entscheiden nacheinander die Zahl der Figuren, der
+        Holzvorrat und wer zuletzt etwas bewegt hat.</p>
     </section>
 
     <section class="rule-block" id="wetter-regeln">
@@ -2609,7 +2609,8 @@ var Game = (function () {
       extra: 0,                // offene Extra-Züge des Spielers am Zug (Aufbruch)
       nochmal: false,          // bleibt derselbe Spieler am Zug?
       phase: 'trees',          // trees → kings → play → over
-      history: {},             // wie oft trat jede Stellung auf?
+      history: {},             // wie oft trat jede Stellung zuletzt auf?
+      histOrder: [],           // Reihenfolge dazu, damit Altes herausfallen kann
       sinceProgress: 0,        // Züge ohne Schlag, Ernte oder Ausbildung
       lastProgressBy: null,
       endReason: null,
@@ -2791,8 +2792,23 @@ var Game = (function () {
     return false;
   }
 
-  var STALL_LIMIT = 50;      // Züge ohne Fortschritt, dann wird gewertet
-  var REPEAT_LIMIT = 3;      // dieselbe Stellung dreimal, dann wird gewertet
+  /* Eine Partie läuft, bis nur noch ein Königs-Turm steht.
+
+     Früher wurde vorher gewertet: dieselbe Stellung zum dritten Mal oder 50
+     Züge ohne Baum, Schlag und Ausbildung. Beides beendete Partien, die noch
+     lange nicht entschieden waren – zwei Türme standen, und plötzlich stand
+     „gewinnt nach Wertung“ auf dem Brett. Wer zwei Figuren vorsichtig hin und
+     her zieht, hat noch nicht verloren; er sammelt Holz.
+
+     Gewertet wird deshalb nur noch in dem einen Fall, in dem es gar nicht
+     weitergehen kann: wenn reihum niemand mehr einen einzigen Zug hat.
+
+     `sinceProgress` wird weitergezählt – nicht mehr als Regel, sondern als
+     Hinweis für die Suche des Computergegners: Wer in einer festgefahrenen
+     Stellung zurückliegt, soll den Durchbruch suchen, statt Figuren zu
+     schieben. Dasselbe gilt für `history`: Die KI meidet Wiederholungen jetzt
+     nur noch, statt sie als Spielende zu lesen. */
+  var STALL_LIMIT = 50;      // Züge ohne Fortschritt – nur noch ein Hinweis für die KI
   /* Beute: Wer eine Figur schlägt, bekommt die Hälfte ihrer Ausbildungskosten
      als Holz zurück (aufgerundet). Beim Königs-Turm wechselt ohnehin der ganze
      Vorrat den Besitzer. */
@@ -3126,18 +3142,24 @@ var Game = (function () {
     return true;
   }
 
-  /* Nach jedem Zug prüfen, ob die Partie festgefahren ist. */
+  /* Wie viele Stellungen zurück die KI schauen kann, um Wiederholungen zu
+     meiden. Seit Partien bis zum letzten Turm laufen, können sie lang werden –
+     ohne Deckel wüchse die Liste mit jedem Zug, und sie wird bei jedem Zug des
+     Computergegners in seinen Rechenfaden kopiert. Was älter ist, interessiert
+     ohnehin niemanden: Wiederholungen, die man meiden will, liegen kurz zurück. */
+  var HISTORY_MAX = 200;
+
+  /* Nach jedem Zug mitschreiben, wie festgefahren die Partie ist. Beendet wird
+     dadurch nichts – die Zahlen sind nur Futter für die Suche der KI. */
   function checkStalemate(state) {
     if (state.phase !== 'play') return false;
-
     state.sinceProgress++;
     var key = positionKey(state);
     state.history[key] = (state.history[key] || 0) + 1;
-    if (state.history[key] >= REPEAT_LIMIT) {
-      return adjudicate(state, 'Dieselbe Stellung zum ' + REPEAT_LIMIT + '. Mal');
-    }
-    if (state.sinceProgress >= STALL_LIMIT) {
-      return adjudicate(state, STALL_LIMIT + ' Züge ohne Baum, Schlag oder Ausbildung');
+    state.histOrder.push(key);
+    if (state.histOrder.length > HISTORY_MAX) {
+      var alt = state.histOrder.shift();
+      if (--state.history[alt] <= 0) delete state.history[alt];
     }
     return false;
   }
@@ -3323,6 +3345,9 @@ var Game = (function () {
     log(state, state.players[state.current].name + ' setzt aus.', state.current);
     state.extra = 0;            // wer aussetzt, verschenkt auch seinen Extra-Zug
     state.passes++;
+    /* Der einzige Fall, in dem eine Partie ohne gefallenen Turm endet: Reihum
+       hat niemand mehr einen Zug. Dann geht es wirklich nicht weiter, und der
+       Spielstand entscheidet. */
     if (state.passes >= alivePlayers(state).length) {
       return adjudicate(state, 'Niemand kann mehr ziehen');
     }
@@ -3379,9 +3404,9 @@ var Game = (function () {
     kuendigeAn: kuendigeAn, wetterTakt: wetterTakt, trittEin: trittEin, behaeltZug: behaeltZug,
     WETTER_RUNDEN: WETTER_RUNDEN,
     alivePlayers: alivePlayers, pieceCount: pieceCount, wealth: wealth,
-    checkVictory: checkVictory, adjudicate: adjudicate,
+    checkVictory: checkVictory, adjudicate: adjudicate, positionKey: positionKey,
     plunder: plunder,
-    STALL_LIMIT: STALL_LIMIT, REPEAT_LIMIT: REPEAT_LIMIT
+    STALL_LIMIT: STALL_LIMIT
   };
 })();
 
@@ -3440,6 +3465,7 @@ var AI = (function () {
      jedes Ausbilden wie geschenkter Wert – die Suche jagt dann am Horizont
      Ausbildungszüge statt echten Vorteilen nach. */
   var WOOD_VALUE = 210;
+  var WIEDERHOLUNG = 45;        // Abschlag für eine schon dagewesene Stellung
   var COST = [0, 1, 1, 2, 2, 2, 2, 3];
   var DIRECTIONAL = [false, false, false, true, true, false, false, false];
 
@@ -4512,6 +4538,11 @@ var AI = (function () {
     for (var p = 0; p < s.np; p++) wood.push(s.wood[p]);
     parts.push('h' + wood.join('.'));
     parts.push('z' + current);
+    /* Muss Zeichen für Zeichen dasselbe ergeben wie Game.positionKey – sonst
+       findet die Suche ihre eigenen Stellungen im Verlauf der Partie nicht
+       wieder. Dazu gehört auch die geltende Wetterkarte: Dieselbe Stellung
+       spielt sich im Nebel anders als im Frost. test/ki.js vergleicht beide. */
+    if (s.w && s.w.id) parts.push('w' + s.w.id);
     return parts.join('|');
   }
 
@@ -4605,7 +4636,11 @@ var AI = (function () {
     var me = ctx.me, p;
     if (!seiteLebt(s, me)) return -WIN + ply;
     if (!gegnerLeben(s, me)) return WIN - ply;
-    // Festgefahren: das Regelwerk wertet aus, danach ist die Partie vorbei
+    /* Festgefahren: Nach so vielen Zügen ohne Baum, Schlag und Ausbildung
+       bewertet die Suche die Stellung nach dem Vermögen. Das ist keine Regel
+       mehr – gewertet wird im Spiel nur, wenn niemand mehr ziehen kann –,
+       sondern der Antrieb, der die KI den Durchbruch suchen lässt, statt
+       Figuren zu schieben, bis niemand mehr Lust hat. */
     if (stall >= ctx.stallLimit) return adjudicationScore(s, me);
     if (depth <= 0) return quiesce(s, player, alpha, beta, ctx, 0);
 
@@ -4686,7 +4721,6 @@ var AI = (function () {
 
     var stall0 = state.sinceProgress || 0;
     var history = state.history || {};
-    var repeatLimit = (typeof Game !== 'undefined' && Game.REPEAT_LIMIT) || 3;
 
     var rootMoves = [];
     genMoves(s, me, rootMoves, false);
@@ -4726,15 +4760,15 @@ var AI = (function () {
         var u = make(s, mv, me);
         var nxt = nextAlive(s, me);
         var val;
-        var repKey = positionKeyOf(s, nxt);
-        if ((history[repKey] || 0) + 1 >= repeatLimit) {
-          // Dieser Zug führt zur dritten Wiederholung: die Partie wird gewertet
-          val = adjudicationScore(s, me);
-        } else {
-          var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
-          val = alphabeta(s, nxt, depth - 1, alpha, INF, ctx, 1,
-                          isProgress(mv) ? 0 : stall0 + 1);
-        }
+        var alpha = (cfg.slack || localBest === -INF) ? -INF : localBest;
+        val = alphabeta(s, nxt, depth - 1, alpha, INF, ctx, 1,
+                        isProgress(mv) ? 0 : stall0 + 1);
+        /* Eine Wiederholung beendet die Partie nicht mehr. Sie bleibt aber
+           unattraktiv: Ohne diesen kleinen Abzug schiebt die Suche dieselben
+           zwei Figuren endlos hin und her, weil das den Stellungswert nicht
+           ändert. Der Abzug ist klein gegen ein Holz (WOOD_VALUE), kippt also
+           keinen echten Vorteil – er bricht nur den Gleichstand auf. */
+        if (history[positionKeyOf(s, nxt)]) val -= WIEDERHOLUNG;
         unmake(s, u);
 
         if (ctx.stop) { if (endDepth()) finished = true; break; }
@@ -4998,6 +5032,7 @@ var AI = (function () {
            makeRootSearch: makeRootSearch,
            makeContext: makeContext,
            wealthOf: wealthOf, adjudicationScore: adjudicationScore,
+           positionKeyOf: positionKeyOf,
            playMove: playMove, step: step, chooseTree: chooseTree,
            chooseKing: chooseKing, chooseWorker: chooseWorker, LEVELS: LEVELS };
 })();
