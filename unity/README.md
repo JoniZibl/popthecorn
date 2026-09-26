@@ -72,5 +72,5 @@ Ebenso `js/ui.js` – die Bedienung wird in Unity neu gebaut.
 | `wetter.js` | 349 | `Wetter.cs` | ja |
 | `game.js` (Zustand, Mannschaften) | ~200 | `Spielstand.cs` | teilweise |
 | `game.js` (Ablauf) | ~540 | offen | – |
-| `moves.js` | 447 | offen | – |
+| `moves.js` | 447 | `Moves.cs` | ja |
 | `ai.js` | 1507 | offen | – |
