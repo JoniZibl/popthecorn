@@ -44,6 +44,9 @@ mehr von Hand kopiert werden.
 | `Hexodus.Tests` | `Assets/Hexodus/Tests` | die Prüfungen, nur im Editor |
 | `Hexodus.Tests.Editor` | `Assets/Hexodus/Tests/Editor` | die NUnit-Hülle für den Test Runner |
 
+Im Test Runner stehen drei Prüfungen – Fundament, Regelwerk, Ablauf –,
+zusammen 240 Einzelprüfungen.
+
 `Hexodus.Runtime` steht auf `noEngineReferences: true`. Das ist keine Kosmetik:
 Unity weigert sich damit zu übersetzen, sobald jemand `using UnityEngine` in
 die Logik schreibt. Die Trennung, von der die ganze Portierung lebt, wird so
@@ -70,7 +73,7 @@ Ebenso `js/ui.js` – die Bedienung wird in Unity neu gebaut.
 | `units.js` | 132 | `Units.cs` | ja |
 | `board.js` | 147 | `Board.cs` | ja |
 | `wetter.js` | 349 | `Wetter.cs` | ja |
-| `game.js` (Zustand, Mannschaften) | ~200 | `Spielstand.cs` | teilweise |
-| `game.js` (Ablauf) | ~540 | offen | – |
+| `game.js` (Zustand, Mannschaften) | ~200 | `Spielstand.cs` | ja |
+| `game.js` (Ablauf) | ~540 | `Ablauf.cs` | ja |
 | `moves.js` | 447 | `Moves.cs` | ja |
 | `ai.js` | 1507 | offen | – |

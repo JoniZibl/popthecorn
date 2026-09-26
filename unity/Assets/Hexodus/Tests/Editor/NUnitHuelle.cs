@@ -27,6 +27,12 @@ namespace Hexodus.Tests.Editor
             Erwarte(RegelTest.Alles);
         }
 
+        [Test]
+        public void AblaufStimmtMitDerBrowserFassungUeberein()
+        {
+            Erwarte(AblaufTest.Alles);
+        }
+
         /* Die Prüfungen schreiben über Pruef.Ausgabe. Auf der Kommandozeile ist
            das Console.WriteLine – davon zeigt Unitys Console-Fenster nichts, das
            landet nur in der Editor.log. Also wird die Ausgabe hier abgeklemmt

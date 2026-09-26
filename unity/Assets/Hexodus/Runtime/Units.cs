@@ -201,5 +201,18 @@ namespace Hexodus
             var c = Defs[e].Cost;
             return c ?? 0;
         }
+
+        /* Die Kennung, die die JS-Fassung als Typ benutzt: "king", "worker",
+           "samurai", ... Das ist der Name des Aufzählungswerts in
+           Kleinbuchstaben – die Namen sind genau dafür so gewählt.
+
+           Gebraucht wird das für die Stellungs-Kennung (Spielstand.PositionKey).
+           Die muss zeichengleich mit js/game.js sein, weil der Computergegner
+           Stellungen darüber vergleicht: Eine Kennung, die sich unterscheidet,
+           ließe ihn eigene Wiederholungen nicht mehr erkennen. */
+        public static string Kennung(Einheit e)
+        {
+            return e.ToString().ToLowerInvariant();
+        }
     }
 }
