@@ -80,8 +80,11 @@ Ebenso `js/ui.js` – die Bedienung wird in Unity neu gebaut.
 | `hex.js` | 117 | `Hex.cs` | ja |
 | `units.js` | 132 | `Units.cs` | ja |
 | `board.js` | 147 | `Board.cs` | ja |
-| `wetter.js` | 349 | `Wetter.cs` | ja |
-| `game.js` (Zustand, Mannschaften) | ~200 | `Spielstand.cs` | ja |
-| `game.js` (Ablauf) | ~540 | `Ablauf.cs` | ja |
-| `moves.js` | 447 | `Moves.cs` | ja |
-| `ai.js` | 1507 | offen | – |
+| `wetter.js` | 383 | `Wetter.cs` | ja |
+| `moves.js` | 528 | `Moves.cs` | ja |
+| `game.js` | 964 | `Spielstand.cs` + `Ablauf.cs` | ja |
+| `ai.js` | 1624 | offen | – |
+
+Damit ist das ganze Regelwerk portiert: Eine Partie lässt sich in C#
+vollständig spielen, von den Bäumen bis zum letzten Turm. Was fehlt, ist der
+Computergegner.
