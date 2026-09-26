@@ -27,11 +27,31 @@ Endet mit Rückgabewert 1, sobald eine Prüfung fehlschlägt.
 
 ## In Unity aufmachen
 
-1. Neues Projekt anlegen (3D, URP oder Built-in – die Logik ist es egal).
-2. Den Ordner `Assets/Hexodus` in das Projekt kopieren.
-3. Fertig. Die Tests lassen sich im Editor über eine dünne NUnit-Hülle laufen
-   lassen; die Prüfungen selbst müssen dafür nicht angefasst werden
-   (siehe `Tests/Pruef.cs`).
+Dieser Ordner **ist** das Unity-Projekt, sobald `ProjectSettings/` und
+`Packages/` daneben liegen. Wer schon ein leeres Projekt angelegt hat,
+kopiert von dort genau diese zwei Ordner hierher – sie enthalten die
+Unity-Version und die Paketliste, also das, was Unity selbst erzeugt hat.
+Danach in Unity Hub *Add project from disk* auf diesen Ordner zeigen.
+
+Von da an reicht ein `git pull`, um neuen Code zu bekommen – nichts muss
+mehr von Hand kopiert werden.
+
+### Die drei Assemblies
+
+| Assembly | Wo | Was |
+| --- | --- | --- |
+| `Hexodus.Runtime` | `Assets/Hexodus/Runtime` | Regeln und Computergegner |
+| `Hexodus.Tests` | `Assets/Hexodus/Tests` | die Prüfungen, nur im Editor |
+| `Hexodus.Tests.Editor` | `Assets/Hexodus/Tests/Editor` | die NUnit-Hülle für den Test Runner |
+
+`Hexodus.Runtime` steht auf `noEngineReferences: true`. Das ist keine Kosmetik:
+Unity weigert sich damit zu übersetzen, sobald jemand `using UnityEngine` in
+die Logik schreibt. Die Trennung, von der die ganze Portierung lebt, wird so
+vom Editor bewacht statt von der Disziplin.
+
+Die Prüfungen laufen in beiden Welten aus **einer** Quelle: im Test Runner
+über die Hülle in `Tests/Editor`, auf der Kommandozeile über `Pruefstand`.
+Zwei Fassungen liefen mit der Zeit auseinander.
 
 ## Was aus dem Browser-Spiel *nicht* übernommen wird
 

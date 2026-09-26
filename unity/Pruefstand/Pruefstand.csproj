@@ -15,7 +15,11 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="../Assets/Hexodus/Runtime/**/*.cs" />
-    <Compile Include="../Assets/Hexodus/Tests/**/*.cs" />
+    <!-- Tests/Editor/ bleibt draußen: Dort hängt die NUnit-Hülle für den
+         Unity Test Runner, und NUnit gibt es hier nicht. Die Prüfungen selbst
+         liegen eine Ebene darüber und kennen weder NUnit noch Unity. -->
+    <Compile Include="../Assets/Hexodus/Tests/**/*.cs"
+             Exclude="../Assets/Hexodus/Tests/Editor/**/*.cs" />
     <Compile Include="Start.cs" />
   </ItemGroup>
 </Project>
