@@ -1,0 +1,19 @@
+{
+    "name": "Hexodus.Tests.Menue",
+    "rootNamespace": "Hexodus.Werkzeug",
+    "references": [
+        "Hexodus.Runtime",
+        "Hexodus.Tests"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -43,9 +43,17 @@ mehr von Hand kopiert werden.
 | `Hexodus.Runtime` | `Assets/Hexodus/Runtime` | Regeln und Computergegner |
 | `Hexodus.Tests` | `Assets/Hexodus/Tests` | die Prüfungen, nur im Editor |
 | `Hexodus.Tests.Editor` | `Assets/Hexodus/Tests/Editor` | die NUnit-Hülle für den Test Runner |
+| `Hexodus.Tests.Menue` | `Assets/Hexodus/Tests/Menue` | ein Menüpunkt, der ohne Test Runner läuft |
 
 Im Test Runner stehen drei Prüfungen – Fundament, Regelwerk, Ablauf –,
 zusammen 240 Einzelprüfungen.
+
+Dieselben Prüfungen gibt es ohne Test Runner über das Menü **Hexodus →
+Prüfungen laufen lassen** (Strg+Umschalt+H). Das Ergebnis kommt als
+Meldungsfenster und als eine Zeile im Console-Fenster. Der Menüpunkt liegt in
+einer eigenen Assembly, die das Paket „Test Framework" *nicht* braucht: Fehlt
+es im Projekt, übersetzt `Hexodus.Tests.Editor` nicht – der Menüpunkt aber
+schon.
 
 `Hexodus.Runtime` steht auf `noEngineReferences: true`. Das ist keine Kosmetik:
 Unity weigert sich damit zu übersetzen, sobald jemand `using UnityEngine` in
