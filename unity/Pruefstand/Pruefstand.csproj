@@ -1,0 +1,21 @@
+<!-- Prüfstand: übersetzt die Spiel-Logik außerhalb von Unity und führt die
+     portierten Tests aus. Unity braucht diese Datei nicht – sie liegt
+     außerhalb von Assets/ und wird vom Editor nicht angefasst. So lässt sich
+     die Portierung prüfen, ohne den Editor zu öffnen. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Pruefstand</AssemblyName>
+    <RootNamespace>Hexodus.Pruefstand</RootNamespace>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Assets/Hexodus/Runtime/**/*.cs" />
+    <Compile Include="../Assets/Hexodus/Tests/**/*.cs" />
+    <Compile Include="Start.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,15 @@
+# Was beim Übersetzen entsteht – gehört nicht ins Repository
+bin/
+obj/
+
+# Unity legt das beim ersten Öffnen selbst an
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+*.csproj
+*.sln
+!Pruefstand/Pruefstand.csproj
