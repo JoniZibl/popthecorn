@@ -13,6 +13,7 @@ namespace Hexodus.Pruefstand
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             GrundlagenTest.Alles();
+            RegelTest.Alles();
             Console.WriteLine(Pruef.Bericht());
             return Pruef.Fehler > 0 ? 1 : 0;
         }

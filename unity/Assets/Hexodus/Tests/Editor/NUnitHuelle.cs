@@ -17,8 +17,19 @@ namespace Hexodus.Tests.Editor
         [Test]
         public void FundamentStimmtMitDerBrowserFassungUeberein()
         {
+            Erwarte(GrundlagenTest.Alles);
+        }
+
+        [Test]
+        public void RegelwerkStimmtMitDerBrowserFassungUeberein()
+        {
+            Erwarte(RegelTest.Alles);
+        }
+
+        private static void Erwarte(System.Action pruefungen)
+        {
             var vorher = Pruef.Fehler;
-            GrundlagenTest.Alles();
+            pruefungen();
             Assert.AreEqual(vorher, Pruef.Fehler,
                 "Mindestens eine Prüfung ist fehlgeschlagen – die Ausgabe steht in der Konsole.");
         }
