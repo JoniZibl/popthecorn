@@ -51,3 +51,6 @@ ehthumbs.db
 [Dd]esktop.ini
 Corridor/Library/ShaderCache/
 Corridor/Library/metadata/
+# Node / Figma-Plugin-Build
+node_modules/
+dist/
